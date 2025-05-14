@@ -135,6 +135,17 @@ class LLMWrapper:
         #return self.model.invoke(messages).content
         return self.models[model_type].invoke(messages).content
 
+class PromptManager:
+    def __init__(self, prompt_file="prompts.yaml"):
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            self.prompts = yaml.safe_load(f)
+
+    def get_prompt(self, section, role):
+        """
+        section: e.g., 'llm_page_analysis'
+        role: 'system' or 'user'
+        """
+        return self.prompts[section][role]
 
 class WebTestGenerator:
     def __init__(self, log_level="INFO"):
@@ -142,6 +153,7 @@ class WebTestGenerator:
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.llm = LLMWrapper()
+        self.prompt_manager = PromptManager()
         #self.model = "llama-3.3-70b-versatile"
         #self.model = "gpt-4o-2024-08-06"
         #self.selenium_model = "meta-llama/llama-4-maverick-17b-128e-instruct"
@@ -324,8 +336,18 @@ class WebTestGenerator:
             #     temperature=0.1,
             #     response_format={"type": "json_object"}
             # )
-            system_prompt = "You are a web page analyst. Extract structural and functional metadata from HTML."
-            result = self.llm.generate(system_prompt, prompt, model_type="analysis")
+            #system_prompt = "You are a web page analyst. Extract structural and functional metadata from HTML."
+            system_prompt = self.prompt_manager.get_prompt("llm_page_analysis", "system")
+            self.logger.debug(f"system prompt for page analysis: {system_prompt}")
+            user_prompt_template = self.prompt_manager.get_prompt("llm_page_analysis", "user")
+            # Format with actual values
+            user_prompt = user_prompt_template.format(
+                page_source=page_source  # Preserve formatting
+            )
+            # user_prompt = self.prompt_manager.get_prompt("llm_page_analysis", "user").format(
+            #     page_source=page_source
+            # )
+            result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
             #result = response.choices[0].message.content
             self.logger.info("LLM analysis of current page completed")
             self.logger.debug(f"Raw LLM response: {result}")
@@ -525,11 +547,32 @@ class WebTestGenerator:
             #     temperature=0.1
             # )
             #return self._parse_test_cases(response.choices[0].message.content)
-            system_prompt = """You are a senior QA engineer. Output MUST be valid JSON format as specified. Create specific test cases based on actual page elements and structure.
-            Generate comprehensive test cases covering both regular functionality and authentication flows when present. 
-            Generate test cases using actual authentication test data only when needed and available.
-            Ensure valid JSON output."""
-            result = self.llm.generate(system_prompt, prompt, model_type="analysis")
+            # system_prompt = """You are a senior QA engineer. Output MUST be valid JSON format as specified. Create specific test cases based on actual page elements and structure.
+            # Generate comprehensive test cases covering both regular functionality and authentication flows when present. 
+            # Generate test cases using actual authentication test data only when needed and available.
+            # Ensure valid JSON output."""
+            system_prompt = self.prompt_manager.get_prompt("generate_tests", "system")
+            # user_prompt = self.prompt_manager.get_prompt("generate_tests", "user").format(
+            #     page_metadata=json.dumps(page_metadata, indent=2),
+            #     prompt_suffix=prompt_suffix,
+            #     title=page_metadata['title'],
+            #     forms=json.dumps(page_metadata['forms']),
+            #     buttons=json.dumps(page_metadata['buttons']),
+            #     url=page_metadata['url'],
+            #     page_source=page_source
+            # )
+            user_prompt_template = self.prompt_manager.get_prompt("generate_tests", "user")
+            # Format with dynamic values
+            user_prompt = user_prompt_template.format(
+                page_metadata=json.dumps(page_metadata, indent=2),
+                prompt_suffix=prompt_suffix,
+                title=page_metadata['title'],
+                forms=json.dumps(page_metadata['forms']),
+                buttons=json.dumps(page_metadata['buttons']),
+                url=page_metadata['url'],
+                page_source=page_source
+            )
+            result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
             #result = response.choices[0].message.content
             self.logger.debug(f"Raw LLM response: {result}")
             self.logger.info("Received response from LLM")
@@ -668,20 +711,35 @@ class WebTestGenerator:
             #return self._extract_code(response.choices[0].message.content)
             #script_content = self._extract_code(response.choices[0].message.content)
             #script_content= response.choices[0].message.content
-            system_prompt = """You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium 4.15.2. Generate executable Selenium code using provided selectors. Output ONLY valid Python code in markdown blocks. You write code that:
-                        - Uses best practices for element selection
-                        - Uses the correct WebDriver initialization pattern for Selenium 4.15.2
-                        - Waits for all JavaScript and AJAX on the page to load before starting any test steps
-                        - For CAPTCHA-protected pages:
-                            - Detect CAPTCHA elements using common selectors
-                            - Pause execution for manual solving when CAPTCHA is present
-                            - Add clear console instructions for user intervention
-                        - Implements proper waits and synchronization
-                        - Handles errors gracefully with retries
-                        - Includes detailed logging and reporting
-                        - Is specific to the website being tested, not generic"""
-            
-            script_content= self.llm.generate(system_prompt, prompt, model_type="selenium")
+            # system_prompt = """You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium 4.15.2. Generate executable Selenium code using provided selectors. Output ONLY valid Python code in markdown blocks. You write code that:
+            #             - Uses best practices for element selection
+            #             - Uses the correct WebDriver initialization pattern for Selenium 4.15.2
+            #             - Waits for all JavaScript and AJAX on the page to load before starting any test steps
+            #             - For CAPTCHA-protected pages:
+            #                 - Detect CAPTCHA elements using common selectors
+            #                 - Pause execution for manual solving when CAPTCHA is present
+            #                 - Add clear console instructions for user intervention
+            #             - Implements proper waits and synchronization
+            #             - Handles errors gracefully with retries
+            #             - Includes detailed logging and reporting
+            #             - Is specific to the website being tested, not generic"""
+
+            system_prompt = self.prompt_manager.get_prompt("generate_script", "system")
+            user_prompt_template = self.prompt_manager.get_prompt("generate_script", "user")
+            # user_prompt = self.prompt_manager.get_prompt("generate_script", "user").format(
+            #     test_case=json.dumps(test_case, indent=2),
+            #     page_metadata=json.dumps(page_metadata, indent=2),
+            #     page_source=page_source,
+            #     security_indicators=page_metadata.get('security_indicators', [])
+            # )
+            # Format with dynamic values
+            user_prompt = user_prompt_template.format(
+                test_case=json.dumps(test_case, indent=2),
+                page_metadata=json.dumps(page_metadata, indent=2),
+                page_source=page_source,
+                security_indicators=page_metadata.get('security_indicators', [])
+            )
+            script_content= self.llm.generate(system_prompt, user_prompt, model_type="selenium")
             self.logger.debug(f"Raw LLM response generated code: {script_content}")
             # Extract just the Python code if it's wrapped in markdown code blocks
             if "```python" in script_content:
@@ -867,8 +925,15 @@ class WebTestGenerator:
             #     temperature=0.1,
             #     response_format={"type": "json_object"}
             # )
-            system_prompt = "You are an authentication detector. Return JSON with 'requires_auth' boolean."
-            result = self.llm.generate(system_prompt, prompt, model_type="analysis")
+            #system_prompt = "You are an authentication detector. Return JSON with 'requires_auth' boolean."
+            system_prompt = self.prompt_manager.get_prompt("requires_auth", "system")
+            user_prompt_template = self.prompt_manager.get_prompt("requires_auth", "user")
+            # Format prompt with dynamic values
+            user_prompt = user_prompt_template.format(
+                url=self.driver.current_url,
+                page_html=page_html
+            )
+            result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
             try:
                 # Extract JSON from potential text explanation
                 json_str = result
@@ -995,8 +1060,14 @@ class WebTestGenerator:
             #     temperature=0.1,
             #     response_format={"type": "json_object"}
             # )
-            system_prompt= "You are a web form analyzer. Return JSON with auth form selectors and field types."
-            result = self.llm.generate(system_prompt, prompt, model_type="analysis")
+            #system_prompt= "You are a web form analyzer. Return JSON with auth form selectors and field types."
+            system_prompt = self.prompt_manager.get_prompt("auth_form_selectors", "system")
+            user_prompt_template = self.prompt_manager.get_prompt("auth_form_selectors", "user")
+            # Format prompt with dynamic values
+            user_prompt = user_prompt_template.format(
+                page_html=page_html
+            )
+            result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
             
             #auth_data = json.loads(response.choices[0].message.content)
             try:
