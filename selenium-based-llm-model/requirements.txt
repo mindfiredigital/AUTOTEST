@@ -2,7 +2,7 @@ selenium==4.15.2
 webdriver-manager==4.0.2
 requests==2.31.0
 python-dotenv==1.0.0
-langchain
-langchain_openai
-langchain_groq
-langchain_google_genai
+langchain==0.3.24
+langchain_openai==0.3.15
+langchain_groq==0.3.2
+langchain_google_genai==2.1.4
