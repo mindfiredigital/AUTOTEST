@@ -136,7 +136,7 @@ class LLMWrapper:
         return self.models[model_type].invoke(messages).content
 
 class PromptManager:
-    def __init__(self, prompt_file="prompts.yaml"):
+    def __init__(self, prompt_file="prompts2.yaml"):
         with open(prompt_file, "r", encoding="utf-8") as f:
             self.prompts = yaml.safe_load(f)
 
@@ -435,6 +435,28 @@ class WebTestGenerator:
         """Generate context-aware test cases based on page content for both base functionality and authentication"""
         test_data = None
         prompt_suffix = ""
+        prompt_suffix_new = ""
+        # Get prompt suffix templates from YAML
+        suffix_templates = self.prompt_manager.get_prompt("generate_tests", "prompt_suffix")
+
+        # Condition 1: Handle auth/contact form test data
+        if page_metadata.get('auth_requirements', {}).get('auth_required') or page_metadata.get('contact_form_fields'):
+            test_data = self.load_test_data()
+            if test_data:
+                # Format test_data template from YAML
+                test_data_suffix = suffix_templates["test_data"].format(
+                    test_data=json.dumps(test_data, indent=2),
+                    auth_requirements=json.dumps(page_metadata.get('auth_requirements', {}), indent=2)
+                )
+                prompt_suffix_new += test_data_suffix
+
+        # Condition 2: Add contact form fields
+        if page_metadata.get('contact_form_fields'):
+            contact_form_suffix = suffix_templates["contact_form"].format(
+                contact_form_fields=json.dumps(page_metadata['contact_form_fields'], indent=2)
+            )
+            prompt_suffix_new += contact_form_suffix
+
         # Load and format test data if auth required
         if page_metadata.get('auth_requirements', {}).get('auth_required') or page_metadata.get('contact_form_fields'):
             test_data = self.load_test_data()
@@ -565,7 +587,7 @@ class WebTestGenerator:
             # Format with dynamic values
             user_prompt = user_prompt_template.format(
                 page_metadata=json.dumps(page_metadata, indent=2),
-                prompt_suffix=prompt_suffix,
+                prompt_suffix=prompt_suffix_new,
                 title=page_metadata['title'],
                 forms=json.dumps(page_metadata['forms']),
                 buttons=json.dumps(page_metadata['buttons']),
