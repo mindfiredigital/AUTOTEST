@@ -148,8 +148,10 @@ class PromptManager:
         return self.prompts[section][role]
 
 class WebTestGenerator:
-    def __init__(self, log_level="INFO"):
+    def __init__(self, log_level="INFO", selenium_version="4.15.2", wait_time=""):
         self.log_level = log_level.upper()
+        self.selenium_version = selenium_version
+        self.wait_time = wait_time
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.llm = LLMWrapper()
@@ -667,6 +669,7 @@ class WebTestGenerator:
     #     return base_tests + auth_tests
 
     def generate_script_for_test_case(self, test_case, page_metadata, page_source):
+        captcha_wait_time = self.wait_time or "2 minutes (120 seconds)"
         prompt = f"""Generate Python Selenium script for the following test cases:
         {json.dumps(test_case, indent=2)}
         
@@ -746,7 +749,9 @@ class WebTestGenerator:
             #             - Includes detailed logging and reporting
             #             - Is specific to the website being tested, not generic"""
 
-            system_prompt = self.prompt_manager.get_prompt("generate_script", "system")
+            #system_prompt = self.prompt_manager.get_prompt("generate_script", "system")
+            system_prompt_template = self.prompt_manager.get_prompt("generate_script", "system")
+            system_prompt = system_prompt_template.format(selenium_version=self.selenium_version)
             user_prompt_template = self.prompt_manager.get_prompt("generate_script", "user")
             # user_prompt = self.prompt_manager.get_prompt("generate_script", "user").format(
             #     test_case=json.dumps(test_case, indent=2),
@@ -756,9 +761,11 @@ class WebTestGenerator:
             # )
             # Format with dynamic values
             user_prompt = user_prompt_template.format(
+                selenium_version=self.selenium_version,
                 test_case=json.dumps(test_case, indent=2),
                 page_metadata=json.dumps(page_metadata, indent=2),
                 page_source=page_source,
+                captcha_wait_time=captcha_wait_time,
                 security_indicators=page_metadata.get('security_indicators', [])
             )
             script_content= self.llm.generate(system_prompt, user_prompt, model_type="selenium")
@@ -1255,10 +1262,17 @@ if __name__ == "__main__":
                         default="INFO",
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
                         help="Set logging level")
+    # Add new argument
+    parser.add_argument("--selenium-version", 
+                        default="4.15.2",
+                        help="Selenium version to use in generated scripts")
+    parser.add_argument("--wait-time", 
+                    default="",
+                    help="Custom wait time text for CAPTCHA handling (e.g. '5 minutes')")
     
     args = parser.parse_args()
     
-    tester = WebTestGenerator(log_level=args.loglevel.upper())  # Convert to uppercase
+    tester = WebTestGenerator(log_level=args.loglevel.upper(), selenium_version=args.selenium_version, wait_time=args.wait_time )  # Convert to uppercase
     report_file = tester.run_workflow(args.url, args.username, args.password)
     print(f"Test report generated: {report_file}")
 

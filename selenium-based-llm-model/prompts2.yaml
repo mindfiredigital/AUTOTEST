@@ -156,9 +156,9 @@ generate_tests:
 
 generate_script:
   system: |
-    You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium 4.15.2. Generate executable Selenium code using provided selectors. Output ONLY valid Python code in markdown blocks. You write code that:
+    You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium {selenium_version}. Generate executable Selenium code using provided selectors. Output ONLY valid Python code in markdown blocks. You write code that:
         - Uses best practices for element selection
-        - Uses the correct WebDriver initialization pattern for Selenium 4.15.2
+        - Uses the correct WebDriver initialization pattern for Selenium {selenium_version}
         - Waits for all JavaScript and AJAX on the page to load before starting any test steps
         - For CAPTCHA-protected pages:
             - Detect CAPTCHA elements using common selectors
@@ -179,13 +179,13 @@ generate_script:
     {page_source}
     
     Use reliable selectors from page structure.
-    IMPORTANT - Use EXACTLY this WebDriver setup for Selenium 4.15.2:
+    IMPORTANT - Use EXACTLY this WebDriver setup for Selenium {selenium_version}:
     ```
     from selenium import webdriver
     from selenium.webdriver.chrome.service import Service
     from webdriver_manager.chrome import ChromeDriverManager
     
-    # This is the correct way to initialize Chrome in Selenium 4.15.2
+    # This is the correct way to initialize Chrome in Selenium {selenium_version}
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service)
     ```
@@ -202,7 +202,7 @@ generate_script:
         2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
         3. If CAPTCHA detected:
             - Print clear instructions for manual solving
-            - Pause execution for 2 minutes (120 seconds)
+            - Pause execution for {captcha_wait_time}
             - Add timeout exception handling
     
     Return ONLY executable Python code in markdown format.
