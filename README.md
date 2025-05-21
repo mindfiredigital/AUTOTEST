@@ -15,6 +15,7 @@
   - [Usage](#usage)
   - [Contributing](#contributing)
   - [Future Scope and Improvements](#future-scope-and-improvements)
+  - [New features](#new-features)
   - [License](#license)
   - [Acknowledgments](#acknowledgments)
 
