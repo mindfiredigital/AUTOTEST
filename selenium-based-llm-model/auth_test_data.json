@@ -6,7 +6,7 @@
         },
         "invalid": {
             "username": "invaliduser",
-            "password": "short"
+            "password": "incorrectPassword"
         }
     },
     "registration_fields": {

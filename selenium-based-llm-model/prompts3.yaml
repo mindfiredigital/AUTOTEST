@@ -157,7 +157,7 @@ generate_tests:
 generate_script:
   selenium:
     system: |
-      You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium {selenium_version}. Generate executable Selenium code using provided selectors. Output ONLY valid Python code in markdown blocks. You write code that:
+      You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium {selenium_version}. Generate executable Selenium code using provided selectors. Output ONLY valid {language} code in markdown blocks. You write code that:
           - Uses best practices for element selection
           - Uses the correct WebDriver initialization pattern for Selenium {selenium_version}
           - Waits for all JavaScript and AJAX on the page to load before starting any test steps
@@ -170,7 +170,7 @@ generate_script:
           - Includes detailed logging and reporting
           - Is specific to the website being tested, not generic
     user: |
-      Generate Python Selenium script for the following test cases:
+      Generate {language} Selenium script for the following test cases:
       {test_case}
 
       Page Structure:
@@ -206,7 +206,7 @@ generate_script:
               - Pause execution for {captcha_wait_time}
               - Add timeout exception handling
 
-      Return ONLY executable Python code in markdown format.
+      Return ONLY executable {language} code in markdown format.
       Return ONLY CODE in markdown blocks. No explanations.
 
   protractor:
@@ -272,7 +272,7 @@ generate_script:
   
   playwright:
     system: |
-      You are a senior Playwright automation engineer specializing in creating robust end-to-end test scripts. Generate executable Playwright code using provided selectors. Output ONLY valid Python code in markdown blocks. You write code that:
+      You are a senior Playwright automation engineer specializing in creating robust end-to-end test scripts. Generate executable Playwright code using provided selectors. Output ONLY valid {language} code in markdown blocks. You write code that:
           - Uses Playwright's built-in auto-waits and async/await pattern
           - Uses proper browser context management
           - Handles CAPTCHA with user intervention
@@ -280,7 +280,7 @@ generate_script:
           - Follows Page Object Model best practices
           - Is specific to the website being tested
     user: |
-      Generate Python Playwright script for the following test cases:
+      Generate {language} Playwright script for the following test cases:
       {test_case}
 
       Page Structure:
@@ -314,7 +314,7 @@ generate_script:
       4. Include error handling with try/except blocks
       5. Add explicit assertions for element states
 
-      Return ONLY executable Python code in markdown blocks. No explanations.
+      Return ONLY executable {language} code in markdown blocks. No explanations.
 
   cypress:
     system: |

@@ -26,6 +26,11 @@ from jsonschema import validate, ValidationError
 #from parse_llm_code import extract_first_code
 #from tenacity import retry, stop_after_attempt, wait_fixed, wait_exponential
 
+SUPPORTED_LANGUAGES = {
+    "selenium": ["python", "java", "csharp", "javascript", "ruby"],
+    "playwright": ["python", "javascript", "csharp", "java"]
+}
+
 AUTH_DATA_SCHEMA = {
     "type": "object",
     "properties": {
@@ -151,11 +156,21 @@ class PromptManager:
         return self.prompts[section][role]
 
 class WebTestGenerator:
-    def __init__(self, log_level="INFO", selenium_version="4.15.2", wait_time="", testing_tool="selenium"):
+    def __init__(self, log_level="INFO", selenium_version="4.15.2", wait_time="", testing_tool="selenium", language="python"):
         self.log_level = log_level.upper()
         self.selenium_version = selenium_version
         self.wait_time = wait_time
         self.testing_tool = testing_tool.lower()
+
+        # Validate language support
+        valid_langs = SUPPORTED_LANGUAGES.get(testing_tool.lower(), [])
+        if language.lower() not in valid_langs:
+            raise ValueError(
+                f"'{language}' not supported for {testing_tool}. "
+                f"Valid options: {', '.join(valid_langs)}"
+            )
+        
+        self.language = language.lower()
         self.groq_api_key = os.getenv("GROQ_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.llm = LLMWrapper()
@@ -755,7 +770,8 @@ class WebTestGenerator:
 
             #system_prompt = self.prompt_manager.get_prompt("generate_script", "system", tool=self.testing_tool)
             system_prompt_template = self.prompt_manager.get_prompt("generate_script", "system", tool=self.testing_tool)
-            system_prompt = system_prompt_template.format(selenium_version=self.selenium_version)
+            system_prompt = system_prompt_template.format(selenium_version=self.selenium_version, language=self.language)
+            #self.logger.debug(f"system prompt for script generation: {system_prompt}")
             user_prompt_template = self.prompt_manager.get_prompt("generate_script", "user", tool=self.testing_tool)
             # user_prompt = self.prompt_manager.get_prompt("generate_script", "user").format(
             #     test_case=json.dumps(test_case, indent=2),
@@ -765,6 +781,7 @@ class WebTestGenerator:
             # )
             # Format with dynamic values
             user_prompt = user_prompt_template.format(
+                language=self.language,
                 selenium_version=self.selenium_version,
                 test_case=json.dumps(test_case, indent=2),
                 page_metadata=json.dumps(page_metadata, indent=2),
@@ -777,6 +794,8 @@ class WebTestGenerator:
             # Extract just the Python code if it's wrapped in markdown code blocks
             if "```python" in script_content:
                 code = script_content.split("```python")[1].split("```")[0].strip()
+            elif "```java" in script_content:
+                code = script_content.split("```java")[1].split("```")[0].strip()
             elif "```" in script_content:
                 code = script_content.split("```")[1].strip()
             else:
@@ -804,8 +823,11 @@ class WebTestGenerator:
                     os.makedirs(script_dir)
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.py"
-                
+                if "```python" in script_content:
+                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.py"
+                else:
+                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.java"
+
                 with open(script_name, 'w') as f:
                     f.write(code)
                     
@@ -1277,12 +1299,20 @@ if __name__ == "__main__":
     # Add to argparse:
     parser.add_argument("--testing-tool",
                         default="selenium",
-                        choices=["selenium", "protractor", "playwright"],
+                        choices=["selenium", "playwright"],
                         help="Testing framework to generate scripts for")
+    
+    parser.add_argument("--language",
+                    default="python",
+                    help="Programming language for test scripts")
     
     args = parser.parse_args()
     
-    tester = WebTestGenerator(log_level=args.loglevel.upper(), selenium_version=args.selenium_version, wait_time=args.wait_time, testing_tool=args.testing_tool)  # Convert to uppercase
+    try:
+        tester = WebTestGenerator(log_level=args.loglevel.upper(), selenium_version=args.selenium_version, wait_time=args.wait_time, testing_tool=args.testing_tool, language=args.language)  # Convert to uppercase
+    except ValueError as e:
+        print(f"Invalid configuration: {str(e)}")
+        exit(1)
     report_file = tester.run_workflow(args.url, args.username, args.password)
     print(f"Test report generated: {report_file}")
 
