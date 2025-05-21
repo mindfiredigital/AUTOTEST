@@ -75,10 +75,17 @@ Instructions on how to get started with your project, including installation, pr
 
 To install the ``autotest`` tool:
   - Clone the repo
-  - Create virtualenv using ``python3 -m venv venv-name``
-  - Activate the virtual environment using ``source venv-name/bin/activate``
+  - Navigate to your project folder
+  - Create virtualenv using:
+    - For Linux/Ubuntu-  ``python3 -m venv myenv``
+    - For Windows, open Command Prompt or PowerShell, and run- ``python -m venv myenv``
+    - For further reference, visit this [LINK](https://www.geeksforgeeks.org/creating-python-virtual-environment-windows-linux/)
+  - Activate the virtual environment 
+    - For Linux/Ubuntu using ``source myenv/bin/activate``
+    - For Windows using ``myenv\Scripts\activate``
   - Navigate to the main folder ``cd selenium-based-llm-model``
   - Install requirements using requirements.txt ``pip install -r requirements.txt``
+  - If using ``playwright`` testing framework, then also install the following dependency: ``playwright install chromium``
   - Provide the test data in ``auth_test_data.json`` file in the same directory.
   - Provide the name of the testing data file in the functional arguements of this given method:
   ```
@@ -217,6 +224,22 @@ Add link to [CONTRIBUTING.md](CONTRIBUTING.md) file.
 - Checking whether web-page is upto the latest SEO standards.
 - Moving or externalizing all the LLM prompts in a configuration file(.yaml) which allows easy modification and enhanced prompt engineering. (already achieved, checkout 'dev' branch)
 
+## New features
+
+- The latest code with the updated new features are on the ``dev`` branch.
+- Externalisation of all LLM prompts to ``prompts3.yaml``.
+- The updated source code of the tool is in ``selenium-based-llm-model/autotest_v2.py``
+- Replace the ``prompt_file`` with your prompt filename in the ``PromptManager`` class of ``autotest_v2.py``
+```class PromptManager:
+    def __init__(self, prompt_file="prompts3.yaml"):
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            self.prompts = yaml.safe_load(f)
+```
+- Several optional CLI input parameters and prompt template customization has been introduced.
+- ``--selenium-version``, ``wait-time``, ``testing-tool`` and ``--language``are the CLI parameters which can be provided by the user when starting the testing process.
+- Format of input: ``python autotest_v2.py --url "url-to-be-tested" --loglevel DEBUG --selenium-version 4.15.2 --wait-time "30 seconds" --testing-tool "selenium" --language "Python"``
+- Currently the following testing tool or frameworks are supported: ``selenium`` and ``playwright``
+- Although multiple programming languages that are supported by respective testing frameworks are provided, the current version only generates testing script in ``Python`` programming language. Support for other valid languages are under development.
 
 ## License
 
