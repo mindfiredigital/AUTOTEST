@@ -69,7 +69,7 @@ Instructions on how to get started with your project, including installation, pr
 - Knowledge of Selenium test scripts
 - Selenium version==4.15.2
 - webdriver-manager version==4.0.2
-- Make sure to have python version 3.9 or greater
+- Make sure to have python version 3.10.12 installed
 - Ensure to have the necessary provider's(like openai or gemini) API key in ``.env`` file required to access the LLM. For example ``OPENAI_API_KEY=place-your-api-key-here``
 
 ### Installation
