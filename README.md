@@ -241,6 +241,25 @@ Add link to [CONTRIBUTING.md](CONTRIBUTING.md) file.
 - Format of input: ``python autotest_v2.py --url "url-to-be-tested" --loglevel DEBUG --selenium-version 4.15.2 --wait-time "30 seconds" --testing-tool "selenium" --language "Python"``
 - Currently the following testing tool or frameworks are supported: ``selenium`` and ``playwright``
 - Although multiple programming languages that are supported by respective testing frameworks are provided, the current version only generates testing script in ``Python`` programming language. Support for other valid languages are under development.
+- Support for ``Puppeteer`` testing framework/tool has been integrated (dev->selenium-based-llm-model->autotest_v3.py)
+- Customised prompt template added for ``puppeteer`` added in ``prompts4.yaml``
+- To check it out, visit the ``dev`` branch and follow the same instructions as already stated in above sections. Run this command: ```python autotest_v3.py --url "www.example.com" --loglevel --wait-time "40 seconds" --testing-tool "puppeteer" --language "python" ``` 
+- Before trying the ``pupeeteer`` make sure to satisfy the following requirements:
+  - Install chromium browser dependency. For Ubuntu/Linux systems use- ``sudo apt-get install chromium`` or ``sudo snap install chromium``
+  - Provide the exact same path of the chromium browser in the ``executablePath`` of the test scripts or provide the path in the LLM prompt template itself. Check the path using: ``which chromium`` command for Linux systems.
+  - On executing the scripts, if you face errors like ``Browser closed unexpectedly`` then perform the following steps:
+    - Create and set permissions for the temporary profile directory: 
+      - ``mkdir -p /tmp/pyppeteer_profile``
+      - ``chmod 700 /tmp/pyppeteer_profile``
+    - Allow Chromium to access necessary system resources:
+      - sudo snap connect chromium:removable-media
+      - sudo snap connect chromium:system-observe
+    -  Install Missing Codecs (Critical for Headless):
+      - sudo apt-get install -y libva2 libva-drm2 libva-x11-2 vainfo
+      - sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 libxss1 libxrandr2 libasound2
+    - Install Missing Dependencies
+      - sudo apt-get install -y libgbm-dev libxshmfence-dev libdrm-dev
+  - All the above mentioned steps for setting up and trouble-shooting issues due to chromium browser are for Linux/Ubuntu systems. For Windows or other systems refer to necessary [Docs](https://www.chromium.org/getting-involved/download-chromium/) for chromium browser installation process.
 
 ## License
 
