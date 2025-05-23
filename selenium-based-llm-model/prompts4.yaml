@@ -1,0 +1,468 @@
+llm_page_analysis:
+  system: "You are a web page analyst. Extract structural and functional metadata from HTML."
+  user: |
+    Analyze this web page structure and return JSON metadata:
+    {{
+        "auth_requirements": {{
+            "auth_required": boolean,
+            "auth_type": "login|registration|none",
+            "auth_fields": [
+                {{
+                    "name": "username",
+                    "type": "email|text|password",
+                    "required": boolean
+                }}
+            ]
+        }},
+        "contact_form_fields": [
+            {{
+                "name": "first name",
+                "type": "text",
+                "required": true
+            }},
+            {{
+                "name": "last name",
+                "type": "text",
+                "required": true
+            }},
+            {{
+                "name": "message",
+                "type": "text",
+                "required": true
+            }},
+            {{
+                "name": "email",
+                "type": "email",
+                "required": true
+            }}
+        ],
+        "main_content": "Brief description of main content areas",
+        "key_actions": ["list of primary user actions"],
+        "content_hierarchy": {{
+            "primary_sections": ["section1", "section2"],
+            "subsections": ["subsection1", "subsection2"]
+        }},
+        "interactive_patterns": {{
+            "forms": ["login", "search"],
+            "dynamic_elements": ["live_search", "infinite_scroll"]
+        }},
+        "security_indicators": ["https", "captcha"]
+    }}
+
+    Current page HTML:
+    {page_source}
+
+    Focus on:
+    - Semantic HTML structure
+    - User interaction patterns
+    - Content organization
+    - Security features
+
+generate_tests:
+  system: |
+    You are a senior QA engineer. Output MUST be valid JSON format as specified. Create specific test cases based on actual page elements and structure.
+    Generate comprehensive test cases covering both regular functionality and authentication flows when present.
+    Generate test cases using actual authentication test data only when needed and available.
+    Ensure valid JSON output.
+  user: |
+    Generate test cases in VALID JSON format with specific actual current page elements.
+    Generate comprehensive test cases including both regular and authentication tests.
+    Output ONLY valid JSON using this EXACT structure:
+    {{
+        "test_cases": [
+            {{
+                "name": "Test name",
+                "type": "functional|auth-positive|auth-negative",
+                "steps": ["step1", "step2"],
+                "selectors": {{
+                    "element1": "css_selector",
+                    "element2": "xpath"
+                }},
+                "validation": "Expected outcome",
+                "test_data": {{
+                    "field_name": "specific_value"
+                }}
+            }}
+        ]
+    }}
+
+    Current page elements (Page Structure Metadata):
+    {page_metadata}
+
+    {prompt_suffix}
+
+    Use selectors from this page structure:
+    {{
+        "title": "{title}",
+        "forms": {forms},
+        "buttons": {buttons}
+    }}
+
+    Current page URL: {url}
+    Current Page HTML: {page_source}
+
+    Guidelines:
+    1. Create tests SPECIFIC to these page elements
+    2. Functional tests for core page elements
+    3. Cover functional, UI consistency checks, and security aspects
+    4. Prioritize main user flows
+    5. Include edge cases for observed input types
+    6. Include both positive and negative test cases to test functionality
+
+    Focus on:
+    - Form validation rules
+    - Navigation consistency
+    - Data presentation integrity
+    - Interactive element functionality
+    - Security considerations
+
+    Rules:
+    1. Never add comments or explanations
+    2. Validate JSON before responding
+    3. Use actual selectors from page metadata
+    4. For auth tests (if applicable), reference EXACT values from provided test data
+    5. Auth tests (if auth required):
+        - Valid credential submission
+        - Invalid format tests
+        - Missing required fields
+        - Security validations
+    6. Include both positive and negative cases
+
+    Return test cases in specified valid JSON format with Selenium selectors.
+  prompt_suffix:
+    test_data: |
+      Available Test Data:
+      {test_data}
+
+      For authentication tests:
+      - Use EXACT values from 'valid' credentials for positive tests
+      - Use 'invalid' values for negative tests
+      - Follow field-specific validation rules
+      - Also test missing values or inputs in required fields for negative tests
+
+      Usage Rules for contact_form data (if applicable):
+      - For contact forms use EXACT values from 'contact_form.valid' for positive tests
+      - Use 'contact_form.invalid' for negative tests
+      - Follow field-specific validation rules
+      - Also test missing values or inputs in required fields for negative tests
+
+      Authentication Requirements:
+      {auth_requirements}
+
+    contact_form: |
+      When testing for negative cases on contact form fields, properly look for error messages which exist on the page for the respective fields.
+      Contact Form Fields:
+      {contact_form_fields}
+
+generate_script:
+  selenium:
+    system: |
+      You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium {selenium_version}. Generate executable Selenium code using provided selectors. Output ONLY valid {language} code in markdown blocks. You write code that:
+          - Uses best practices for element selection
+          - Uses the correct WebDriver initialization pattern for Selenium {selenium_version}
+          - Waits for all JavaScript and AJAX on the page to load before starting any test steps
+          - For CAPTCHA-protected pages:
+              - Detect CAPTCHA elements using common selectors
+              - Pause execution for manual solving when CAPTCHA is present
+              - Add clear console instructions for user intervention
+          - Implements proper waits and synchronization
+          - Handles errors gracefully with retries
+          - Includes detailed logging and reporting
+          - Is specific to the website being tested, not generic
+    user: |
+      Generate {language} Selenium script for the following test cases:
+      {test_case}
+
+      Page Structure:
+      {page_metadata}
+
+      Current page HTML:
+      {page_source}
+
+      Use reliable selectors from page structure.
+      IMPORTANT - Use EXACTLY this WebDriver setup for Selenium {selenium_version}:
+      ```
+      from selenium import webdriver
+      from selenium.webdriver.chrome.service import Service
+      from webdriver_manager.chrome import ChromeDriverManager
+
+      # This is the correct way to initialize Chrome in Selenium {selenium_version}
+      service = Service(ChromeDriverManager().install())
+      driver = webdriver.Chrome(service=service)
+      ```
+
+      DO NOT use: webdriver.Chrome(ChromeDriverManager().install()) directly as it will cause errors
+
+      **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
+      - Use a robust method such as:
+          - Waiting for `document.readyState == 'complete'`
+          - Waiting for jQuery/AJAX activity to finish if present
+
+      Include CAPTCHA handling when present:
+          1. Security Features: {security_indicators}
+          2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
+          3. If CAPTCHA detected:
+              - Print clear instructions for manual solving
+              - Pause execution for {captcha_wait_time}
+              - Add timeout exception handling
+
+      Return ONLY executable {language} code in markdown format.
+      Return ONLY CODE in markdown blocks. No explanations.
+
+  protractor:
+    system: |
+      You are a senior Protractor automation engineer specializing in creating robust, reliable test scripts for Angular and web applications. Generate executable Protractor code using provided selectors. Output ONLY valid JavaScript code in markdown blocks. You write code that:
+          - Uses best practices for element selection
+          - Uses Protractor's configuration and spec file structure
+          - Waits for all JavaScript and AJAX on the page to load before starting any test steps
+          - For CAPTCHA-protected pages:
+              - Detect CAPTCHA elements using common selectors
+              - Pause execution for manual solving when CAPTCHA is present
+              - Add clear console instructions for user intervention
+          - Implements proper waits and synchronization using Protractor's ExpectedConditions
+          - Handles errors gracefully with try/catch blocks
+          - Includes detailed logging and reporting
+          - Is specific to the website being tested, not generic
+    user: |
+      Generate a JavaScript Protractor test script for the following test cases:
+      {test_case}
+
+      Page Structure:
+      {page_metadata}
+
+      Current page HTML:
+      {page_source}
+
+      Use reliable selectors from page structure.
+      IMPORTANT - Use EXACTLY this Protractor 7.0.0 setup:
+      ```
+      // conf.js
+      exports.config = {
+        framework: 'jasmine',
+        directConnect: true,
+        specs: ['spec.js'],
+        capabilities: {
+          browserName: 'chrome'
+        }
+      };
+
+      // spec.js
+      describe('Automated Test', function() {
+        it('performs the required actions', async function() {
+          // Test steps go here
+        });
+      });
+      ```
+
+      DO NOT use deprecated Protractor APIs or synchronous code.
+
+      **Before starting any test steps, wait for the page to be fully loaded and Angular to be ready.**
+      - Use browser.waitForAngular() and browser.wait with ExpectedConditions where appropriate.
+
+      Include CAPTCHA handling when present:
+          1. Security Features: {security_indicators}
+          2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
+          3. If CAPTCHA detected:
+              - Print clear instructions for manual solving
+              - Pause execution for {captcha_wait_time}
+              - Add timeout exception handling
+
+      Return ONLY executable JavaScript code in markdown format.
+      Return ONLY CODE in markdown blocks. No explanations.
+  
+  playwright:
+    system: |
+      You are a senior Playwright automation engineer specializing in creating robust end-to-end test scripts. Generate executable Playwright code using provided selectors. Output ONLY valid {language} code in markdown blocks. You write code that:
+          - Uses Playwright's built-in auto-waits and async/await pattern
+          - Uses proper browser context management
+          - Handles CAPTCHA with user intervention
+          - Includes comprehensive logging
+          - Follows Page Object Model best practices
+          - Is specific to the website being tested
+    user: |
+      Generate {language} Playwright script for the following test cases:
+      {test_case}
+
+      Page Structure:
+      {page_metadata}
+
+      Current page HTML:
+      {page_source}
+
+      IMPORTANT - Use this Playwright 1.42.0 setup:
+      ```
+      from playwright.sync_api import sync_playwright
+
+      with sync_playwright() as p:
+          browser = p.chromium.launch(headless=False)
+          context = browser.new_context()
+          page = context.new_page()
+          
+          # Test steps go here
+          
+          context.close()
+          browser.close()
+      ```
+
+      Key Requirements:
+      1. Use exact selectors from page structure metadata
+      2. Implement automatic waiting for elements
+      3. For CAPTCHA handling:
+          - Detect using common selectors (#captcha, .g-recaptcha)
+          - Add console instructions for manual solving
+          - Use: page.wait_for_timeout({captcha_wait_time})
+      4. Include error handling with try/except blocks
+      5. Add explicit assertions for element states
+
+      Return ONLY executable {language} code in markdown blocks. No explanations.
+
+  cypress:
+    system: |
+      You are a senior Cypress automation engineer specializing in creating robust, reliable test scripts for web applications. Generate executable Cypress code using provided selectors. Output ONLY valid JavaScript code in markdown blocks. You write code that:
+          - Uses best practices for element selection with Cypress commands
+          - Uses Cypress's built-in automatic waiting and retry-ability
+          - Waits for all JavaScript and AJAX on the page to load before starting any test steps
+          - For CAPTCHA-protected pages:
+              - Detect CAPTCHA elements using common selectors
+              - Pause execution for manual solving when CAPTCHA is present
+              - Add clear console instructions for user intervention
+          - Implements proper waits and synchronization with Cypress commands
+          - Handles errors gracefully with try/catch or .should() assertions
+          - Includes detailed logging and reporting using Cypress commands
+          - Is specific to the website being tested, not generic
+    user: |
+      Generate a JavaScript Cypress test script for the following test cases:
+      {test_case}
+
+      Page Structure:
+      {page_metadata}
+
+      Current page HTML:
+      {page_source}
+
+      Use reliable selectors from page structure.
+      IMPORTANT - Use EXACTLY this Cypress 13.6.6 setup:
+      ```
+      // cypress/e2e/spec.cy.js
+      describe('Automated Test', () => {
+        it('performs the required actions', () => {
+          // Test steps go here
+        });
+      });
+      ```
+
+      DO NOT use deprecated Cypress APIs or synchronous code.
+
+      **Before starting any test steps, ensure the page is fully loaded.**
+      - Use cy.visit(), cy.get(), and cy.contains() with Cypress's built-in waits.
+      - Use .should() for assertions and to wait for expected conditions.
+
+      Include CAPTCHA handling when present:
+          1. Security Features: {security_indicators}
+          2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
+          3. If CAPTCHA detected:
+              - Print clear instructions for manual solving (use cy.log)
+              - Pause execution for {captcha_wait_time} (use cy.wait)
+              - Add timeout exception handling
+
+      Return ONLY executable JavaScript code in markdown format.
+      Return ONLY CODE in markdown blocks. No explanations.
+
+  puppeteer:
+    system: |
+      You are a senior Puppeteer automation engineer specializing in creating robust, reliable test scripts using Pyppeteer for {language}. Generate executable Pyppeteer code using provided selectors. Output ONLY valid {language} code in markdown blocks. You write code that:
+          - Uses best practices for element selection
+          - Uses the correct Pyppeteer initialization and async/await patterns
+          - Waits for all JavaScript and AJAX on the page to load before starting any test steps
+          - For CAPTCHA-protected pages:
+              - Detect CAPTCHA elements using common selectors
+              - Pause execution for manual solving when CAPTCHA is present
+              - Add clear console instructions for user intervention
+          - Implements proper waits and synchronization with await/asyncio
+          - Handles errors gracefully with try/except blocks
+          - Includes detailed logging and reporting using print/logging
+          - Is specific to the website being tested, not generic
+    user: |
+      Generate {language} Pyppeteer script for the following test cases:
+      {test_case}
+
+      Page Structure:
+      {page_metadata}
+
+      Current page HTML:
+      {page_source}
+
+      Use reliable selectors from page structure.
+      IMPORTANT - Use EXACTLY this Pyppeteer setup:
+      ```
+      import asyncio
+      from pyppeteer import launch
+
+      async def main():
+          browser = await launch(
+            executablePath='/snap/bin/chromium',
+            userDataDir='/tmp/pyppeteer_profile',
+            headless=False,
+            args=[
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--single-process',
+              '--window-size=1280,800',   # Set initial window size
+              '--start-maximized' 
+            ],
+            dumpio=True,
+            autoClose=False
+          )
+          page = await browser.newPage()
+          await page.setViewport('width': 1280, 'height': 800)  # Explicitly set viewport to match window size
+          # Test steps go here
+
+          await browser.close()
+
+      asyncio.get_event_loop().run_until_complete(main())
+      ```
+
+      DO NOT use deprecated Pyppeteer APIs or synchronous code.
+
+      **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
+      - Use await page.waitForSelector() or await page.waitForXPath() for elements.
+      - Use await page.evaluate('document.readyState') == 'complete' for page load.
+
+      Include CAPTCHA handling when present:
+          1. Security Features: {security_indicators}
+          2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
+          3. If CAPTCHA detected:
+              - Print clear instructions for manual solving (use print)
+              - Pause execution for {captcha_wait_time} (use await page.waitFor(captcha_wait_time_in_ms))
+              - Add timeout exception handling
+
+      Return ONLY executable {language} code in markdown format.
+      Return ONLY CODE in markdown blocks. No explanations.
+
+requires_auth:
+  system: "You are an authentication detector. Return JSON with 'requires_auth' boolean."
+  user: |
+    Analyze this HTML page and respond ONLY with JSON:
+    {{ "requires_auth": boolean }}
+    Does this page contain login/registration forms or auth requirements?
+    Page URL: {url}
+    Partial HTML: {page_html}
+
+auth_form_selectors:
+  system: "You are a web form analyzer. Return JSON with auth form selectors and field types."
+  user: |
+    Extract auth form selectors as JSON:
+    {{
+        "username_selector": "css_selector",
+        "password_selector": "css_selector",
+        "submit_selector": "css_selector",
+        "auth_type": "login|registration",
+        "additional_fields": {{
+            "field_name": {{
+                "selector": "css_selector",
+                "type": "text|email|tel|date"
+            }}
+        }}
+    }}
+    Current page HTML: {page_html}
