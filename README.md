@@ -14,6 +14,8 @@
     - [Installation](#installation)
   - [Usage](#usage)
   - [Contributing](#contributing)
+  - [Future Scope and Improvements](#future-scope-and-improvements)
+  - [New features](#new-features)
   - [License](#license)
   - [Acknowledgments](#acknowledgments)
 
@@ -67,17 +69,24 @@ Instructions on how to get started with your project, including installation, pr
 - Knowledge of Selenium test scripts
 - Selenium version==4.15.2
 - webdriver-manager version==4.0.2
-- Make sure to have python version 3.9 or greater
+- Make sure to have python version 3.10.12 installed
 - Ensure to have the necessary provider's(like openai or gemini) API key in ``.env`` file required to access the LLM. For example ``OPENAI_API_KEY=place-your-api-key-here``
 
 ### Installation
 
 To install the ``autotest`` tool:
   - Clone the repo
-  - Create virtualenv using ``python3 -m venv venv-name``
-  - Activate the virtual environment using ``source venv-name/bin/activate``
+  - Navigate to your project folder
+  - Create virtualenv using:
+    - For Linux/Ubuntu-  ``python3 -m venv myenv``
+    - For Windows, open Command Prompt or PowerShell, and run- ``python -m venv myenv``
+    - For further reference, visit this [LINK](https://www.geeksforgeeks.org/creating-python-virtual-environment-windows-linux/)
+  - Activate the virtual environment 
+    - For Linux/Ubuntu using ``source myenv/bin/activate``
+    - For Windows using ``myenv\Scripts\activate``
   - Navigate to the main folder ``cd selenium-based-llm-model``
   - Install requirements using requirements.txt ``pip install -r requirements.txt``
+  - If using ``playwright`` testing framework, then also install the following dependency: ``playwright install chromium``
   - Provide the test data in ``auth_test_data.json`` file in the same directory.
   - Provide the name of the testing data file in the functional arguements of this given method:
   ```
@@ -214,8 +223,43 @@ Add link to [CONTRIBUTING.md](CONTRIBUTING.md) file.
 - The current version recursively extracts unique pages or urls from the base or given url, then analyzes and produces test cases and selenium scripts for execution in an automated manner.
 - Analysing and giving suggestions on the improvement of the web-pages content.
 - Checking whether web-page is upto the latest SEO standards.
-- Moving all the LLM prompts in a configuration file which allows easy modification and simpler prompt engineering.
+- Moving or externalizing all the LLM prompts in a configuration file(.yaml) which allows easy modification and enhanced prompt engineering. (already achieved, checkout 'dev' branch)
 
+## New features
+
+- The latest code with the updated new features are on the ``dev`` branch.
+- Externalisation of all LLM prompts to ``prompts3.yaml``.
+- The updated source code of the tool is in ``selenium-based-llm-model/autotest_v2.py``
+- Replace the ``prompt_file`` with your prompt filename in the ``PromptManager`` class of ``autotest_v2.py``
+```class PromptManager:
+    def __init__(self, prompt_file="prompts3.yaml"):
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            self.prompts = yaml.safe_load(f)
+```
+- Several optional CLI input parameters and prompt template customization has been introduced.
+- ``--selenium-version``, ``wait-time``, ``testing-tool`` and ``--language``are the CLI parameters which can be provided by the user when starting the testing process.
+- Format of input: ``python autotest_v2.py --url "url-to-be-tested" --loglevel DEBUG --selenium-version 4.15.2 --wait-time "30 seconds" --testing-tool "selenium" --language "Python"``
+- Currently the following testing tool or frameworks are supported: ``selenium`` and ``playwright``
+- Although multiple programming languages that are supported by respective testing frameworks are provided, the current version only generates testing script in ``Python`` programming language. Support for other valid languages are under development.
+- Support for ``Puppeteer`` testing framework/tool has been integrated (dev->selenium-based-llm-model->autotest_v3.py)
+- Customised prompt template added for ``puppeteer`` added in ``prompts4.yaml``
+- To check it out, visit the ``dev`` branch and follow the same instructions as already stated in above sections. Run this command: ```python autotest_v3.py --url "www.example.com" --loglevel --wait-time "40 seconds" --testing-tool "puppeteer" --language "python" ``` 
+- Before trying the ``pupeeteer`` make sure to satisfy the following requirements:
+  - Install chromium browser dependency. For Ubuntu/Linux systems use- ``sudo apt-get install chromium`` or ``sudo snap install chromium``
+  - Provide the exact same path of the chromium browser in the ``executablePath`` of the test scripts or provide the path in the LLM prompt template itself. Check the path using: ``which chromium`` command for Linux systems.
+  - On executing the scripts, if you face errors like ``Browser closed unexpectedly`` then perform the following steps:
+    - Create and set permissions for the temporary profile directory: 
+      - ``mkdir -p /tmp/pyppeteer_profile``
+      - ``chmod 700 /tmp/pyppeteer_profile``
+    - Allow Chromium to access necessary system resources:
+      - sudo snap connect chromium:removable-media
+      - sudo snap connect chromium:system-observe
+    -  Install Missing Codecs (Critical for Headless):
+      - sudo apt-get install -y libva2 libva-drm2 libva-x11-2 vainfo
+      - sudo apt-get install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 libxtst6 libxss1 libxrandr2 libasound2
+    - Install Missing Dependencies
+      - sudo apt-get install -y libgbm-dev libxshmfence-dev libdrm-dev
+  - All the above mentioned steps for setting up and trouble-shooting issues due to chromium browser are for Linux/Ubuntu systems. For Windows or other systems refer to necessary [Docs](https://www.chromium.org/getting-involved/download-chromium/) for chromium browser installation process.
 
 ## License
 
