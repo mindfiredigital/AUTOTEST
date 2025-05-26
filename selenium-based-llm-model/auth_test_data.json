@@ -1,12 +1,12 @@
 {
     "credentials": {
         "valid": {
-            "username": "practice",
-            "password": "SuperSecretPassword!"
+            "username": "student",
+            "password": "Password123"
         },
         "invalid": {
             "username": "invaliduser",
-            "password": "short"
+            "password": "incorrectPassword"
         }
     },
     "registration_fields": {
