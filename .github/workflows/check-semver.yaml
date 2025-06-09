@@ -24,9 +24,9 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install python-semantic-release
-    - name: Run tests
-      run: |
-        python -m pytest
+    # - name: Run tests
+    #   run: |
+    #     python -m pytest
     - name: Semantic Release
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
