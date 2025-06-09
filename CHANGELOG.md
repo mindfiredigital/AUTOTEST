@@ -50,4 +50,3 @@ This project is licensed under the [MIT License] - see the [LICENSE.md](LICENSE.
 ## Customization
 
 You can customize this changelog to meet the specific needs and preferences of your project. Feel free to modify the structure, add more details, or change the formatting to better suit your project's versioning and documentation requirements.
-
