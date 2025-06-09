@@ -1,0 +1,49 @@
+name: Create PR from master to main
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  create-pull-request:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Set Git Identity
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'github-actions@github.com'
+
+      - name: Create Pull Request with gh cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # We're already on master, just need to fetch main
+          git fetch origin main:refs/remotes/origin/main
+
+          # Check if there are differences between main and master
+          DIFF_COUNT=$(git rev-list --count origin/main..HEAD)
+
+          if [ "$DIFF_COUNT" -gt 0 ]; then
+            echo "Differences found between main and master. Creating PR..."
+            
+            # Use GitHub CLI to create the PR
+            gh pr create \
+              --base main \
+              --head master \
+              --title "Merge master into main" \
+              --body "This is an automated PR to merge changes from master into main branch." || true
+              
+            echo "Pull request created or already exists."
+          else
+            echo "No differences found between main and master. Skipping PR creation."
+          fi
