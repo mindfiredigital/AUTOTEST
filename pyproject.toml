@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=6.0"]
+build-backend = "setuptools.build_meta"
+ 
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "no-local-version"
+ 
+[tool.semantic_release]
+version_source = "tag"
+commit = false
+push = false
+upload_to_pypi = true
+build_command = "python -m build"
+ 
+# This is the key configuration for version 9.x
+[tool.semantic_release.branches.release-main]
+match = "release-main"
+prerelease = false
+ 
+# The following configurations are optional but recommended
+[tool.semantic_release.publish]
+upload_to_release = true
+upload_to_pypi = true
+dist_glob_patterns = ["dist/*"]
+ 
+[tool.semantic_release.remote.token]
+env = "GH_TOKEN"
+ 
+[tool.semantic_release.remote]
+type = "github"
+ignore_token_for_push = false
