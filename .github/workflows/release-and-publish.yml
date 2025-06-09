@@ -43,26 +43,26 @@ jobs:
         run: |
           semantic-release --verbose version
 
-      # For semantic-release 9.x, the publish command needs to be run separately
-      - name: Run semantic-release publish
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          semantic-release --verbose publish
+      # # For semantic-release 9.x, the publish command needs to be run separately
+      # - name: Run semantic-release publish
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      #   run: |
+      #     semantic-release --verbose publish
 
-      - name: Push release branch
-        run: git push origin release-main
+      # - name: Push release branch
+      #   run: git push origin release-main
 
-      - name: Create PR to main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr create \
-            --base main \
-            --head release-main \
-            --title "Automated Release Updates" \
-            --body "This pull request contains updates from the semantic-release process." || true
+      # - name: Create PR to main
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     gh pr create \
+      #       --base main \
+      #       --head release-main \
+      #       --title "Automated Release Updates" \
+      #       --body "This pull request contains updates from the semantic-release process." || true
 
       # This is only needed if semantic-release publish didn't handle the PyPI upload
       # - name: Build and publish package to PyPI if needed
