@@ -12,6 +12,7 @@ commit = true
 push = false
 upload_to_pypi = true
 build_command = "python -m build"
+changelog_file = "CHANGELOG.md"
  
 # This is the key configuration for version 9.x
 [tool.semantic_release.branches.release-main]
