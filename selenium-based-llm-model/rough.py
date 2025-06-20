@@ -93,6 +93,398 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, SystemMessage
 import yaml
 
+# Hardcoded test cases in JSON format
+test_cases = [
+     {
+      "name": "Login with valid credentials",
+      "type": "auth-positive",
+      "steps": [
+        "Navigate to https://www.ourgoalplan.co.in/Login.aspx",
+        "Enter 'DK2421' in the Username field",
+        "Enter 'c!m69hGNQ5cnuVZ' in the Password field",
+        "Ensure 'Stay Logged In' checkbox is checked",
+        "Click the Login button"
+      ],
+      "selectors": {
+        "username": "#txtName",
+        "password": "#txtPassword",
+        "remember_me": "#chkRemember",
+        "login_button": "#btnLogin"
+      },
+      "validation": "User is successfully logged in and redirected to the authenticated area",
+      "test_data": {
+        "username": "DK2421",
+        "password": "c!m69hGNQ5cnuVZ"
+      }
+    }
+]
+
+# Hardcoded page metadata in JSON format
+page_metadata ={'title': 'DEMOQA', 'url': 'https://demoqa.com/register', 'forms': [{'id': 'userForm', 'action': 'https://demoqa.com/register', 'method': 'get', 'inputs': [{'type': 'text', 'name': '', 'id': 'firstname'}, {'type': 'text', 'name': '', 'id': 'lastname'}, {'type': 'text', 'name': '', 'id': 'userName'}, {'type': 'password', 'name': '', 'id': 'password'}], 'buttons': [{'type': 'button', 'text': 'Register', 'id': 'register'}, {'type': 'button', 'text': 'Back to Login', 'id': 'gotologin'}]}], 'buttons': [{'tag': 'a', 'text': '', 'id': 'close-fixedban', 'type': ''}, {'tag': 'a', 'text': '', 'id': '', 'type': ''}, {'tag': 'button', 'text': '', 'id': '', 'type': 'button'}, {'tag': 'input', 'text': '', 'id': 'firstname', 'type': 'text'}, {'tag': 'input', 'text': '', 'id': 'lastname', 'type': 'text'}, {'tag': 'input', 'text': '', 'id': 'userName', 'type': 'text'}, {'tag': 'input', 'text': '', 'id': 'password', 'type': 'password'}, {'tag': 'textarea', 'text': '', 'id': 'g-recaptcha-response', 'type': 'textarea'}, {'tag': 'button', 'text': 'Register', 'id': 'register', 'type': 'button'}, {'tag': 'button', 'text': 'Back to Login', 'id': 'gotologin', 'type': 'button'}, {'tag': 'a', 'text': '', 'id': '', 'type': ''}], 'tables': [], 'key_flows': {'main_navigation': [], 'primary_actions': []}, 'auth_requirements': {'auth_required': False, 'auth_type': 'registration', 'auth_fields': [{'name': 'firstname', 'type': 'text', 'required': True, 'selector': '#firstname', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}], 'default_value': ''}, {'name': 'lastname', 'type': 'text', 'required': True, 'selector': '#lastname', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}], 'default_value': ''}, {'name': 'userName', 'type': 'text', 'required': True, 'selector': '#userName', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}], 'default_value': ''}, {'name': 'password', 'type': 'password', 'required': True, 'selector': '#password', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}, {'type': 'attribute', 'value': 'pattern', 'description': 'Password pattern enforcement: at least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char'}, {'type': 'masking', 'value': 'masked', 'description': 'Input is masked due to password type'}], 'default_value': ''}, {'name': 'g-recaptcha-response', 'type': 'text', 'required': True, 'selector': '#g-recaptcha-response', 'validation_indicators': [{'type': 'element', 'value': '#g-recaptcha', 'description': 'Google reCAPTCHA widget present'}], 'default_value': ''}], 'credentials_hint': ''}, 'contact_form_fields': [{'id': 'userForm', 'action': '', 'method': 'post', 'fields': [{'name': 'firstname', 'type': 'text', 'required': True, 'selector': '#firstname', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}]}, {'name': 'lastname', 'type': 'text', 'required': True, 'selector': '#lastname', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}]}, {'name': 'userName', 'type': 'text', 'required': True, 'selector': '#userName', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}]}, {'name': 'password', 'type': 'password', 'required': True, 'selector': '#password', 'validation_indicators': [{'type': 'attribute', 'value': 'required', 'description': 'HTML5 required attribute'}, {'type': 'attribute', 'value': 'pattern', 'description': 'Password pattern enforcement: at least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char'}, {'type': 'masking', 'value': 'masked', 'description': 'Input is masked due to password type'}]}, {'name': 'g-recaptcha-response', 'type': 'text', 'required': True, 'selector': '#g-recaptcha-response', 'validation_indicators': [{'type': 'element', 'value': '#g-recaptcha', 'description': 'Google reCAPTCHA widget present'}]}], 'submit_button': {'text': 'Register', 'selector': '#register'}}], 'interactive_elements': [{'type': 'link', 'text': 'Logo image', 'selector': 'header > a', 'action': 'click', 'expected_outcome': 'redirects to https://demoqa.com', 'sub_elements': []}, {'type': 'menu', 'text': 'Elements', 'selector': '.element-group:nth-child(1) .group-header', 'action': 'click', 'expected_outcome': 'expands menu', 'sub_elements': [{'type': 'button', 'text': 'Text Box', 'selector': '#item-0', 'action': 'click', 'expected_outcome': 'redirects to /text-box'}, {'type': 'button', 'text': 'Check Box', 'selector': '#item-1', 'action': 'click', 'expected_outcome': 'redirects to /check-box'}, {'type': 'button', 'text': 'Radio Button', 'selector': '#item-2', 'action': 'click', 'expected_outcome': 'redirects to /radio-button'}, {'type': 'button', 'text': 'Web Tables', 'selector': '#item-3', 'action': 'click', 'expected_outcome': 'redirects to /webtables'}, {'type': 'button', 'text': 'Buttons', 'selector': '#item-4', 'action': 'click', 'expected_outcome': 'redirects to /buttons'}, {'type': 'button', 'text': 'Links', 'selector': '#item-5', 'action': 'click', 'expected_outcome': 'redirects to /links'}, {'type': 'button', 'text': 'Broken Links - Images', 'selector': '#item-6', 'action': 'click', 'expected_outcome': 'redirects to /broken'}, {'type': 'button', 'text': 'Upload and Download', 'selector': '#item-7', 'action': 'click', 'expected_outcome': 'redirects to /upload-download'}, {'type': 'button', 'text': 'Dynamic Properties', 'selector': '#item-8', 'action': 'click', 'expected_outcome': 'redirects to /dynamic-properties'}]}, {'type': 'menu', 'text': 'Forms', 'selector': '.element-group:nth-child(2) .group-header', 'action': 'click', 'expected_outcome': 'expands menu', 'sub_elements': [{'type': 'button', 'text': 'Practice Form', 'selector': '.element-group:nth-child(2) #item-0', 'action': 'click', 'expected_outcome': 'redirects to /automation-practice-form'}]}, {'type': 'menu', 'text': 'Alerts, Frame & Windows', 'selector': '.element-group:nth-child(3) .group-header', 'action': 'click', 'expected_outcome': 'expands menu', 'sub_elements': [{'type': 'button', 'text': 'Browser Windows', 'selector': '.element-group:nth-child(3) #item-0', 'action': 'click', 'expected_outcome': 'redirects to /browser-windows'}, {'type': 'button', 'text': 'Alerts', 'selector': '.element-group:nth-child(3) #item-1', 'action': 'click', 'expected_outcome': 'redirects to /alerts'}, {'type': 'button', 'text': 'Frames', 'selector': '.element-group:nth-child(3) #item-2', 'action': 'click', 'expected_outcome': 'redirects to /frames'}, {'type': 'button', 'text': 'Nested Frames', 'selector': '.element-group:nth-child(3) #item-3', 'action': 'click', 'expected_outcome': 'redirects to /nestedframes'}, {'type': 'button', 'text': 'Modal Dialogs', 'selector': '.element-group:nth-child(3) #item-4', 'action': 'click', 'expected_outcome': 'redirects to /modal-dialogs'}]}, {'type': 'menu', 'text': 'Widgets', 'selector': '.element-group:nth-child(4) .group-header', 'action': 'click', 'expected_outcome': 'expands menu', 'sub_elements': [{'type': 'button', 'text': 'Accordian', 'selector': '.element-group:nth-child(4) #item-0', 'action': 'click', 'expected_outcome': 'redirects to /accordian'}, {'type': 'button', 'text': 'Auto Complete', 'selector': '.element-group:nth-child(4) #item-1', 'action': 'click', 'expected_outcome': 'redirects to /auto-complete'}, {'type': 'button', 'text': 'Date Picker', 'selector': '.element-group:nth-child(4) #item-2', 'action': 'click', 'expected_outcome': 'redirects to /date-picker'}, {'type': 'button', 'text': 'Slider', 'selector': '.element-group:nth-child(4) #item-3', 'action': 'click', 'expected_outcome': 'redirects to /slider'}, {'type': 'button', 'text': 'Progress Bar', 'selector': '.element-group:nth-child(4) #item-4', 'action': 'click', 'expected_outcome': 'redirects to /progress-bar'}, {'type': 'button', 'text': 'Tabs', 'selector': '.element-group:nth-child(4) #item-5', 'action': 'click', 'expected_outcome': 'redirects to /tabs'}, {'type': 'button', 'text': 'Tool Tips', 'selector': '.element-group:nth-child(4) #item-6', 'action': 'click', 'expected_outcome': 'redirects to /tool-tips'}, {'type': 'button', 'text': 'Menu', 'selector': '.element-group:nth-child(4) #item-7', 'action': 'click', 'expected_outcome': 'redirects to /menu'}, {'type': 'button', 'text': 'Select Menu', 'selector': '.element-group:nth-child(4) #item-8', 'action': 'click', 'expected_outcome': 'redirects to /select-menu'}]}, {'type': 'menu', 'text': 'Interactions', 'selector': '.element-group:nth-child(5) .group-header', 'action': 'click', 'expected_outcome': 'expands menu', 'sub_elements': [{'type': 'button', 'text': 'Sortable', 'selector': '.element-group:nth-child(5) #item-0', 'action': 'click', 'expected_outcome': 'redirects to /sortable'}, {'type': 'button', 'text': 'Selectable', 'selector': '.element-group:nth-child(5) #item-1', 'action': 'click', 'expected_outcome': 'redirects to /selectable'}, {'type': 'button', 'text': 'Resizable', 'selector': '.element-group:nth-child(5) #item-2', 'action': 'click', 'expected_outcome': 'redirects to /resizable'}, {'type': 'button', 'text': 'Droppable', 'selector': '.element-group:nth-child(5) #item-3', 'action': 'click', 'expected_outcome': 'redirects to /droppable'}, {'type': 'button', 'text': 'Dragabble', 'selector': '.element-group:nth-child(5) #item-4', 'action': 'click', 'expected_outcome': 'redirects to /dragabble'}]}, {'type': 'menu', 'text': 'Book Store Application', 'selector': '.element-group:nth-child(6) .group-header', 'action': 'click', 'expected_outcome': 'expands menu', 'sub_elements': [{'type': 'button', 'text': 'Login', 'selector': '.element-group:nth-child(6) #item-0', 'action': 'click', 'expected_outcome': 'redirects to /login'}, {'type': 'button', 'text': 'Book Store', 'selector': '.element-group:nth-child(6) #item-2', 'action': 'click', 'expected_outcome': 'redirects to /books'}, {'type': 'button', 'text': 'Profile', 'selector': '.element-group:nth-child(6) #item-3', 'action': 'click', 'expected_outcome': 'redirects to /profile'}, {'type': 'button', 'text': 'Book Store API', 'selector': '.element-group:nth-child(6) #item-4', 'action': 'click', 'expected_outcome': 'redirects to /swagger'}]}, {'type': 'button', 'text': 'Register', 'selector': '#register', 'action': 'click', 'expected_outcome': 'submits registration form', 'sub_elements': []}, {'type': 'button', 'text': 'Back to Login', 'selector': '#gotologin', 'action': 'click', 'expected_outcome': 'redirects to /login', 'sub_elements': []}], 'ui_validation_indicators': [{'element_selector': '#firstname', 'validation_type': 'attribute', 'validation_value': 'required', 'description': 'HTML5 required attribute'}, {'element_selector': '#lastname', 'validation_type': 'attribute', 'validation_value': 'required', 'description': 'HTML5 required attribute'}, {'element_selector': '#userName', 'validation_type': 'attribute', 'validation_value': 'required', 'description': 'HTML5 required attribute'}, {'element_selector': '#password', 'validation_type': 'attribute', 'validation_value': 'required', 'description': 'HTML5 required attribute'}, {'element_selector': '#password', 'validation_type': 'attribute', 'validation_value': 'pattern', 'description': 'Password pattern enforcement'}, {'element_selector': '#password', 'validation_type': 'masking', 'validation_value': 'masked', 'description': 'Input is masked due to password type'}, {'element_selector': '#g-recaptcha', 'validation_type': 'state_change', 'validation_value': 'captcha', 'description': 'Google reCAPTCHA widget must be completed'}], 'main_content': 'The main content area contains a registration form for the Book Store application, including fields for first name, last name, username, password, and a Google reCAPTCHA. There are also advertisements and a left-side navigation menu with links to various UI test components.', 'key_actions': ['Register a new user', 'Navigate to login page', 'Navigate to Book Store features via side menu', 'Interact with menu sections to reveal sub-items'], 'content_hierarchy': {'primary_sections': ['Header (logo)', 'Left navigation menu', 'Main content (registration form)', 'Sidebar (ads)', 'Footer'], 'subsections': ['Registration form fields', 'reCAPTCHA widget', 'Menu groups: Elements, Forms, Alerts/Frames/Windows, Widgets, Interactions, Book Store Application', 'Advertisement blocks']}, 'security_indicators': ['https', 'captcha', 'file_upload']}
+
+# Hardcoded page source as a string
+page_source = """
+ <html><head id="HeaderLogin"><title>
+	Login | www.ourgoalplan.co.in
+</title><meta content="Microsoft Visual Studio .NET 7.1" name="GENERATOR"><meta content="C#" name="CODE_LANGUAGE"><meta content="JavaScript" name="vs_defaultClientScript"><meta content="http://schemas.microsoft.com/intellisense/ie5" name="vs_targetSchema"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-latest.js" type="text/javascript"></script>
+    <link href="Include/bootstrap/css/bootstrap.min.css" rel="Stylesheet"><link href="Include/bootstrap/css/bootstrap-responsive.min.css" rel="Stylesheet"><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"><link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&amp;family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&amp;display=swap" rel="stylesheet">
+
+    <style type="text/css">
+        @import url('../Include/Style/Common.css');
+
+        body {
+            padding-top: 3%;
+            font-family: 'Lato';
+        }
+
+        /* set padding and size of the form */
+        .form-container {
+            border-radius: 10px;
+            margin: auto;
+            width: 25%;
+            box-shadow: 0 0px 18px 0 var(--border);
+            align-content: center;
+            text-align: center;
+            padding-bottom: 15px;
+            margin-top: 20px;
+            background-color: var(--white);
+        }
+
+        /*For mobiles*/
+        @media only screen and (max-width: 600px) {
+            .form-container {
+                width: 100%;
+            }
+        }
+
+        /*For tablets*/
+        @media only screen and (min-width: 600px) {
+            .form-container {
+                width: 60%;
+            }
+        }
+
+        /****For screen size less than 768 in width show the reset password link and stay logged in button in two line***/
+        @media only screen and (max-width: 767px) {
+
+            #divResetPassword {
+                text-align: left;
+                padding-left: 13%;
+                padding-bottom: 10px;
+            }
+
+            #divStayLoggedIn {
+                padding-left: 13%;
+            }
+        }
+
+        /*******For various sizes of laptops and desktops********/
+
+        /*********Setting top padding for body to avoid vertical scroll bar when validation error message comes***********/
+        @media only screen and (min-height: 850px) {
+            body {
+                padding-top: 8%;
+            }
+        }
+
+        @media only screen and (max-height: 750px) {
+            body {
+                padding-top: 0.4%;
+            }
+        }
+        /******************************************************************************************************************/
+
+        @media only screen and (min-width: 992px) {
+            .form-container {
+                width: 40%;
+            }
+        }
+
+        @media only screen and (min-width: 1200px) {
+            .form-container {
+                width: 30%;
+            }
+        }
+
+        @media only screen and (min-width: 1450px) {
+            .form-container {
+                width: 25%;
+            }
+        }
+
+        @media only screen and (min-width: 1690px) {
+            .form-container {
+                width: 21%;
+            }
+        }
+        /***************************************************/
+
+        .headerText {
+            padding-top: 20px;
+            font-family: 'Lato';
+            padding-bottom: 10px;
+            text-align: center;
+            color: var(--text);
+            font-weight: bolder;
+            font-size: large;
+        }
+
+        input[type="text"], input[type="password"] {
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 15px;
+            width: 82%;
+            -webkit-transition: all 0.5s ease-in-out;
+            transition: all 0.5s ease-in-out;
+            border-radius: 5px;
+            height: 40px;
+            box-shadow: none;
+        }
+
+            input[type="text"]:focus, input[type="password"]:focus {
+                box-shadow: none;
+                border: 1px solid var(--border);
+            }
+
+        #divStayLoggedIn {
+            text-align: left;
+        }
+
+        .forgotPasswordLinkStyle {
+            color: var(--checkbox);
+        }
+
+        .loginButtonStyle {
+            width: 82% !important;
+            height: 40px;
+            font-family: 'Lato', sans-serif !important;
+        }
+
+        .footerStyle {
+            margin-top: 5%;
+        }
+
+            .footerStyle a {
+                color: var(--checkbox);
+            }
+
+        .validationMessageStyle {
+            color: red;
+        }
+
+        .validationMessageContainer {
+            margin-top: 10px;
+        }
+
+        /*******Toggle button style*********************/
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 18px;
+            margin-right: 3px;
+            margin-top: 1.3px;
+            float: left;
+        }
+
+            .switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border);
+            -webkit-transition: .4s;
+            transition: .4s;
+        }
+
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 14px;
+                width: 14px;
+                left: 2px;
+                bottom: 2px;
+                background-color: white;
+                -webkit-transition: .4s;
+                transition: .4s;
+            }
+
+        input:checked + .slider {
+            background-color: var(--checkbox);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--checkbox);
+        }
+
+        input:checked + .slider:before {
+            -webkit-transform: translateX(20px);
+            -ms-transform: translateX(20px);
+            transform: translateX(20px);
+        }
+
+        .toggleText {
+            padding-left: 40px;
+            top: -1.8px;
+            position: absolute;
+            width: 140px;
+        }
+        /* Rounded sliders */
+        .slider.round {
+            border-radius: 28px;
+        }
+
+            .slider.round:before {
+                border-radius: 50%;
+            }
+
+        /***************************************************/
+    </style>
+    <script language="javascript" type="text/javascript">
+
+        function SetFocus() {
+            document.getElementById("txtName").focus();
+        }
+        function ValidateString(inputText) {
+            if (inputText.match(/[<>]/)) {
+                return false;
+            }
+            if (inputText.match(/(&#)/)) {
+                return false;
+            }
+            return true;
+        }
+        function ValidateTextBoxes() {
+            var userName = document.getElementById('txtName').value;
+            var password = document.getElementById('txtPassword').value;
+            if (!ValidateString(userName)) {
+                alert("Inavlid character '&#,<>' in Username");
+                return false;
+            }
+            if (!ValidateString(password)) {
+                alert("Inavlid character '&#,<>' in Password");
+                return false;
+            }
+            return true;
+        }
+    </script>
+</head>
+<body id="body1">
+    <form name="Form2" method="post" action="./Login.aspx" id="Form2">
+<div>
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="">
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="b511YQ4EN6qiM9dNhwuci+9ZDcRH6Ab6BucgApXjkfWWrjeuf05JXSjjPmBX0fIWp9gzMAa0qQwir3Fg+WeaTLmMFVpN7ViulKo0W2cIz2m6CMzxkp2LVCaUhASL9r17Ah+ClTfDdH1fVfAqN937wXuksMD5FoXLo/vCBXpbxGc=">
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['Form2'];
+if (!theForm) {
+    theForm = document.Form2;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/WebResource.axd?d=pynGkmcFUV13He1Qd6_TZAOnzgVhD5l9dp5vV0_9UCk2Fc9wreDxZXjcjKPLmCeaglbopcnffzIcZL6yVTyVRA2&amp;t=638095040254115544" type="text/javascript"></script>
+
+
+<script language="JavaScript">
+<!--
+function SetFocus()
+{
+	document.Form2['txtName'].focus();
+}
+window.onload = SetFocus;
+// -->
+</script>
+<script src="/ScriptResource.axd?d=NJmAwtEo3Ipnlaxl6CMhvitck1uy4fpNKho7KdXKALGkBhjsbZ365jWNj0yYMc1Y4S0AvYtuW3LyYRAB633xYwS9oNkxboLrzdSefBqT3UNo0-vwIqSLD2AGgNfOl7bX4x6bdcsnKEs67UiNiOOplgWIrr7b7QtWJ63zhr4z2UQ1&amp;t=ffffffffe6d5a9ac" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=dwY9oWetJoJoVpgL6Zq8ONGkyU2q0LgzhLe7jw7F1GfabogF6vVrYYVD-9MCpG7wP9kKQ6BssEHhuJo6h39NrxwrURN01BIG1akpQ4RvJ6ri5LR9uCd3wLJvOKg1-fm9wCoJqK07p_aKWB54RflwqCLSJksKCggTwZW964PknR01&amp;t=ffffffffe6d5a9ac" type="text/javascript"></script>
+<div>
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="C2EE9ABB">
+	<input type="hidden" name="__SCROLLPOSITIONX" id="__SCROLLPOSITIONX" value="0">
+	<input type="hidden" name="__SCROLLPOSITIONY" id="__SCROLLPOSITIONY" value="0">
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="MAikwtYW6gb1kWNnQO6uiuiBacFOqNHkJF8N0Osl1Eu3jZkXqfKPzMPcqgFGaNQwv5QRv6nbqi24Paanmf0ku8WhsRx39LBkq9tXc2gaCZL6tuvZXX3ym10LDc4iSCM4wREnmOnN9Ia5BIXDobmvzSexHOmhaK1/BKW/2qyR1YED0fwQ/ibzu4Sq44b10VluPgUlV9ybdZB1qscTlVtUUA==">
+</div>
+        <script type="text/javascript">
+//<![CDATA[
+Sys.WebForms.PageRequestManager._initialize('ScriptManager1', 'Form2', [], [], [], 90, '');
+//]]>
+</script>
+
+        <div class="container-fluid">
+            <div align="center">
+                <img id="imgLogo" src="Images/goalplan_small.jpg" style="border-width:0px;"><br>
+            </div>
+            <div class="form-container">
+                <p class="text-primary headerText">Login</p>
+                <div class="form-group">
+                    <input name="txtName" type="text" id="txtName" class="input-medium" placeholder="Username">
+                </div>
+                <div class="form-group" style="margin-bottom: 5px;">
+                    <input name="txtPassword" type="password" id="txtPassword" class="input-medium" placeholder="Password">
+                </div>
+                <div class="row" style="margin-bottom: 15px;">
+                    <div class="col-sm-6" id="divResetPassword">
+                        <a id="lnkBtnResetPassword" class="forgotPasswordLinkStyle" href="javascript:__doPostBack('lnkBtnResetPassword','')">Forgot Password</a>
+                    </div>
+                    <div class="col-sm-6" id="divStayLoggedIn">
+                        <label class="switch">
+                            <input id="chkRemember" type="checkbox" name="chkRemember" checked="checked">
+                            <span class="slider round"></span>
+                            <div class="toggleText">Stay Logged In</div>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <input type="submit" name="btnLogin" value="Login" onclick="return ValidateTextBoxes();" id="btnLogin" class="btn btn-danger loginButtonStyle">
+                </div>
+                <div class="form-group validationMessageContainer">
+                    <span id="lblValidation" class="validationMessageStyle"></span>
+                </div>
+            </div>
+            <div align="center" class="footerStyle">
+                © <a href="http://www.mindfiresolutions.com" target="_blank">Mindfire Solutions</a> | 2005 - 2025.
+                        <br>
+            </div>
+        </div>
+    
+
+<script type="text/javascript">
+//<![CDATA[
+
+theForm.oldSubmit = theForm.submit;
+theForm.submit = WebForm_SaveScrollPositionSubmit;
+
+theForm.oldOnSubmit = theForm.onsubmit;
+theForm.onsubmit = WebForm_SaveScrollPositionOnSubmit;
+//]]>
+</script>
+</form>
+
+
+
+</body></html>
+"""
+
 class LLMWrapper:
     def __init__(self, config_path="llm_config.yaml"):
         with open(config_path) as f:
@@ -717,7 +1109,7 @@ class WebTestGenerator:
     #     return base_tests + auth_tests
 
     def generate_script_for_test_case(self, test_case, page_metadata, page_source):
-        captcha_wait_time = self.wait_time or "2 minutes (120 seconds)"
+        captcha_wait_time = self.wait_time or "30 seconds"
         # prompt = f"""Generate Python Selenium script for the following test cases:
         # {json.dumps(test_case, indent=2)}
         
@@ -800,7 +1192,6 @@ class WebTestGenerator:
             # system_prompt = self.prompt_manager.get_prompt("generate_script", "system", tool=self.testing_tool)
             system_prompt_template = self.prompt_manager.get_prompt("generate_script", "system", tool=self.testing_tool)
             system_prompt = system_prompt_template.format(selenium_version=self.selenium_version, language=self.language)
-
             ## For Puppeteer-2.0.0:
             # system_prompt = system_prompt_template.format(language=self.language)
             self.logger.debug(f"system prompt for script generation: {system_prompt}")
@@ -1311,53 +1702,12 @@ class URLExtractor:
 #     report_file = tester.run_workflow(args.url, args.username, args.password)
 #     print(f"Test report generated: {report_file}")
 
+# Main execution
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Automated Website Testing Agent")
-    parser.add_argument("--url", required=True, help="Website URL to test")
-    parser.add_argument("--username", help="Login username")
-    parser.add_argument("--password", help="Login password")
-    parser.add_argument("--loglevel", "-l", 
-                        default="INFO",
-                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                        help="Set logging level")
-    # Add new argument
-    parser.add_argument("--selenium-version", 
-                        default="4.15.2",
-                        help="Selenium version to use in generated scripts")
-    parser.add_argument("--wait-time", 
-                    default="",
-                    help="Custom wait time text for CAPTCHA handling (e.g. '5 minutes')")
+    # Initialize the generator
+    generator = WebTestGenerator(log_level="INFO")
     
-    # Add to argparse:
-    parser.add_argument("--testing-tool",
-                        default="selenium",
-                        choices=["selenium", "playwright", "puppeteer"],
-                        help="Testing framework to generate scripts for")
-    
-    parser.add_argument("--language",
-                    default="python",
-                    help="Programming language for test scripts")
-    
-    args = parser.parse_args()
-    
-    try:
-        tester = WebTestGenerator(log_level=args.loglevel.upper(), selenium_version=args.selenium_version, wait_time=args.wait_time, testing_tool=args.testing_tool, language=args.language)  # Convert to uppercase
-    except ValueError as e:
-        print(f"Invalid configuration: {str(e)}")
-        exit(1)
-    report_file = tester.run_workflow(args.url, args.username, args.password)
-    print(f"Test report generated: {report_file}")
-
-    # if args.url:
-    #     # Test URL extraction standalone
-    #     tester = WebTestGenerator(log_level=args.loglevel.upper())
-    #     print("\nTesting URL extraction standalone:")
-    #     urls = tester.url_extractor.extract_urls(args.url)
-    #     print(f"\nExtracted {len(urls)} URLs:")
-    #     for url in urls:
-    #         print(f" - {url}")
-    #     tester.driver.quit()
-    #     exit()
-
-
-    
+    # Generate scripts for each test case
+    for test_case in test_cases:
+        script = generator.generate_script_for_test_case(test_case, page_metadata, page_source)
+        print(f"Generated script for '{test_case['name']}':\n{script}\n")

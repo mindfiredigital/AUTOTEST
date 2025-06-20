@@ -1,8 +1,8 @@
 {
     "credentials": {
         "valid": {
-            "username": "student",
-            "password": "Password123"
+            "username": "DK2421",
+            "password": "c!m69hGNQ5cnuVZ"
         },
         "invalid": {
             "username": "invaliduser",
@@ -11,30 +11,38 @@
     },
     "registration_fields": {
         "username": {
-            "valid": ["ankituser"],
+            "valid": ["Dibasd"],
             "invalid": ["","testuser"]
         },
         "password": {
-            "valid": ["ankit1234"],
+            "valid": ["Dibas@24"],
             "invalid": ["","test1234"]
         },
         "confirm password": {
-            "valid": ["ankit1234"],
+            "valid": ["Dibas@24"],
             "invalid": ["", "hggdgsa"]
         }
     },
     "contact_form": {
         "valid": {
-            "full name": "Ankit Saha",
-            "phone": "+911234567899",
-            "email": "ankitbbsr2002@gmail.com",
-            "subject": "Test Enquiry",
-            "message": "Valid inquiry message"
+            "Name" : {
+                "First Name": "Dibas Kumar",
+                "Last Name": "De"
+            },
+            "Email": "dibaskumarde@hgmail.com",
+            "Gender": "Male",
+            "Mobile Number": "9330495614",
+            "Date of Birth": "24 Aug 2003",
+            "Subjects":"Computer Science",
+            "Hobbies": "[Sports, Music]",
+            "Current Address": "abc",
+            "State": "NCR",
+            "City": "Delhi"
         },
         "invalid": {
-            "full name": "",
-            "phone": "+9182608",
-            "email": "invalid-email"
+            "First Name": "",
+            "Last Name": "abc",
+            "UserName": "invalid-username"
         }
     }
 }

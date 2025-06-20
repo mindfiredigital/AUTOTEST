@@ -1,7 +1,7 @@
 model_provider: "openai"  # Options: openai, groq, anthropic, etc.
 model_settings:
   openai:
-    analysis_model: "gpt-4o-2024-11-20" # For page analysis and test generation
+    analysis_model: "gpt-4.1-2025-04-14" # For page analysis and test generation
     selenium_model: "gpt-4.1-2025-04-14" # For script generation
     temperature: 0.2
 
@@ -14,7 +14,7 @@ model_settings:
 
 # model_provider: "google-gemini"  # Options: openai, groq, anthropic, etc.
 # model_settings:
-#   gemini:
+#   google-gemini:
 #     analysis_model: "gemini-2.0-flash" # For page analysis and test generation
 #     selenium_model: "gemini-1.5-pro" # For script generation
 #     temperature: 0.1
