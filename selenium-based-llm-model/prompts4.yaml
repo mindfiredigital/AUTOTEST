@@ -8,32 +8,72 @@ llm_page_analysis:
             "auth_type": "login|registration|none",
             "auth_fields": [
                 {{
-                    "name": "username",
+                    "name": "field_name",
                     "type": "email|text|password",
-                    "required": boolean
+                    "required": boolean,
+                    "selector": "css_selector_or_xpath",
+                    "validation_indicators": [
+                        {{
+                            "type": "class|style|element|attribute|alert",
+                            "value": "class_name|style_property|element_selector|attribute_name|alert_message",
+                            "description": "e.g., 'red border', 'exclamation mark', 'pattern attribute', 'JS alert for invalid input'"
+                        }}
+                    ],
+                    "default_value": "visible_default_value_if_any"
                 }}
-            ]
+            ],
+            "credentials_hint": "text_or_element_containing_credentials"
         }},
         "contact_form_fields": [
             {{
-                "name": "first name",
-                "type": "text",
-                "required": true
-            }},
+                "id": "form_id",
+                "action": "form_action_url",
+                "method": "get|post",
+                "fields": [
+                    {{
+                        "name": "field_name",
+                        "type": "text|email|password|checkbox|radio|select|file",
+                        "required": boolean,
+                        "selector": "css_selector_or_xpath",
+                        "validation_indicators": [
+                            {{
+                                "type": "class|style|element|attribute|alert",
+                                "value": "class_name|style_property|element_selector|attribute_name|alert_message",
+                                "description": "e.g., 'red border', 'exclamation mark', 'pattern attribute', 'JS alert for invalid input'"
+                            }}
+                        ]
+                    }}
+                ],
+                "submit_button": {{
+                    "text": "button_text",
+                    "selector": "css_selector_or_xpath"
+                }}
+            }}
+        ],
+        "interactive_elements": [
             {{
-                "name": "last name",
-                "type": "text",
-                "required": true
-            }},
+                "type": "button|link|menu|dropdown|accordion",
+                "text": "element_text_or_image_alt",
+                "selector": "css_selector_or_xpath",
+                "action": "click|hover|submit",
+                "expected_outcome": "e.g., 'redirects to /path', 'opens modal', 'expands menu'",
+                "sub_elements": [
+                    {{
+                        "type": "button|link|menu|dropdown",
+                        "text": "sub_element_text_or_image_alt",
+                        "selector": "sub_element_selector",
+                        "action": "click|hover",
+                        "expected_outcome": "e.g., 'redirects to /to_that_page_name', 'expands submenu'"
+                    }}
+                ]
+            }}
+        ],
+        "ui_validation_indicators": [
             {{
-                "name": "message",
-                "type": "text",
-                "required": true
-            }},
-            {{
-                "name": "email",
-                "type": "email",
-                "required": true
+                "element_selector": "css_selector_or_xpath",
+                "validation_type": "attribute|masking|state_change",
+                "validation_value": "attribute_name|masked|state_description",
+                "description": "e.g., 'pattern attribute present', 'input is masked', 'checkbox toggles visually'"
             }}
         ],
         "main_content": "Brief description of main content areas",
@@ -42,47 +82,54 @@ llm_page_analysis:
             "primary_sections": ["section1", "section2"],
             "subsections": ["subsection1", "subsection2"]
         }},
-        "interactive_patterns": {{
-            "forms": ["login", "search"],
-            "dynamic_elements": ["live_search", "infinite_scroll"]
-        }},
-        "security_indicators": ["https", "captcha"]
+        "security_indicators": ["https", "captcha", "csrf_token", "otp", "file_upload"]
     }}
 
     Current page HTML:
     {page_source}
 
     Focus on:
+    - All forms and their fields, including types, requirements, and submission details
+    - Any Login/Registration form should be under auth_requirements and any normal form should be under contact_form_fields
+    - Interactive elements like buttons, links, menus, and their actions, including all sub-elements (e.g., menu items)
+    - For links that contain images, set the "text" field to the image's `alt` text, or a descriptive phrase like "Logo image" if no `alt` is present
+    - Include "expected_outcome" for each interactive element, such as "redirects to /path" for links, based on the `href` attribute or other indicators
+    - UI elements indicating validation states (e.g., classes like 'is-invalid', style changes like 'border-color: red', icons like '!', JS alerts, attributes like 'pattern')
     - Semantic HTML structure
-    - User interaction patterns
+    - User interaction patterns (e.g., clicking menus to expand or redirect)
     - Content organization
-    - Security features
+    - Security features, including https, captcha, csrf_token, OTP and file upload fields
+    - Specifically look for:
+      - Classes or attributes indicating invalid states (e.g., 'is-invalid', 'error')
+      - CSS changes (e.g., border colors), inline elements (e.g., '!' icons), or JS alerts for validation
+      - Full menu structures, including all sub-items, with expected actions (e.g., redirection URLs)
+      - Page-specific validation behaviors beyond explicit error messages (e.g., masking, pattern enforcement)
+      - Any visible default credentials or hints for login (e.g., text like 'Username: testuser' or 'Password: testpass123')
 
 generate_tests:
   system: |
     You are a senior QA engineer. Output MUST be valid JSON format as specified. Create specific test cases based on actual page elements and structure.
     Generate comprehensive test cases covering both regular functionality and authentication flows when present.
-    Generate test cases using actual authentication test data only when needed and available.
     Ensure valid JSON output.
   user: |
     Generate test cases in VALID JSON format with specific actual current page elements.
     Generate comprehensive test cases including both regular and authentication tests.
     Output ONLY valid JSON using this EXACT structure:
     {{
-        "test_cases": [
-            {{
-                "name": "Test name",
-                "type": "functional|auth-positive|auth-negative",
-                "steps": ["step1", "step2"],
-                "selectors": {{
-                    "element1": "css_selector",
-                    "element2": "xpath"
-                }},
-                "validation": "Expected outcome",
-                "test_data": {{
-                    "field_name": "specific_value"
-                }}
-            }}
+      "test_cases": [
+          {{
+              "name": "Test name",
+              "type": "functional|auth-positive|auth-negative|ui-validation",
+              "steps": ["step1", "step2"],
+              "selectors": {{
+                  "element1": "css_selector_or_xpath",
+                  "element2": "xpath"
+              }},
+              "validation": "Expected outcome",
+              "test_data": {{
+                  "field_name": "specific_value"
+              }}
+          }}
         ]
     }}
 
@@ -103,15 +150,47 @@ generate_tests:
 
     Guidelines:
     1. Create tests SPECIFIC to these page elements
-    2. Functional tests for core page elements
-    3. Cover functional, UI consistency checks, and security aspects
-    4. Prioritize main user flows
-    5. Include edge cases for observed input types
-    6. Include both positive and negative test cases to test functionality
+    2. Functional tests for core page elements and ALL interactive elements (e.g., every menu and sub-menu option)
+    3. For interactive elements with "expected_outcome" like "redirects to /path", generate navigation test cases with "validation": "Page redirects to /path"
+    4. Cover functional, UI consistency checks, and security aspects
+    5. Prioritize main user flows
+    6. Include edge cases for observed input types
+    7. Include both positive and negative test cases
+    8. Include the same key names as in the test data provided for field_name in test_data, keeping the order constant
+    9. For authentication tests (if applicable):
+        - Valid credential submission (auth-positive): Use default credentials if provided in metadata
+        - Invalid format tests (auth-negative): Validate EITHER Bootstrap class (e.g., 'is-invalid') OR error message/alert, whichever is present. Use partial matching for error messages (e.g., contains 'required', 'invalid')
+        - Missing required fields (auth-negative): Handle ALL missing input scenarios here
+        - Security validations
+    10. For UI validation tests:
+        - Focus ONLY on unique visual or behavioral feedback NOT covered by auth-negative tests, such as:
+          - Password masking (e.g., type='password' hides input)
+          - Presence of validation attributes (e.g., 'pattern' attribute)
+          - UI state changes (e.g., checkbox toggle visuals)
+          - Error message styling (e.g., red text) for invalid inputs, but only if validation_indicators include styling info in metadata
+        - DO NOT generate ui-validation tests for missing inputs or invalid formats; these are covered by auth-negative tests
+    11. Avoid redundant tests by ensuring auth-negative tests fully cover missing inputs and invalid formats
+    12. Generate test cases for ALL interactive elements and sub-elements in the metadata, including each menu and sub-menu option
+    13. Generate as many test cases as needed for FULL coverage
+    14. If toggles or checkboxes (e.g., "Stay Logged In", "Remember Me") are present in forms:
+        - Generate test cases for both enabled and disabled states:
+          - Enabled: Verify session persists after browser close/reopen
+          - Disabled: Verify session does not persist after browser close
+    15. For all forms (auth or contact), generate test cases to verify submission using the Enter key:
+        - Ensure the test submits the form after filling all required fields and pressing Enter
+        - Validate the expected outcome (e.g., successful submission or error message)
+    16. For invalid input tests (auth-negative):
+        - Generate ONLY ONE test case per field for invalid characters
+        - Use a single representative invalid input (e.g., '<' or another invalid character from validation_indicators) per field
+        - DO NOT generate multiple tests for different invalid characters (e.g., '<' and '&#') for the same field, as they test the same validation logic
+    17. For file upload fields (inputs with type='file'):
+        - Do not include any specific file name or placeholder in 'test_data'.
+        - In the 'steps', include a generic instruction such as 'Select a file to upload'.
+        - Ensure the test case does not specify any particular file; file selection should be handled manually or configured separately when the test is executed.
 
     Focus on:
     - Form validation rules
-    - Navigation consistency
+    - Navigation consistency (test every menu and sub-menu navigation)
     - Data presentation integrity
     - Interactive element functionality
     - Security considerations
@@ -120,15 +199,10 @@ generate_tests:
     1. Never add comments or explanations
     2. Validate JSON before responding
     3. Use actual selectors from page metadata
-    4. For auth tests (if applicable), reference EXACT values from provided test data
-    5. Auth tests (if auth required):
-        - Valid credential submission
-        - Invalid format tests
-        - Missing required fields
-        - Security validations
-    6. Include both positive and negative cases
-
-    Return test cases in specified valid JSON format with Selenium selectors.
+    4. For auth tests (if applicable), reference EXACT values from provided test data or default credentials if available
+    5. Include both positive and negative cases
+    6. Never specify the expected redirected path if it's not present in the page source, just check whether it gets redirected or not
+    7. Return test cases in specified valid JSON format with Selenium selectors
   prompt_suffix:
     test_data: |
       Available Test Data:
@@ -158,17 +232,24 @@ generate_script:
   selenium:
     system: |
       You are a senior Selenium automation engineer specializing in creating robust, reliable test scripts for Selenium {selenium_version}. Generate executable Selenium code using provided selectors. Output ONLY valid {language} code in markdown blocks. You write code that:
-          - Uses best practices for element selection
+          - Uses best practices for element selection (prefer CSS selectors, fallback to XPath)
           - Uses the correct WebDriver initialization pattern for Selenium {selenium_version}
           - Waits for all JavaScript and AJAX on the page to load before starting any test steps
-          - For CAPTCHA-protected pages:
-              - Detect CAPTCHA elements using common selectors
-              - Pause execution for manual solving when CAPTCHA is present
-              - Add clear console instructions for user intervention
           - Implements proper waits and synchronization
           - Handles errors gracefully with retries
           - Includes detailed logging and reporting
           - Is specific to the website being tested, not generic
+          - Implements robust click handling to deal with potential ad overlays:
+            - Define a helper function `click_element(driver, element, max_attempts=3)` that:
+              - Waits for the element to be clickable using `WebDriverWait(driver, 10).until(EC.element_to_be_clickable(element))`
+              - Attempts to click the element with retries:
+                - Adds a 1-second sleep before the first attempt to allow dynamic elements like ads to stabilize
+                - Tries `element.click()`
+                - If `ElementClickInterceptedException` occurs, logs a warning and tries `driver.execute_script("arguments[0].click();", element)`
+                - Waits 2 seconds before the next attempt if the click fails
+                - Logs each attempt and any exceptions (e.g., `logger.info` for attempts, `logger.warning` for fallbacks)
+              - Raises an exception with a descriptive message if all attempts fail after `max_attempts`
+            - Use this `click_element` function instead of direct `element.click()` for all click actions in the test script
     user: |
       Generate {language} Selenium script for the following test cases:
       {test_case}
@@ -186,25 +267,84 @@ generate_script:
       from selenium.webdriver.chrome.service import Service
       from webdriver_manager.chrome import ChromeDriverManager
 
-      # This is the correct way to initialize Chrome in Selenium {selenium_version}
       service = Service(ChromeDriverManager().install())
       driver = webdriver.Chrome(service=service)
       ```
-
-      DO NOT use: webdriver.Chrome(ChromeDriverManager().install()) directly as it will cause errors
 
       **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
       - Use a robust method such as:
           - Waiting for `document.readyState == 'complete'`
           - Waiting for jQuery/AJAX activity to finish if present
 
-      Include CAPTCHA handling when present:
-          1. Security Features: {security_indicators}
-          2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
-          3. If CAPTCHA detected:
-              - Print clear instructions for manual solving
-              - Pause execution for {captcha_wait_time}
-              - Add timeout exception handling
+      ***Strict Rules to be followed:***
+
+        For registration type test cases:
+          - Consider both whether the user is new or existing as per page source
+          - Analyse the page source for appropriate message/action taken post successful registration with test case pass/failed logged
+          - Handle JavaScript alert messages (e.g., alert with success text) gracefully by accepting/dismissing them and logging their content
+        
+        **Dynamic Handling of CAPTCHA, OTP, and File Upload Elements:**
+          - Do not check for CAPTCHA, OTP, or file upload elements unless they are required by the test case flow.
+          - Based on the test case steps and page metadata:
+            - For test cases involving form submissions:
+              - Before submitting the form (e.g., clicking a submit button), check for CAPTCHA using common selectors (e.g., #captcha, .g-recaptcha, iframe[src*='recaptcha'], [id*='captcha'], [class*='captcha']). If present, pause execution for manual solving with clear instructions (e.g., `logger.info('CAPTCHA detected. Please solve it manually.')`) and wait for {captcha_wait_time}.
+              - After submitting the form, check for OTP fields using common selectors (e.g., input[name*='otp'], input[id*='otp'], input[placeholder*='OTP']). If present, pause execution for manual entry with clear instructions (e.g., `logger.info('OTP field detected. Please enter the OTP manually.')`) and wait for {captcha_wait_time}.
+            - For test cases involving a file upload step:
+              - At the specific step requiring file upload, check for file input elements (e.g., input[type='file']). If present, pause execution for manual file selection with clear instructions (e.g., `logger.info('Please select a file to upload manually.')`) and wait for {captcha_wait_time}. Do not provide sample files; the user must upload manually.
+            - For test cases unrelated to forms, submissions, or file uploads (e.g., navigation, menu clicks, link clicks), do not include checks or pauses for CAPTCHA, OTP, or file upload elements.
+          - Use `WebDriverWait` with a short timeout (e.g., 5 seconds) to detect these elements dynamically at the relevant steps, and handle absences with `TimeoutException` to proceed without pausing if not found.
+          - Only pause execution once per relevant element per test case step, avoiding redundant pauses.
+
+        If file download exists:
+          - Check whether file upload is required/necessary before it based on the test case steps
+          - If required, pause execution for manual upload at the appropriate step
+          - If not required, proceed without pausing or triggering file upload elements, logging the decision (e.g., `logger.info('File upload not required for this test case.')`)
+          - Configure the test to automatically download the file into the operating system's default 'Downloads' directory (platform-aware: Windows, macOS, Linux)
+          - Do not compare the downloaded file name as it may vary if it already exists
+
+        For color validations, use a generic method to check if the color is red, handling both rgb and rgba formats:
+          - Use `getComputedStyle` to retrieve the color
+          - Normalize and check for red (255, 0, 0) or named 'red'
+
+        For field validation:
+          - Check HTML5 `:invalid` state for required fields
+          - Look for error messages or classes (e.g., 'is-invalid', '.error') with partial matching
+          - For invalid input tests (e.g., username or password), use consistent logic:
+            - Fill the field with test data
+            - Submit the form
+            - Validate the expected error (class, message, or alert) using partial matching
+
+        For URL validations (e.g., redirection tests):
+          - Compare ONLY the domain and path, ignoring the protocol (http/https)
+          - Use Python's `urlparse` to extract and compare `netloc` (domain) and `path`
+          - Example: For "http://www.example.com/about", compare only "www.example.com/about"
+
+        For navigation type test cases:
+          - Do not include checks or pauses for OTP, CAPTCHA, or file upload elements unless explicitly required by the test case
+
+        For checkbox and radio button interactions:
+          - Implement a robust, generic method to handle checkboxes and radio buttons across different pages
+          - The method should:
+            - Locate the input element using the provided selector (e.g., CSS or XPath)
+            - If the input has an `id` attribute, attempt to find the associated label using `label[for='{{input_id}}']`
+            - If a label is found, use `click_element` to click the label; otherwise, use `click_element` to click the input directly
+            - For checkboxes, check the current state with `is_selected()` and use `click_element` to toggle it only if the desired state (checked/unchecked) differs
+            - For radio buttons, use `click_element` to select the desired option if not already selected
+            - Retry up to 3 times with a 2-second delay between attempts if the state cannot be set or verified
+            - Log each attempt and any exceptions (e.g., `ElementClickInterceptedException`)
+            - If the state cannot be set after retries, log an error and raise an exception
+
+        For date picker interactions:
+          - Implement a robust method to handle date picker elements to avoid stale element references
+          - The method should:
+            - Locate the date input field using the provided selector
+            - Use `click_element` to open the date picker
+            - Wait for the date picker to become visible using `WebDriverWait` and `visibility_of_element_located` for the date picker's container (e.g., a div with a specific class or id)
+            - Locate the specific date element within the date picker using a dynamic selector (e.g., based on the date value or text)
+            - Use `click_element` to select the date
+            - Implement a retry mechanism (up to 3 attempts) for locating and clicking the date element to handle dynamic updates
+            - After selecting the date, verify that the input field reflects the chosen date
+            - Log each step and any exceptions for debugging purposes
 
       Return ONLY executable {language} code in markdown format.
       Return ONLY CODE in markdown blocks. No explanations.
@@ -266,6 +406,8 @@ generate_script:
               - Print clear instructions for manual solving
               - Pause execution for {captcha_wait_time}
               - Add timeout exception handling
+
+        
 
       Return ONLY executable JavaScript code in markdown format.
       Return ONLY CODE in markdown blocks. No explanations.
