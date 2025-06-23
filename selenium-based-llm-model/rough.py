@@ -96,7 +96,7 @@ import yaml
 # Hardcoded test cases in JSON format
 test_cases = [
      {
-      "name": "Login with valid credentials",
+      "name": "Login with: valid credentials",
       "type": "auth-positive",
       "steps": [
         "Navigate to https://www.ourgoalplan.co.in/Login.aspx",
@@ -583,6 +583,22 @@ class WebTestGenerator:
         self.logger.addFilter(ContextFilter())
         self.logger.propagate = False  # Prevent duplicate logs
         self.url_extractor = URLExtractor(self.driver, self.logger)
+
+    def sanitize_filename(filename):
+        """
+        Replace special characters with underscores to create valid filenames.
+        Keeps alphanumeric characters, hyphens, and underscores.
+        """
+        # Replace any character that's not alphanumeric, hyphen, or underscore with underscore
+        sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '_', filename)
+        
+        # Optional: Remove multiple consecutive underscores
+        sanitized = re.sub(r'_+', '_', sanitized)
+        
+        # Optional: Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+        
+        return sanitized
 
     def setup_browser(self):
         chrome_options = Options()
@@ -1246,10 +1262,19 @@ class WebTestGenerator:
                     os.makedirs(script_dir)
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                
+                # Sanitize the test case name
+                # Replace any character that's not alphanumeric, hyphen, or underscore with underscore
+                sanitized_name = re.sub(r'[^a-zA-Z0-9\-_]', '_', test_case['name'])
+                # Optional: Remove multiple consecutive underscores
+                sanitized_name = re.sub(r'_+', '_', sanitized_name)
+                # Optional: Remove leading/trailing underscores
+                sanitized_name = sanitized_name.strip('_')
+
                 if "```python" in script_content:
-                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.py"
+                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.py"
                 else:
-                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.java"
+                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.java"
 
                 with open(script_name, 'w') as f:
                     f.write(code)
