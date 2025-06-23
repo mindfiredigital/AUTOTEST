@@ -187,6 +187,7 @@ generate_tests:
         - Do not include any specific file name or placeholder in 'test_data'.
         - In the 'steps', include a generic instruction such as 'Select a file to upload'.
         - Ensure the test case does not specify any particular file; file selection should be handled manually or configured separately when the test is executed.
+    18. If CAPTCHA, OTP or File Upload is required for a test case flow, include them in steps
 
     Focus on:
     - Form validation rules
@@ -235,21 +236,24 @@ generate_script:
           - Uses best practices for element selection (prefer CSS selectors, fallback to XPath)
           - Uses the correct WebDriver initialization pattern for Selenium {selenium_version}
           - Waits for all JavaScript and AJAX on the page to load before starting any test steps
-          - Implements proper waits and synchronization
+          - Implements efficient waits and synchronization to minimize delays
           - Handles errors gracefully with retries
           - Includes detailed logging and reporting
           - Is specific to the website being tested, not generic
-          - Implements robust click handling to deal with potential ad overlays:
-            - Define a helper function `click_element(driver, element, max_attempts=3)` that:
-              - Waits for the element to be clickable using `WebDriverWait(driver, 10).until(EC.element_to_be_clickable(element))`
-              - Attempts to click the element with retries:
-                - Adds a 1-second sleep before the first attempt to allow dynamic elements like ads to stabilize
+          - Implements efficient and robust element interaction:
+            - Define a helper function `retry_find_element(driver, by, selector, retries=3, delay=1)` that:
+              - Uses `WebDriverWait` with a 5-second timeout to locate the element
+              - Retries up to `retries` times with a `delay` between attempts if not found or stale
+              - Logs each attempt and any exceptions
+            - Define a helper function `click_element(driver, element, max_attempts=2)` that:
+              - Waits for the element to be clickable using `WebDriverWait(driver, 5).until(EC.element_to_be_clickable(element))`
+              - Attempts to click with retries:
                 - Tries `element.click()`
                 - If `ElementClickInterceptedException` occurs, logs a warning and tries `driver.execute_script("arguments[0].click();", element)`
-                - Waits 2 seconds before the next attempt if the click fails
-                - Logs each attempt and any exceptions (e.g., `logger.info` for attempts, `logger.warning` for fallbacks)
-              - Raises an exception with a descriptive message if all attempts fail after `max_attempts`
-            - Use this `click_element` function instead of direct `element.click()` for all click actions in the test script
+                - Waits 1 second before the next attempt if the click fails
+                - Logs each attempt and any exceptions
+              - Raises an exception if all attempts fail after `max_attempts`
+            - Use `retry_find_element` to locate elements and `click_element` for clicking actions
     user: |
       Generate {language} Selenium script for the following test cases:
       {test_case}
@@ -284,16 +288,19 @@ generate_script:
           - Handle JavaScript alert messages (e.g., alert with success text) gracefully by accepting/dismissing them and logging their content
         
         **Dynamic Handling of CAPTCHA, OTP, and File Upload Elements:**
-          - Do not check for CAPTCHA, OTP, or file upload elements unless they are required by the test case flow.
-          - Based on the test case steps and page metadata:
-            - For test cases involving form submissions:
-              - Before submitting the form (e.g., clicking a submit button), check for CAPTCHA using common selectors (e.g., #captcha, .g-recaptcha, iframe[src*='recaptcha'], [id*='captcha'], [class*='captcha']). If present, pause execution for manual solving with clear instructions (e.g., `logger.info('CAPTCHA detected. Please solve it manually.')`) and wait for {captcha_wait_time}.
-              - After submitting the form, check for OTP fields using common selectors (e.g., input[name*='otp'], input[id*='otp'], input[placeholder*='OTP']). If present, pause execution for manual entry with clear instructions (e.g., `logger.info('OTP field detected. Please enter the OTP manually.')`) and wait for {captcha_wait_time}.
-            - For test cases involving a file upload step:
-              - At the specific step requiring file upload, check for file input elements (e.g., input[type='file']). If present, pause execution for manual file selection with clear instructions (e.g., `logger.info('Please select a file to upload manually.')`) and wait for {captcha_wait_time}. Do not provide sample files; the user must upload manually.
-            - For test cases unrelated to forms, submissions, or file uploads (e.g., navigation, menu clicks, link clicks), do not include checks or pauses for CAPTCHA, OTP, or file upload elements.
-          - Use `WebDriverWait` with a short timeout (e.g., 5 seconds) to detect these elements dynamically at the relevant steps, and handle absences with `TimeoutException` to proceed without pausing if not found.
-          - Only pause execution once per relevant element per test case step, avoiding redundant pauses.
+          - IF CAPTCHA, OTP or FILE UPLOAD elements detected in Page Source:
+            - Do not check for CAPTCHA, OTP, or file upload elements unless required by the test case flow
+            - Based on the test case steps and page metadata:
+              - For test cases involving form submissions:
+                - Before submitting the form, check for CAPTCHA using common selectors (e.g., #captcha, .g-recaptcha, iframe[src*='recaptcha'], [id*='captcha'], [class*='captcha']). If present, pause execution for manual solving with clear instructions (e.g., `logger.info('CAPTCHA detected. Please solve it manually.')`) and wait for {captcha_wait_time}.
+                - After submitting the form, check for OTP fields using a single selector (e.g., "input[name*='otp'], input[id*='otp'], input[placeholder*='OTP']") with `WebDriverWait` (5 seconds). If present, pause execution for manual entry with clear instructions (e.g., `logger.info('OTP field detected. Please enter the OTP manually.')`) and wait for {captcha_wait_time}.
+              - For test cases involving a file upload step:
+                - At the specific step requiring file upload, check for file input elements (e.g., input[type='file']). If present, pause execution for manual file selection with clear instructions (e.g., `logger.info('Please select a file to upload manually.')`) and wait for {captcha_wait_time}.
+              - For test cases unrelated to forms, submissions, or file uploads, do not include checks or pauses for CAPTCHA, OTP, or file upload elements.
+            - Use `WebDriverWait` with a 0-second timeout to detect these elements dynamically at relevant steps, handling absences with `TimeoutException` to proceed without pausing if not found.
+            - Only pause execution once per relevant element per test case step, avoiding redundant pauses.
+          - IF CAPTCHA, OTP or FILE UPLOAD elements not present in Page Source: 
+            - Do not include code for checking CAPTCHA, OTP, or file upload elements in the generated script unless mentioned in the HTML page source provided
 
         If file download exists:
           - Check whether file upload is required/necessary before it based on the test case steps
@@ -301,6 +308,7 @@ generate_script:
           - If not required, proceed without pausing or triggering file upload elements, logging the decision (e.g., `logger.info('File upload not required for this test case.')`)
           - Configure the test to automatically download the file into the operating system's default 'Downloads' directory (platform-aware: Windows, macOS, Linux)
           - Do not compare the downloaded file name as it may vary if it already exists
+          - Only compare files before and after downloading to get the latest file
 
         For color validations, use a generic method to check if the color is red, handling both rgb and rgba formats:
           - Use `getComputedStyle` to retrieve the color
@@ -330,7 +338,7 @@ generate_script:
             - If a label is found, use `click_element` to click the label; otherwise, use `click_element` to click the input directly
             - For checkboxes, check the current state with `is_selected()` and use `click_element` to toggle it only if the desired state (checked/unchecked) differs
             - For radio buttons, use `click_element` to select the desired option if not already selected
-            - Retry up to 3 times with a 2-second delay between attempts if the state cannot be set or verified
+            - Retry up to 3 times with a 1-second delay between attempts if the state cannot be set or verified
             - Log each attempt and any exceptions (e.g., `ElementClickInterceptedException`)
             - If the state cannot be set after retries, log an error and raise an exception
 
@@ -348,7 +356,7 @@ generate_script:
 
       Return ONLY executable {language} code in markdown format.
       Return ONLY CODE in markdown blocks. No explanations.
-
+      
   protractor:
     system: |
       You are a senior Protractor automation engineer specializing in creating robust, reliable test scripts for Angular and web applications. Generate executable Protractor code using provided selectors. Output ONLY valid JavaScript code in markdown blocks. You write code that:
