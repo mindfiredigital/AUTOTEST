@@ -855,10 +855,19 @@ class WebTestGenerator:
                     os.makedirs(script_dir)
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                # Sanitize the test case name
+                # Replace any character that's not alphanumeric, hyphen, or underscore with underscore
+                sanitized_name = re.sub(r'[^a-zA-Z0-9\-_]', '_', test_case['name'])
+                # Optional: Remove multiple consecutive underscores
+                sanitized_name = re.sub(r'_+', '_', sanitized_name)
+                # Optional: Remove leading/trailing underscores
+                sanitized_name = sanitized_name.strip('_')
+
                 if "```python" in script_content:
-                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.py"
+                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.py"
                 else:
-                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.java"
+                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.java"
 
                 with open(script_name, 'w') as f:
                     f.write(code)
