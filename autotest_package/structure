@@ -1,0 +1,28 @@
+autotest_package/
+├── setup.py
+├── pyproject.toml
+├── README.md
+├── requirements.txt
+├── MANIFEST.in
+├── autotest/
+│   ├── __init__.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── web_test_generator.py
+│   │   ├── llm_wrapper.py
+│   │   ├── prompt_manager.py
+│   │   └── url_extractor.py
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   └── logging_utils.py
+│   └── cli/
+│       ├── __init__.py
+│       └── main.py
+├── config/
+│   ├── llm_config.yaml
+│   ├── prompts4.yaml
+│   └── auth_test_data.json
+└── tests/
+    ├── __init__.py
+    ├── test_web_generator.py
+    └── test_llm_wrapper.py

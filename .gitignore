@@ -5,3 +5,6 @@ selenium-based-llm-model/reports
 selenium-based-llm-model/test_scripts
 selenium-based-llm-model/tempCodeRunnerFile.py
 selenium-based-llm-model/url_extraction_20250612_115256.log
+autotest_package/.env
+autotest_package/reports
+autotest_package/logs
