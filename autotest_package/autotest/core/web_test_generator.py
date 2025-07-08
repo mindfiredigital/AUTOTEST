@@ -29,6 +29,8 @@ from .prompt_manager import PromptManager
 from .url_extractor import URLExtractor
 from ..utils.logging_utils import setup_logger
 
+from bs4 import BeautifulSoup, Comment
+
 # Load environment variables
 load_dotenv()
 
@@ -123,6 +125,7 @@ class WebTestGenerator:
         self.test_results = []
         self.logger = setup_logger("WebTestGenerator", log_level)
         self.temperature = 0.3
+        #self.extract_test_relevant_html()
         
         # Setup browser and URL extractor
         self.setup_browser()
@@ -145,6 +148,64 @@ class WebTestGenerator:
         buffered = BytesIO()
         img.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode()
+    
+    # @staticmethod
+    # def extract_test_relevant_html(page_source):
+    #     soup = BeautifulSoup(page_source, "html.parser")
+    #     # Remove scripts, styles, meta, and comments
+    #     for tag in soup(["script", "style", "meta"]):
+    #         tag.decompose()
+    #     # Optionally, remove comments and whitespace
+    #     for element in soup(text=lambda text: isinstance(text, Comment)):
+    #         element.extract()
+    #     # Extract only forms, buttons, inputs, links, tables, selects, textareas
+    #     relevant = []
+    #     for tag in ["form", "input", "button", "a", "select", "table", "textarea"]:
+    #         relevant.extend(soup.find_all(tag))
+    #     # Convert back to string, limit to N elements per type if needed
+    #     relevant_html = "\n".join(str(el) for el in relevant[:20])  # cap at 20 elements/type
+    #     return relevant_html
+
+    @staticmethod
+    def extract_test_relevant_html(page_source):
+        soup = BeautifulSoup(page_source, "html.parser")
+        # Remove scripts, styles, meta, and comments
+        for tag in soup(["script", "meta", "link", "style"]):
+            tag.decompose()
+        # Optionally, remove comments and whitespace
+        for element in soup(text=lambda text: isinstance(text, Comment)):
+            element.extract()
+        # # Extract only forms, buttons, inputs, links, tables, selects, textareas
+        # relevant = []
+        # for tag in ["form", "input", "button", "a", "select", "table", "textarea"]:
+        #     relevant.extend(soup.find_all(tag))
+        # Convert back to string, limit to N elements per type if needed
+        # relevant_html = "\n".join(str(el) for el in relevant[:20])  # cap at 20 elements/type
+        # return relevant_html
+
+        # Get the HTML string
+        html_string = str(soup)
+
+        # Remove excessive whitespace and blank lines
+        # Replace multiple consecutive whitespace characters with single space
+        html_string = re.sub(r'\s+', ' ', html_string)
+        
+        # Remove leading/trailing whitespace from each line and remove empty lines
+        lines = html_string.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            stripped_line = line.strip()
+            if stripped_line:  # Only keep non-empty lines
+                cleaned_lines.append(stripped_line)
+        
+        # Join lines with single newlines
+        cleaned_html = '\n'.join(cleaned_lines)
+        
+        # Alternative approach: More aggressive whitespace cleanup
+        # This removes all unnecessary whitespace between tags while preserving content
+        cleaned_html = re.sub(r'>\s+<', '><', cleaned_html)
+        
+        return cleaned_html
 
     def analyze_page(self, context="current"):
         """
@@ -158,6 +219,7 @@ class WebTestGenerator:
         """
         self.logger.info(f"Analyzing {context} page...")
         page_source = self.driver.page_source
+        # minimised_html = self.extract_test_relevant_html(page_source)
         #self.logger.info(f"PAGE_SOURCE: {page_source}")
         
         # Static metadata extraction
@@ -173,7 +235,9 @@ class WebTestGenerator:
         self.logger.debug(f"Static page metadata: {static_metadata}")
         
         # LLM-powered dynamic analysis
-        llm_metadata = self.llm_page_analysis(page_source)
+        minimized_html = self.extract_test_relevant_html(page_source)
+        #minimized_html = page_source
+        llm_metadata = self.llm_page_analysis(minimized_html)
         self.logger.debug(f"LLM Analysed page metadata: {llm_metadata}")
         
         # Combine static and dynamic metadata
@@ -181,8 +245,8 @@ class WebTestGenerator:
         self.logger.debug(f"Combined page metadata: {page_metadata}")
         
         # Generate test cases and scripts
-        test_cases = self.generate_page_specific_tests(page_metadata, page_source)
-        scripts = [self.generate_script_for_test_case(tc, page_metadata, page_source) 
+        test_cases = self.generate_page_specific_tests(page_metadata, minimized_html)
+        scripts = [self.generate_script_for_test_case(tc, page_metadata, minimized_html) 
                   for tc in test_cases]
         
         return {
@@ -191,7 +255,7 @@ class WebTestGenerator:
             "scripts": scripts
         }
 
-    def llm_page_analysis(self, page_source):
+    def llm_page_analysis(self, minimized_html):
         """
         Perform dynamic page analysis using LLM
         
@@ -207,8 +271,8 @@ class WebTestGenerator:
             test_data = self.load_test_data()
             self.logger.debug(f"Test Data: {test_data}")
             user_prompt_template = self.prompt_manager.get_prompt("llm_page_analysis", "user")
-            user_prompt = user_prompt_template.format(page_source=page_source)
-            #self.logger.debug(f"LLM analysis user prompt: {user_prompt}")
+            user_prompt = user_prompt_template.format(page_source=minimized_html)
+            self.logger.debug(f"LLM analysis user prompt: {user_prompt}")
             
             result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
             
@@ -313,7 +377,7 @@ class WebTestGenerator:
             self.logger.error(f"Failed to load test data: {str(e)}")
             return None
 
-    def generate_page_specific_tests(self, page_metadata, page_source):
+    def generate_page_specific_tests(self, page_metadata, minimized_html):
         """
         Generate context-aware test cases based on page content
         
@@ -363,7 +427,7 @@ class WebTestGenerator:
                 #interactive_elements = json.dumps(page_metadata['interactive_elements']),
                 ui_validation_indicators=json.dumps(page_metadata.get('ui_validation_indicators', [])),
                 url=page_metadata['url'],
-                page_source=page_source
+                page_source=minimized_html
             )
             
             result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
@@ -398,7 +462,7 @@ class WebTestGenerator:
             self.logger.error(f"Test generation failed: {str(e)}")
             return []
         
-    def generate_script_for_test_case(self, test_case, page_metadata, page_source):
+    def generate_script_for_test_case(self, test_case, page_metadata, minimized_html):
         """
         Generate test script for a specific test case
         
@@ -427,7 +491,7 @@ class WebTestGenerator:
                 selenium_version=self.selenium_version,
                 test_case=json.dumps(test_case, indent=2),
                 page_metadata=json.dumps(page_metadata, indent=2),
-                page_source=page_source,
+                page_source=minimized_html,
                 captcha_wait_time=captcha_wait_time,
                 security_indicators=page_metadata.get('security_indicators', [])
             )
