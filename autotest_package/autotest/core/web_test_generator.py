@@ -822,9 +822,16 @@ class WebTestGenerator:
                 text=True,
                 timeout=30
             )
+
+            # Combine stdout and stderr for comprehensive analysis
+            combined_output = result.stdout + result.stderr
+
+            # Analyze output for test failure indicators
+            test_passed = self._analyze_test_output(combined_output, result.returncode)
             
             return {
-                'success': result.returncode == 0,
+                #'success': result.returncode == 0,
+                'success': test_passed,
                 'output': result.stdout,
                 'error': result.stderr
             }
@@ -836,6 +843,70 @@ class WebTestGenerator:
         finally:
             if 'temp_file' in locals() and os.path.exists(temp_file):
                 os.remove(temp_file)
+
+    def _analyze_test_output(self, combined_output, return_code):
+        """
+        Analyze test output to determine if test actually passed or failed
+        
+        Args:
+            combined_output (str): Combined stdout and stderr
+            return_code (int): Process return code
+            
+        Returns:
+            bool: True if test passed, False if failed
+        """
+        # Convert to lowercase for case-insensitive matching
+        output_lower = combined_output.lower()
+        
+        # Explicit failure indicators (highest priority)
+        failure_indicators = [
+            '[error] fail',
+            'fail:',
+            'failed:',
+            'test failed',
+            'assertion failed',
+            'assertionerror',
+            'validation result: false',
+            'valid: false',
+            'does not display correct',
+            'does not match expected',
+            'element not found',
+            'timeout',
+            'exception:'
+        ]
+        
+        # Check for explicit failure indicators
+        for indicator in failure_indicators:
+            if indicator in output_lower:
+                self.logger.debug(f"Test failed due to indicator: {indicator}")
+                return False
+        
+        # Explicit success indicators
+        success_indicators = [
+            'pass:',
+            'passed:',
+            'test passed',
+            'success:',
+            'all tests passed',
+            'validation successful',
+            'test completed successfully',
+            'test completed:'
+        ]
+        
+        # Check for explicit success indicators
+        for indicator in success_indicators:
+            if indicator in output_lower:
+                self.logger.debug(f"Test passed due to indicator: {indicator}")
+                return True
+        
+        # If no explicit indicators found, fall back to return code
+        # Return code 0 typically means success, non-zero means failure
+        if return_code == 0:
+            self.logger.debug("Test passed based on return code 0")
+            return True
+        else:
+            self.logger.debug(f"Test failed based on return code {return_code}")
+            return False
 
     # def run_workflow(self, url, username=None, password=None):
     #     """
