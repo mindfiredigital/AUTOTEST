@@ -169,9 +169,61 @@ class WebTestGenerator:
     @staticmethod
     def extract_test_relevant_html(page_source):
         soup = BeautifulSoup(page_source, "html.parser")
+
+        # Remove non-interactive and unnecessary tags
+        tags_to_remove = [
+            "script",       # JavaScript code
+            "meta",         # Metadata about the document
+            "link",         # External resources (CSS, favicon, etc.)
+            "style",        # CSS styling
+            "noscript",     # Content for when JavaScript is disabled
+            #"base",         # Base URL for relative links
+            #"head",         # Document head section (if you want to remove entirely)
+            "title",        # Page title (if not needed for testing)
+            "svg",          # SVG graphics (unless testing graphics)
+            "canvas",       # Canvas elements (unless testing graphics)
+            "audio",        # Audio elements (unless testing media)
+            "video",        # Video elements (unless testing media)
+            "source",       # Media source elements
+            "track",        # Text tracks for media elements
+            "embed",        # Embedded content
+            "object",       # Object elements
+            "param",        # Parameters for objects
+            "iframe",       # Inline frames (unless testing embedded content)
+            "frame",        # Frame elements (deprecated)
+            "frameset",     # Frameset elements (deprecated)
+            "noframes",     # No frames content (deprecated)
+            "applet",       # Java applets (deprecated)
+            "area",         # Image map areas (unless testing image maps)
+            "map",          # Image maps (unless testing image maps)
+            "wbr",          # Line break opportunities
+            "bdi",          # Bidirectional isolation (unless testing i18n)
+            "bdo",          # Bidirectional override (unless testing i18n)
+            "ruby",         # Ruby annotations (unless testing typography)
+            "rt",           # Ruby text
+            "rp",           # Ruby parentheses
+            "details",      # Disclosure widget (unless testing interactive elements)
+            "summary",      # Summary for details element
+            "dialog",       # Dialog boxes (unless testing modals)
+            "menu",         # Context menus (unless testing menus)
+            "menuitem",     # Menu items (deprecated)
+            "datalist",     # Data list options (unless testing form suggestions)
+            "progress",     # Progress indicators (unless testing progress)
+            "meter",        # Scalar measurements (unless testing measurements)
+            "template",     # Template elements
+            "slot",         # Web component slots
+            "output",       # Form output (unless testing form calculations)
+            "math",         # MathML content (unless testing math)
+            "annotation-xml" # MathML annotations
+        ]
+
         # Remove scripts, styles, meta, and comments
-        for tag in soup(["script", "meta", "link", "style"]):
+        for tag in soup(["script", "meta", "link", "style", "path", "noscript"]):
             tag.decompose()
+
+        # for tag in soup(tags_to_remove):
+        #     tag.decompose()
+
         # Optionally, remove comments and whitespace
         for element in soup(text=lambda text: isinstance(text, Comment)):
             element.extract()
@@ -206,7 +258,7 @@ class WebTestGenerator:
         cleaned_html = re.sub(r'>\s+<', '><', cleaned_html)
         
         return cleaned_html
-
+        
     def analyze_page(self, context="current"):
         """
         Analyze current page and generate metadata
@@ -246,14 +298,132 @@ class WebTestGenerator:
         
         # Generate test cases and scripts
         test_cases = self.generate_page_specific_tests(page_metadata, minimized_html)
-        scripts = [self.generate_script_for_test_case(tc, page_metadata, minimized_html) 
-                  for tc in test_cases]
+        # scripts = [self.generate_script_for_test_case(tc, page_metadata, minimized_html) 
+        #           for tc in test_cases]
+
+        # Manual intervention for script generation
+        scripts, selected_test_cases = self.generate_scripts_with_manual_intervention(test_cases, page_metadata, minimized_html)
         
         return {
             "metadata": page_metadata,
             "test_cases": test_cases,
-            "scripts": scripts
+            "scripts": scripts,
+            "selected_test_cases": selected_test_cases
         }
+    
+    def generate_scripts_with_manual_intervention(self, test_cases, page_metadata, minimized_html):
+        """
+        Generate scripts with manual intervention - user selects which test cases to generate scripts for
+        
+        Args:
+            test_cases (list): List of test cases
+            page_metadata (dict): Page metadata
+            minimized_html (str): Minimized HTML content
+            
+        Returns:
+            tuple: (scripts, selected_test_cases) - Generated scripts and corresponding test cases
+        """
+        if not test_cases:
+            self.logger.info("No test cases found to generate scripts for.")
+            return [], []
+        
+        scripts = []
+        selected_test_cases = []  # Track which test cases were selected
+        
+        # Display test cases with serial numbers
+        print("\n" + "="*60)
+        self.logger.debug("\n" + "="*60)
+        print("AVAILABLE TEST CASES:")
+        self.logger.debug("AVAILABLE TEST CASES:")
+        print("="*60)
+        self.logger.debug("="*60)
+        for i, test_case in enumerate(test_cases, 1):
+            print(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
+            self.logger.debug(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
+            print(f"   Type: {test_case.get('type', 'N/A')}")
+            self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
+            print(f"   Steps: {len(test_case.get('steps', []))} step(s)")
+            self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
+            print()
+            #self.logger.debug()
+        
+        #print("Enter test case numbers to generate scripts (or 'quit' to stop)")
+        print("Enter test case numbers to generate scripts, 'list' to show cases, or 'quit' to stop")
+        self.logger.debug("Enter test case numbers to generate scripts, 'list' to show cases, or 'quit' to stop")
+        print("="*60)
+        self.logger.debug("="*60)
+        
+        while True:
+            try:
+                #user_input = input("\nEnter test case number (or 'quit' to stop): ").strip()
+                user_input = input("\nEnter test case number, 'list' to show cases, or 'quit' to stop: ").strip()
+                self.logger.debug("\nEnter test case number, 'list' to show cases, or 'quit' to stop: ")
+                self.logger.debug(f"User entered: {user_input}")
+                
+                if user_input.lower() == 'quit':
+                    print("Script generation stopped by user.")
+                    self.logger.debug("Script generation stopped by user.")
+                    break
+
+                if user_input.lower() == 'list':
+                    print("\n" + "="*60)
+                    self.logger.debug("\n" + "="*60)
+                    print("AVAILABLE TEST CASES:")
+                    self.logger.debug("AVAILABLE TEST CASES:")
+                    print("="*60)
+                    self.logger.debug("="*60)
+                    for i, test_case in enumerate(test_cases, 1):
+                        print(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
+                        self.logger.debug(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
+                        print(f"   Type: {test_case.get('type', 'N/A')}")
+                        self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
+                        print(f"   Steps: {len(test_case.get('steps', []))} step(s)")
+                        self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
+                        print()
+                        #self.logger.debug()
+                    continue
+                
+                # Validate input
+                try:
+                    test_case_num = int(user_input)
+                    if test_case_num < 1 or test_case_num > len(test_cases):
+                        print(f"Invalid test case number. Please enter a number between 1 and {len(test_cases)}")
+                        self.logger.debug(f"Invalid test case number. Please enter a number between 1 and {len(test_cases)}")
+                        continue
+                except ValueError:
+                    print("Invalid input. Please enter a valid number, 'list', or 'quit'")
+                    self.logger.debug("Invalid input. Please enter a valid number, 'list', or 'quit'")
+                    continue
+                
+                # Generate script for selected test case
+                selected_test_case = test_cases[test_case_num - 1]
+                print(f"\nGenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
+                self.logger.debug(f"\nGenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
+                print("Please wait...")
+                self.logger.debug("Please wait...")
+                
+                script, filename = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
+                
+                if script:
+                    # scripts.append(script)
+                    scripts.append({'script': script, 'filename': filename})
+                    selected_test_cases.append(selected_test_case)
+                    print(f"✓ Script generated successfully for test case {test_case_num}")
+                    self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
+                else:
+                    print(f"✗ Failed to generate script for test case {test_case_num}")
+                    self.logger.debug(f"✗ Failed to generate script for test case {test_case_num}")
+                    
+            except KeyboardInterrupt:
+                print("\n\nScript generation interrupted by user.")
+                self.logger.debug("\n\nScript generation interrupted by user.")
+                break
+            except Exception as e:
+                self.logger.error(f"Error during script generation: {str(e)}")
+                print(f"Error occurred: {str(e)}")
+                continue
+        
+        return scripts, selected_test_cases
 
     def llm_page_analysis(self, minimized_html):
         """
@@ -383,7 +553,7 @@ class WebTestGenerator:
         
         Args:
             page_metadata (dict): Page metadata
-            page_source (str): HTML source of the page
+            minimized_html (str): HTML source of the page
             
         Returns:
             list: Generated test cases
@@ -469,10 +639,10 @@ class WebTestGenerator:
         Args:
             test_case (dict): Test case specification
             page_metadata (dict): Page metadata
-            page_source (str): HTML source of the page
+            minimized_html (str): HTML source of the page
             
         Returns:
-            str: Generated test script code
+            tuple: (script_content, filename) - Generated test script code and saved filename
         """
         captcha_wait_time = self.wait_time or "2 minutes (120 seconds)"
         
@@ -510,6 +680,8 @@ class WebTestGenerator:
                 code = script_content.split("```")[1].strip()
             else:
                 code = script_content.strip()
+
+            filename = None
             
             # Save script to file
             # if code:
@@ -531,20 +703,27 @@ class WebTestGenerator:
                 sanitized_name = sanitized_name.strip('_')
 
                 if "```python" in script_content:
-                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.py"
+                    #script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.py"
+                    filename = f"test_{timestamp}_{sanitized_name}.py"
                 else:
-                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.java"
+                    #script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.java"
+                    filename = f"test_{timestamp}_{sanitized_name}.java"
 
-                with open(script_name, 'w') as f:
+                script_path = f"{script_dir}/{filename}"
+
+                # with open(script_name, 'w') as f:
+                #     f.write(code)
+                with open(script_path, 'w') as f:
                     f.write(code)
                     
-                self.logger.info(f"Saved test script: {script_name}")
+                # self.logger.info(f"Saved test script: {script_name}")
+                self.logger.info(f"Saved test script: {script_path}")
                 
-            return code
+            return code, filename
             
         except Exception as e:
             self.logger.error(f"Script generation failed: {str(e)}")
-            return ""
+            return "", None
 
     def _extract_code_from_response(self, script_content):
         """Extract code from LLM response, handling markdown blocks"""
@@ -579,11 +758,48 @@ class WebTestGenerator:
 
     def execute_test_cycle(self, analysis):
         """Execute test cycle for page analysis results"""
-        for script in analysis['scripts']:
-            if not self.validate_script_structure(script):
+        scripts = analysis['scripts']
+        selected_test_cases = analysis.get('selected_test_cases', [])
+
+        # for i, script in enumerate(scripts):
+        #     if not self.validate_script_structure(script):
+        #         continue
+
+        #     # Get corresponding test case name
+        #     # test_name = analysis['test_cases'][i]['name'] if i < len(analysis['test_cases']) else f"Test_{i+1}"
+
+        #     # Get corresponding test case name from selected test cases
+        #     test_name = selected_test_cases[i]['name'] if i < len(selected_test_cases) else f"Test_{i+1}"
+
+        #     # Generate file name (you might want to store this when creating the script)
+        #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        #     sanitized_name = re.sub(r'[^a-zA-Z0-9\-_]', '_', test_name)
+        #     sanitized_name = re.sub(r'_+', '_', sanitized_name)
+        #     sanitized_name = sanitized_name.strip('_')
+        #     file_name = f"test_{timestamp}_{sanitized_name}.py"
+
+        #     result = self.execute_test_script(script)
+        #     self._log_test_result(result, test_name, file_name)
+
+        for i, script_info in enumerate(scripts):
+            script_content = script_info['script'] if isinstance(script_info, dict) else script_info
+            filename = script_info.get('filename') if isinstance(script_info, dict) else None
+            
+            if not self.validate_script_structure(script_content):
                 continue
-            result = self.execute_test_script(script)
-            self._log_test_result(result)
+
+            test_name = selected_test_cases[i]['name'] if i < len(selected_test_cases) else f"Test_{i+1}"
+            
+            # Use stored filename or generate fallback
+            if not filename:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                sanitized_name = re.sub(r'[^a-zA-Z0-9\-_]', '_', test_name)
+                sanitized_name = re.sub(r'_+', '_', sanitized_name)
+                sanitized_name = sanitized_name.strip('_')
+                filename = f"test_{timestamp}_{sanitized_name}.py"
+
+            result = self.execute_test_script(script_content)
+            self._log_test_result(result, test_name, filename)
 
     def validate_script_structure(self, script):
         """Validate basic script structure"""
@@ -881,7 +1097,17 @@ class WebTestGenerator:
             'success_rate': (len([r for r in self.test_results if r['result']['success']]) / 
                            len(self.test_results) if self.test_results else 0),
             'generated_scripts': [f for f in os.listdir('test_scripts') 
-                                if f.endswith(('.py', '.java'))] if os.path.exists('test_scripts') else []
+                                if f.endswith(('.py', '.java'))] if os.path.exists('test_scripts') else [],
+
+            'test_summary': [
+                {
+                    'test_name': r['test_name'],
+                    'file_name': r['file_name'],
+                    'success': r['result']['success'],
+                    'timestamp': r['timestamp']
+                }
+                for r in self.test_results
+            ]
         }
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -895,11 +1121,13 @@ class WebTestGenerator:
             
         return report_file
 
-    def _log_test_result(self, result):
+    def _log_test_result(self, result, test_name=None, file_name=None):
         """Log test execution result"""
         self.test_results.append({
             'timestamp': datetime.now().isoformat(),
             'url': self.driver.current_url,
+            'test_name': test_name,
+            'file_name': file_name,
             'result': result
         })
 
