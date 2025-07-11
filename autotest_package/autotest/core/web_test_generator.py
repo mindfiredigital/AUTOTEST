@@ -344,6 +344,28 @@ class WebTestGenerator:
             self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
             print(f"   Steps: {len(test_case.get('steps', []))} step(s)")
             self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
+
+            # Display complete steps
+            steps = test_case.get('steps', [])
+            if steps:
+                print(f"   Steps:")
+                self.logger.debug(f"   Steps:")
+                for j, step in enumerate(steps, 1):
+                    print(f"      {j}. {step}")
+                    self.logger.debug(f"      {j}. {step}")
+            else:
+                print(f"   Steps: No steps defined")
+                self.logger.debug(f"   Steps: No steps defined")
+
+            # Display validation
+            validation = test_case.get('validation', '')
+            if validation:
+                print(f"   Validation: {validation}")
+                self.logger.debug(f"   Validation: {validation}")
+            else:
+                print(f"   Validation: No validation defined")
+                self.logger.debug(f"   Validation: No validation defined")
+
             print()
             #self.logger.debug()
         
@@ -379,6 +401,28 @@ class WebTestGenerator:
                         self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
                         print(f"   Steps: {len(test_case.get('steps', []))} step(s)")
                         self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
+
+                        # Display complete steps
+                        steps = test_case.get('steps', [])
+                        if steps:
+                            print(f"   Steps:")
+                            self.logger.debug(f"   Steps:")
+                            for j, step in enumerate(steps, 1):
+                                print(f"      {j}. {step}")
+                                self.logger.debug(f"      {j}. {step}")
+                        else:
+                            print(f"   Steps: No steps defined")
+                            self.logger.debug(f"   Steps: No steps defined")
+
+                        # Display validation
+                        validation = test_case.get('validation', '')
+                        if validation:
+                            print(f"   Validation: {validation}")
+                            self.logger.debug(f"   Validation: {validation}")
+                        else:
+                            print(f"   Validation: No validation defined")
+                            self.logger.debug(f"   Validation: No validation defined")
+
                         print()
                         #self.logger.debug()
                     continue
