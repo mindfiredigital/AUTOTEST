@@ -329,6 +329,7 @@ class WebTestGenerator:
         
         scripts = []
         selected_test_cases = []  # Track which test cases were selected
+        generated_test_cases = {}  # Track generated test cases: {test_case_number: filename}
         
         # Display test cases with serial numbers
         print("\n" + "="*60)
@@ -438,6 +439,35 @@ class WebTestGenerator:
                     print("Invalid input. Please enter a valid number, 'list', or 'quit'")
                     self.logger.debug("Invalid input. Please enter a valid number, 'list', or 'quit'")
                     continue
+
+                # Check if test case has already been generated
+                if test_case_num in generated_test_cases:
+                    existing_filename = generated_test_cases[test_case_num]
+                    print(f"\nScript for test case No. {test_case_num} is already generated and saved at: {existing_filename}")
+                    self.logger.debug(f"\nScript for test case No. {test_case_num} is already generated and saved at: {existing_filename}")
+                    
+                    while True:
+                        regenerate_choice = input("Do you want to regenerate it? Enter YES to regenerate or NO to skip and enter different test case number: ").strip().upper()
+                        self.logger.debug(f"User regenerate choice: {regenerate_choice}")
+                        
+                        if regenerate_choice == 'YES':
+                            # Proceed with regeneration
+                            break
+                        elif regenerate_choice == 'NO':
+                            # Skip and ask for different test case
+                            #print("Enter test case number, 'list' to show cases, or 'quit' to stop:")
+                            print("Skipping script regeneration")
+                            #self.logger.debug("Enter test case number, 'list' to show cases, or 'quit' to stop:")
+                            self.logger.debug("Skipping script regeneration")
+                            break
+                        else:
+                            print("Invalid input. Please enter YES or NO.")
+                            self.logger.debug("Invalid input. Please enter YES or NO.")
+                            continue
+                    
+                    # If user chose NO, skip to next iteration
+                    if regenerate_choice == 'NO':
+                        continue
                 
                 # Generate script for selected test case
                 selected_test_case = test_cases[test_case_num - 1]
@@ -450,8 +480,22 @@ class WebTestGenerator:
                 
                 if script:
                     # scripts.append(script)
+                    # # Check if this is a regeneration
+                    # if test_case_num in generated_test_cases:
+                    #     # Remove the old entry from scripts and selected_test_cases
+                    #     old_filename = generated_test_cases[test_case_num]
+                    #     # Find and remove the old script entry
+                    #     for idx, script_info in enumerate(scripts):
+                    #         if isinstance(script_info, dict) and script_info.get('filename') == old_filename:
+                    #             scripts.pop(idx)
+                    #             selected_test_cases.pop(idx)
+                    #             break
+
                     scripts.append({'script': script, 'filename': filename})
                     selected_test_cases.append(selected_test_case)
+
+                    generated_test_cases[test_case_num] = filename
+                    
                     print(f"✓ Script generated successfully for test case {test_case_num}")
                     self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
                 else:
