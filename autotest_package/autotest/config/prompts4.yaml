@@ -316,6 +316,21 @@ generate_script:
       service = Service(ChromeDriverManager().install())
       driver = webdriver.Chrome(service=service)
       ```
+      **The following code snippet should be included only for test cases where redirection/navigation to another page is required**
+      ```
+      At the top of the script, include:
+      ```
+      import sys
+      import os
+      import json
+
+      parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))     # Get the absolute path to the parent folder (project root)
+      sys.path.append(parent_dir)
+
+      from autotest import Redirect
+      from autotest import SessionLocal, init_db
+      ```
+      ** Call the init_db() function to initialize the database before invoking the main function**
 
       **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
       - Use a robust method such as:
@@ -323,6 +338,35 @@ generate_script:
           - Waiting for jQuery/AJAX activity to finish if present
 
       ***Strict Rules to be followed:***
+        For navigation test cases (where validation involves a redirect):
+        - Start by navigating to the starting/parent/base URL
+        - Perform the navigation action (e.g., click the element using `click_element`) based on the provided selector from the page source to trigger the redirect.
+        - Wait for the page to load (e.g., using `WebDriverWait` for `document.readyState == 'complete'`).
+        - After redirection, capture the current URL as the redirected URL.
+        - Use SQLAlchemy to query the `redirects` table with a session (e.g., `with SessionLocal() as db:`) to check if the parent page URL has a corresponding verified redirect URL:
+          - Query where:
+            - `page_url` matches the starting URL (parent page URL).
+            - `redirected_url` matches the current redirected URL.
+          - If a matching record exists:
+            - Log the action, e.g., `logger.info(f"Redirect URL `redirected_url` already verified in database for parent page `starting_url`")`.
+            - Continue the process and close the browser.
+          - If no matching record exists:
+            - Prompt the user with `input()` to verify the redirected URL, e.g., `response = input(f"Is the redirect to `redirected_url` correct? (y/n): ")`.
+            - If the user enters 'y':
+              - Store the redirect in the `redirects` table with:
+                - `page_url`: the starting URL (parent page URL).
+                - `event_selector`: the selector of the element clicked (e.g., button, link) from the page source.
+                - `redirected_url`: the captured redirected URL.
+                - `event_description`: a brief step by step description, e.g., "Navigated to [element text or selector] then clicked on [element text or selector] in the `parent page (brief description)` and got redirected to [redirected_url]".
+              - Log the action, e.g., `logger.info(f"Stored redirect URL `redirected_url` for parent page `starting_url`")`.
+            - If the user enters 'n':
+              - Prompt the user for the correct URL, e.g., `correct_url = input("Enter the correct redirect URL: ")`.
+              - Follow the same steps as above to store the correct redirect URL in the 'redirects' table.
+              - Log the action, e.g., `logger.info(f"Stored corrected redirect URL `correct_url` for parent page `starting_url`")`.
+              - Navigate to the correct URL using `driver.get(correct_url)`.
+            - Refresh the db/table after committing successfully
+      - This database interaction should only occur for navigation type test cases involving redirection; other test case types (e.g., registration, UI validation) should not interact with the database.
+
         For CSS Selectors in test cases:
           - Use only the specific CSS selectors for element fields to be found as provided in the HTML page source
           - DO NOT provide any other CSS selector for any element field that is not present in the page source for that particular field
@@ -417,8 +461,7 @@ generate_script:
             - `border`: Valid CSS border style (e.g., 'none', 'solid', etc.) or not empty
             - Include other properties if present in the page's CSS classes or inline styles
           - Log the computed value and validation result for each property
-
-
+          
       Return ONLY executable {language} code in markdown format.
       Return ONLY CODE in markdown blocks. No explanations.
       

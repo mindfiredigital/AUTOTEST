@@ -5,6 +5,7 @@ groq>=0.4.0
 openai>=1.0.0
 pillow==11.1.0
 pyyaml>=6.0
+tldextract>=5.3.0
 jsonschema==4.23.0
 langchain-openai==0.3.15
 langchain-groq==0.3.2

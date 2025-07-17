@@ -24,6 +24,7 @@ Requires-Dist: groq>=0.4.0
 Requires-Dist: openai>=1.0.0
 Requires-Dist: pillow==11.1.0
 Requires-Dist: pyyaml>=6.0
+Requires-Dist: tldextract>=5.3.0
 Requires-Dist: jsonschema==4.23.0
 Requires-Dist: langchain-openai==0.3.15
 Requires-Dist: langchain-groq==0.3.2
@@ -149,6 +150,28 @@ To install the ``autotest`` tool:
   - Run the autotest application using command ``python autotest.py --url "url-to-be-tested" --loglevel DEBUG``
   - Run the url extraction utility using the command ``python url_extract.py --url "base-url" --depth 1 --loglevel INFO``
   - Provide the LLM configuration in ``llm_config.yaml`` file.
+
+To install and build the autotest python package:
+  - Clone the repo
+  - Navigate to your project folder
+  - Create virtualenv using:
+    - For Linux/Ubuntu-  ``python3 -m venv myenv``
+    - For Windows, open Command Prompt or PowerShell, and run- ``python -m venv myenv``
+    - For further reference, visit this [LINK](https://www.geeksforgeeks.org/creating-python-virtual-environment-windows-linux/)
+  - Activate the virtual environment 
+    - For Linux/Ubuntu using ``source myenv/bin/activate``
+    - For Windows using ``myenv\Scripts\activate``
+  - Navigate to the main folder ``cd autotest_package``
+  - Install the package in Editable (Development) mode: ``pip install -e .``
+  - Run the CLI to check if your package is available (Verify Installation): ``autotest-cli --help``
+  - Or build a wheel for distribution:
+    ``pip install build``
+    ``python -m build``
+  - This creates dist/ directory with:
+    ``autotest_web_generator-1.0.0-py3-none-any.whl``
+    ``autotest_web_generator-1.0.0.tar.gz``
+  - Install the built package: ``pip install dist/autotest_web_generator-1.0.0-py3-none-any.whl``
+  - Now get started by using the package via CLI: ``autotest-cli --url https://example.com --loglevel DEBUG --wait-time "30 seconds" --testing-tool "selenium" --language "python"``
 
 ## Usage
 
@@ -304,6 +327,8 @@ Add link to [CONTRIBUTING.md](CONTRIBUTING.md) file.
     - Install Missing Dependencies
       - sudo apt-get install -y libgbm-dev libxshmfence-dev libdrm-dev
   - All the above mentioned steps for setting up and trouble-shooting issues due to chromium browser are for Linux/Ubuntu systems. For Windows or other systems refer to necessary [Docs](https://www.chromium.org/getting-involved/download-chromium/) for chromium browser installation process.
+
+- Python package with compiled modules with a fully automated workflow, LLM-powered test generation and execution pipeline, accessible from the terminal.
 
 ## License
 
