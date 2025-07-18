@@ -1,7 +1,7 @@
 {
     "credentials": {
         "valid": {
-            "username": "DK2421",
+            "username": "abc123",
             "password": "c!m69hGNQ5cnuVZ"
         },
         "invalid": {
@@ -11,28 +11,28 @@
     },
     "registration_fields": {
         "username": {
-            "valid": ["Dibasd"],
+            "valid": ["abc"],
             "invalid": ["","testuser"]
         },
         "password": {
-            "valid": ["Dibas@24"],
+            "valid": ["abc"],
             "invalid": ["","test1234"]
         },
         "confirm password": {
-            "valid": ["Dibas@24"],
+            "valid": ["abc"],
             "invalid": ["", "hggdgsa"]
         }
     },
     "contact_form": {
         "valid": {
             "Name" : {
-                "First Name": "Dibas Kumar",
-                "Last Name": "De"
+                "First Name": "John",
+                "Last Name": "Doe"
             },
-            "Email": "dibaskumarde@hgmail.com",
+            "Email": "abc@gmail.com",
             "Gender": "Male",
-            "Mobile Number": "9330495614",
-            "Date of Birth": "24 Aug 2003",
+            "Mobile Number": "9312345678",
+            "Date of Birth": "2 Aug 2000",
             "Subjects":"Computer Science",
             "Hobbies": "[Sports, Music]",
             "Current Address": "abc",
