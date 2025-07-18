@@ -21,7 +21,7 @@ setup(
     description="Automated Web Testing Framework with LLM Integration",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/autotest-package",
+    url="https://github.com/mindfiredigital/AUTOTEST",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",

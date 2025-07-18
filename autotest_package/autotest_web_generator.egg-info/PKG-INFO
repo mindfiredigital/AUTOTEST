@@ -2,7 +2,7 @@ Metadata-Version: 2.4
 Name: autotest-web-generator
 Version: 1.0.0
 Summary: Automated Web Testing Framework with LLM Integration
-Home-page: https://github.com/yourusername/autotest-package
+Home-page: https://github.com/mindfiredigital/AUTOTEST
 Author: Ankit Saha
 Author-email: Ankit Saha <ankit.s@mindfiresolutions.com>
 License: MIT
