@@ -15,10 +15,18 @@ autotest_package/
 │   ├── utils/
 │   │   ├── __init__.py
 │   │   └── logging_utils.py
-│   └── cli/
-│       ├── __init__.py
-│       └── main.py
-├── config/
+│   ├── cli/
+│   |   ├── __init__.py
+│   |   └── main.py
+|   ├── db/
+|   |   ├── autotest.db
+|   |   └── database.py
+|   ├── tables/
+|   |   ├── domain.py
+|   |   ├── page.py
+|   |   ├── redirect.py
+|   |   └── test_case_data.py
+|   ├── config/
 │   ├── llm_config.yaml
 │   ├── prompts4.yaml
 │   └── auth_test_data.json
