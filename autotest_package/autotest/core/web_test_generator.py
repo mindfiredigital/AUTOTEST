@@ -466,7 +466,7 @@ class WebTestGenerator:
                 # Generate script for selected test case
                 selected_test_case = test_cases[test_case_num - 1]
                 with SessionLocal() as db:
-                    test_case = db.query(TestCase).filter((TestCase.page_url == self.driver.current_url) & (TestCase.test_case == selected_test_case)).first()
+                    test_case = db.query(TestCase).filter((TestCase.page_url == self.driver.current_url) & (TestCase.test_case_data == selected_test_case)).first()
                     if test_case: 
                         self.logger.debug(f"Test script already exists for the selected test case at {test_case.script_path}")
                         while True:
@@ -499,11 +499,9 @@ class WebTestGenerator:
 
 
                             if user_input.lower() == 'n':
-                                self.logger.debug(f"\nFetching script for: '{selected_test_case.get('name', 'Unnamed Test Case')}' from database")
+                                self.logger.debug("Skipping script regeneration")
+                                self.logger.debug(f"Fetching script for: '{selected_test_case.get('name', 'Unnamed Test Case')}' from database")
                                 self.logger.debug("Please wait...")
-                                scripts.append({'script': test_case.test_script, 'filename': os.path.basename(test_case.script_path)})
-                                selected_test_cases.append(selected_test_case)
-                                self.logger.debug(f"Test script fetched:\n{test_case.test_script}")
                                 self.logger.debug(f"Test script stored: {test_case.script_path}")
                                 self.logger.debug(f"✓ Script fetched successfully for test case {test_case_num} from the database")
                                 break

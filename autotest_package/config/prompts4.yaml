@@ -119,7 +119,7 @@ llm_page_analysis:
         - JavaScript event listeners (e.g., `click` handlers toggling visibility, inferred from classes like `toggle` or `collapse`)
         - CSS classes indicating toggling (e.g., `collapse`, `accordion`, `expand`)
         - HTML structure with headers and collapsible content (e.g., `<div class="accordion">` with child `<div class="collapse">`)
-      - Do not classify an element as an accordion based solely on its label (e.g., "Filters) or static structure (e.g., nested divs without toggling behavior). Verify behavior from HTML attributes, classes, or structure.
+      - Do not classify an element as an accordion based solely on its label (e.g., "Filters") or static structure (e.g., nested divs without toggling behavior). Verify behavior from HTML attributes, classes, or structure.
 
 generate_tests:
   system: |
@@ -134,7 +134,7 @@ generate_tests:
       "test_cases": [
           {{
               "name": "Test name",
-              "type": "functional|auth-positive|auth-negative|ui-validation|text-validation|menu-validation|page-validation",
+              "type": "functional|auth-positive|auth-negative|ui-validation",
               "steps": ["step1", "step2"],
               "selectors": {{
                   "element1": "css_selector_or_xpath",
@@ -167,7 +167,7 @@ generate_tests:
     1. Create tests SPECIFIC to these page elements
     2. Functional tests for core page elements and ALL interactive elements (e.g., every menu and sub-menu option)
     3. For interactive elements with "expected_outcome" like "redirects to /path", generate navigation test cases with "validation": "Page redirects to /path"
-    4. Cover functional, UI validation checks, text validation checks, and security aspects
+    4. Cover functional, UI validation checks, and security aspects
     5. Prioritize main user flows
     6. Include edge cases for observed input types
     7. Include both positive and negative test cases
@@ -229,34 +229,6 @@ generate_tests:
             - Blank/empty search
           - Verify the search results or error messages for each scenario
           - Ensure the search functionality handles case sensitivity, whitespace, and multiple terms appropriately
-    22. Generate a single, comprehensive test case for text validation in each of the following sections: header, Main Body, and Footer. Each test case should:
-        - Validate all visible text data in the section, including:
-          - Paragraphs
-          - Button names
-          - Menu names (only top-level)
-          - Placeholders in text fields
-          - Labels on text fields (inside or outside forms)
-          - Textual hyperlinks
-          - Headings (h1, h2, etc.)
-          - Spans, divs, or other elements containing visible textpresent
-        - Exclude non-textual elements like images, unless they have `alt` text or similar attributes that provide textual data
-        - Ensure dedicated test case per section that collectively validates all text elements in that section properly without missing any existing element
-        - Ensure the test case is specific to the section and validates the text content shown in the UI
-    23. Generate dedicated test cases for validating the names of options in interactive elements like menus, dropdowns, accordions, sidebars, or any element that contains a list of options or sub-items:
-      - Create one test case per interactive element (e.g., one for each menu, dropdown, etc.).
-      - Validate the names of all options or sub-items (e.g., menu items, dropdown options).
-      - Include hidden options if they are part of the element (e.g., in dropdowns or accordions).
-      - For top-level menu names:
-        - Generate a separate test case and explicitly mention the section (e.g., "Header", "Main Body", "Footer") in the steps (e.g., "Check the top-level menu names in the Main Body").
-        - Example step: "Expand all top-level menus in the Main Body and check their names". Modify the step as required.
-      - For submenu validations:
-        - Include the parent menu name and the section in the steps (e.g., "Expand the 'Elements' menu in the Main Body and check its submenu options").
-        - Example step: "Expand the 'Elements' menu in the Main Body and check its submenu options".
-      - Ensure the steps clearly indicate whether the validation is for top-level menus or submenus and specify the section.
-    24. Generate dedicated test cases for page-level validations:
-        - Validate the page title matches the expected title
-        - Validate that the page content fits properly within the browser window without overflow or clipping (e.g., no horizontal scrollbars, content is fully visible or scrollable vertically)
-        - These should be separate test cases under the "page-validation" type
 
     Focus on:
     - Form validation rules
@@ -264,9 +236,6 @@ generate_tests:
     - Data presentation integrity
     - Interactive element functionality
     - Security considerations
-    - Textual data validation across sections
-    - Option names in menus, dropdowns, and similar elements
-    - Page title and responsiveness validation
 
     Rules:
     1. Never add comments or explanations
@@ -277,7 +246,6 @@ generate_tests:
     6. Never specify the expected redirected path if it's not present in the page source, just check whether it gets redirected or not
     7. Never consider advertisements/banners for test cases
     8. Return test cases in specified valid JSON format with Selenium selectors
-    
   prompt_suffix:
     test_data: |
       Available Test Data:
@@ -347,8 +315,8 @@ generate_script:
 
       service = Service(ChromeDriverManager().install())
       driver = webdriver.Chrome(service=service)
-
-      **The following code snippet should be included only for test cases where database interaction is required**
+      ```
+      **The following code snippet should be included only for test cases where redirection/navigation to another page is required**
       ```
       At the top of the script, include:
       ```
@@ -359,15 +327,10 @@ generate_script:
       parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))     # Get the absolute path to the parent folder (project root)
       sys.path.append(parent_dir)
 
-      from tables.redirect import Redirect
-      from tables.page_elements import PageElements
-      from tables.page import Page
-      from database import SessionLocal, init_db
+      from autotest import Redirect
+      from autotest import SessionLocal, init_db
       ```
       ** Call the init_db() function to initialize the database before invoking the main function**
-
-      ** Include: `from sqlalchemy.orm.attributes import flag_modified` at the top and flag_modified(record, "json_data") after assigning the 
-      JSON data to the specific attribute directly for text-validation and menu-validation test cases only**
 
       **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
       - Use a robust method such as:
@@ -375,91 +338,7 @@ generate_script:
           - Waiting for jQuery/AJAX activity to finish if present
 
       ***Strict Rules to be followed:***
-
-      For `page_validation` test cases (e.g., page title, page size):
-      - Start by navigating to the page URL.
-      - For page title validation:
-        - Extract the page title using `driver.title`.
-        - Query the `pages` table for the page URL using SQLAlchemy with a session (e.g., `with SessionLocal() as db:`):
-          - If a record exists and `page_title` is not "Not yet validated", log it and continue.
-          - If no record exists or `page_title` is "Not yet validated":
-            - Prompt the user with `input()` to validate the extracted title (e.g., "Is the page title 'title' correct? (y/n): ").
-            - If 'y', store the title in the `pages` table under `page_title`.
-            - If 'n', prompt for the correct title (e.g., "Enter the correct page title: ") and store it in `page_title`.
-            - If no record exists, create a new record with `page_url` and the validated `page_title`.
-          - Commit the changes to the database and log the action.
-      - For page size/responsiveness validation:
-        - Resize the browser window to a standard desktop size (e.g., 1280x720) using `driver.set_window_size(1280, 720)`.
-        - Check if the page content fits within the browser window using JavaScript (e.g., `document.body.scrollWidth > window.innerWidth` for horizontal scrollbars).
-        - Query the `pages` table for the page URL:
-          - If a record exists and `page_dimension` is not "Not yet validated", log it and continue.
-          - If no record exists or `page_dimension` is "Not yet validated":
-            - Prompt the user with `input()` to confirm if the page fits properly (e.g., "Does the page fit within the window without horizontal scrollbars? (y/n): ").
-            - If 'y', store "Fits properly" in `page_dimension`.
-            - If 'n', prompt for a description (e.g., "Enter the page dimension issue: ") and store it in `page_dimension`.
-            - If no record exists, create a new record with `page_url` and the validated `page_dimension`.
-          - Commit the changes to the database and log the action.
-
-      For `text_validation` test cases (validating text in header, main body, footer):
-      - Start by navigating to the page URL.
-      - Identify the section (Header, Main Body, Footer) from the test case steps or selectors.
-      - Use the provided selectors to locate all text-containing elements (e.g., paragraphs, buttons, labels, placeholders, headings, navigation menus, etc.).
-      - For each text element:
-        - Extract the visible text using `element.text` or `element.get_attribute('placeholder')` as appropriate.
-        - Determine the element type (e.g., "paragraphs", "buttons", "labels", "placeholders", "headings") based on the tag name or selector context.
-        - Query the `page_elements` table for the page URL and section using SQLAlchemy with a session (e.g., `with SessionLocal() as db:`):
-          - If a record exists:
-            - Load the `text_data` JSON (default to `blank json` if null).
-            - Check if the element type exists as a key in `text_data`.
-            - If the key exists, check if the extracted text is in the list; if not, proceed to validation.
-            - If the key does not exist, initialize it with an empty list.
-            - Generate proper logs for database interactions 
-          - If no record exists, create a new record with `page_url`, `section`, and `text_data` initialized as `blank json`.
-        - Prompt the user with `input()` to validate the text (e.g., "Is the text 'text' correct for element_type in `section`? (y/n): ").
-          - If 'y', append the text to the list under the element type key in `text_data`.
-          - If 'n', prompt for the correct text (e.g., "Enter the correct text: ") and append it to the list.
-        - Update `text_data` and commit the changes to the database. Do not use json.dumps() just assign the json object to the column.
-        - Log the action (e.g., `logger.info(f"Stored text `text` for `element_type` in `section` for page `page_url`")`).
-
-      For `menu_validation` test cases (validating menu options, dropdowns, etc.) in header, main body, footer:
-      - Start by navigating to the page URL.
-      - Parse the test case steps/name to identify the section (Header, Main Body, Footer) and the type of validation (top-level menus or submenus).
-      - Ensure to get the correct `section` name and it must be one of the three (Header, Main Body, Footer).
-      - For top-level menu validation:
-        - Identify from steps if it’s top-level validation (e.g., contains "top-level" or lacks submenu-specific wording like "options in the 'X' menu").
-        - Extract the menu names using the provided selectors.
-        - Determine a descriptive key name for the menu (e.g., "Sidebar Navigation Menu" if "sidebar" is mentioned in the steps or test case name; otherwise, use "Navigation Menu").
-        - Query the `page_elements` table for the page URL and section:
-          - If a record exists:
-            - Load `text_data` (default to `blank json` if null).
-            - If the key (e.g., "Sidebar Navigation Menu") exists, append the menu names to the list if not already present.
-            - If the key does not exist, add it with the list of menu names.
-            - Generate proper logs for database interactions 
-          - If no record exists, create a new record with `page_url`, `section`, and `text_data` containing the key-value pair.
-        - For each menu name:
-          - Prompt the user to validate the name (e.g., "Is the menu name `menu_name` correct in the `key name` of the `section`? (y/n): ").
-          - If 'y', append the name to the list under the key in `text_data`.
-          - If 'n', prompt for the correct name (e.g., "Enter the correct menu name: ") and append it.
-        - Update `text_data` and commit the changes to the database. Do not use json.dumps() just assign the json object to the column.
-        - Log the action (e.g., `logger.info(f"Stored top-level menu `menu_name` under `key` in `section` for page `page_url`")`).
-      - For submenu validation:
-        - Identify from steps if it’s submenu validation (e.g., contains "options in the  `parent_menu` menu").
-        - Extract the parent menu name from the steps (e.g., "Expand the 'Elements' menu" → "Elements").
-        - Extract the submenu items using the provided selectors.
-        - Query the `page_elements` table for the page URL and section:
-          - If a record exists:
-            - Load `submenus` (default to `blank json` if null).
-            - If the parent menu name exists as a key, append the submenu items to the list if not already present.
-            - If the key does not exist, add it with the list of submenu items.
-          - If no record exists, create a new record with `page_url`, `section`, and `submenus` containing the key-value pair.
-        - For each submenu item:
-          - Prompt the user to validate the item (e.g., "Is the submenu `option` correctly falls under `parent_menu` menu in the `section`? (y/n): ").
-          - If 'y', append the item to the list under the parent menu key in `submenus`.
-          - If 'n', prompt for the correct text (e.g., "Enter the correct option: ") and append it.
-        - Update `submenus` using `json.dumps(..., indent=2)` and commit the changes.
-        - Log the action (e.g., `logger.info(f"Stored submenu `option` for `parent_menu` in `section` for page `page_url`")`).
-
-      For navigation test cases (where validation involves a redirect):
+        For navigation test cases (where validation involves a redirect):
         - Start by navigating to the starting/parent/base URL
         - Perform the navigation action (e.g., click the element using `click_element`) based on the provided selector from the page source to trigger the redirect.
         - Wait for the page to load (e.g., using `WebDriverWait` for `document.readyState == 'complete'`).
@@ -472,117 +351,110 @@ generate_script:
             - Log the action, e.g., `logger.info(f"Redirect URL `redirected_url` already verified in database for parent page `starting_url`")`.
             - Continue the process and close the browser.
           - If no matching record exists:
-            - Prompt the user with `input()` to verify the redirected URL, e.g., `response = input(f"Is the redirect to `redirected_url` correct? (y/n): ")`.
-            - If the user enters 'y':
-              - Store the redirect in the `redirects` table with:
-                - `page_url`: the starting URL (parent page URL).
-                - `event_selector`: the selector of the element clicked (e.g., button, link) from the page source.
-                - `redirected_url`: the captured redirected URL.
-                - `event_description`: a brief step by step description, e.g., "Navigated to [element text or selector] then clicked on [element text or selector] in the `parent page (brief description)` and got redirected to [redirected_url]".
-              - Log the action, e.g., `logger.info(f"Stored redirect URL `redirected_url` for parent page `starting_url`")`.
-            - If the user enters 'n':
-              - Prompt the user for the correct URL, e.g., `correct_url = input("Enter the correct redirect URL: ")`.
-              - Follow the same steps as above to store the correct redirect URL in the 'redirects' table.
-              - Log the action, e.g., `logger.info(f"Stored corrected redirect URL `correct_url` for parent page `starting_url`")`.
-              - Navigate to the correct URL using `driver.get(correct_url)`.
-            - Refresh the db/table after committing successfully
-      - This database interaction should only occur for navigation, page-validation, text-validation and menu-validation type test cases involving redirection and textual data validation; other test case types (e.g., registration, UI validation) should not interact with the database.
+            - Automatically store the redirect in the redirects table with:
+              - page_url: the starting URL (parent page URL).
+              - event_selector: the selector of the element clicked (e.g., button, link) from the page source.
+              - redirected_url: the captured redirected URL.
+              - event_description: a brief step-by-step description, e.g., "Navigated to [element text or selector] then clicked on [element text or selector] in the parent page (brief description) and got redirected to [redirected_url]".
+            - Log the action, e.g., logger.info(f"Stored new redirect URL 'redirected_url' for parent page 'starting_url'").
+            - Refresh the database view/table after committing successfully.
+      - This database interaction should only occur for navigation type test cases involving redirection; other test case types (e.g., registration, UI validation) should not interact with the database.
 
-      For CSS Selectors in test cases:
-        - Use only the specific CSS selectors for element fields to be found as provided in the HTML page source
-        - DO NOT provide any other CSS selector for any element field that is not present in the page source for that particular field
-        - Ensure providing only specific/correct CSS selectors for the elements/element fields to be found in the test cases
-        - Escape special characters in class names or IDs (e.g., use `\\` before `+`, `-`, `.`, etc.) to ensure valid CSS selectors
+        For CSS Selectors in test cases:
+          - Use only the specific CSS selectors for element fields to be found as provided in the HTML page source
+          - DO NOT provide any other CSS selector for any element field that is not present in the page source for that particular field
+          - Ensure providing only specific/correct CSS selectors for the elements/element fields to be found in the test cases
+          - Escape special characters in class names or IDs (e.g., use `\\` before `+`, `-`, `.`, etc.) to ensure valid CSS selectors
 
-      For registration type test cases:
-        - Consider both whether the user is new or existing as per page source
-        - Analyse the page source for appropriate message/action taken post successful registration with test case pass/failed logged
-        - Handle JavaScript alert messages (e.g., alert with success text) gracefully by accepting/dismissing them and logging their content
-      
-      **Dynamic Handling of CAPTCHA, OTP, and File Upload Elements:**
-        - IF CAPTCHA, OTP or FILE UPLOAD elements detected in Page Source:
-          - Do not check for CAPTCHA, OTP, or file upload elements unless required by the test case flow
-          - Based on the test case steps and page metadata:
-            - For test cases involving form submissions:
-              - Before submitting the form, check for CAPTCHA using common selectors (e.g., #captcha, .g-recaptcha, iframe[src*='recaptcha'], [id*='captcha'], [class*='captcha']). If present, pause execution for manual solving with clear instructions (e.g., `logger.info('CAPTCHA detected. Please solve it manually.')`) and wait for {captcha_wait_time}.
-              - After submitting the form, check for OTP fields using a single selector (e.g., "input[name*='otp'], input[id*='otp'], input[placeholder*='OTP']") with `WebDriverWait` (5 seconds). If present, pause execution for manual entry with clear instructions (e.g., `logger.info('OTP field detected. Please enter the OTP manually.')`) and wait for {captcha_wait_time}.
-            - For test cases involving a file upload step:
-              - At the specific step requiring file upload, check for file input elements (e.g., input[type='file']). If present, pause execution for manual file selection with clear instructions (e.g., `logger.info('Please select a file to upload manually.')`) and wait for {captcha_wait_time}.
-            - For test cases unrelated to forms, submissions, or file uploads, do not include checks or pauses for CAPTCHA, OTP, or file upload elements.
-          - Use `WebDriverWait` with a 0-second timeout to detect these elements dynamically at relevant steps, handling absences with `TimeoutException` to proceed without pausing if not found.
-          - Only pause execution once per relevant element per test case step, avoiding redundant pauses.
-        - IF CAPTCHA, OTP or FILE UPLOAD elements not present in Page Source: 
-          - Do not include code for checking CAPTCHA, OTP, or file upload elements in the generated script unless mentioned in the HTML page source provided
+        For registration type test cases:
+          - Consider both whether the user is new or existing as per page source
+          - Analyse the page source for appropriate message/action taken post successful registration with test case pass/failed logged
+          - Handle JavaScript alert messages (e.g., alert with success text) gracefully by accepting/dismissing them and logging their content
+        
+        **Dynamic Handling of CAPTCHA, OTP, and File Upload Elements:**
+          - IF CAPTCHA, OTP or FILE UPLOAD elements detected in Page Source:
+            - Do not check for CAPTCHA, OTP, or file upload elements unless required by the test case flow
+            - Based on the test case steps and page metadata:
+              - For test cases involving form submissions:
+                - Before submitting the form, check for CAPTCHA using common selectors (e.g., #captcha, .g-recaptcha, iframe[src*='recaptcha'], [id*='captcha'], [class*='captcha']). If present, pause execution for manual solving with clear instructions (e.g., `logger.info('CAPTCHA detected. Please solve it manually.')`) and wait for {captcha_wait_time}.
+                - After submitting the form, check for OTP fields using a single selector (e.g., "input[name*='otp'], input[id*='otp'], input[placeholder*='OTP']") with `WebDriverWait` (5 seconds). If present, pause execution for manual entry with clear instructions (e.g., `logger.info('OTP field detected. Please enter the OTP manually.')`) and wait for {captcha_wait_time}.
+              - For test cases involving a file upload step:
+                - At the specific step requiring file upload, check for file input elements (e.g., input[type='file']). If present, pause execution for manual file selection with clear instructions (e.g., `logger.info('Please select a file to upload manually.')`) and wait for {captcha_wait_time}.
+              - For test cases unrelated to forms, submissions, or file uploads, do not include checks or pauses for CAPTCHA, OTP, or file upload elements.
+            - Use `WebDriverWait` with a 0-second timeout to detect these elements dynamically at relevant steps, handling absences with `TimeoutException` to proceed without pausing if not found.
+            - Only pause execution once per relevant element per test case step, avoiding redundant pauses.
+          - IF CAPTCHA, OTP or FILE UPLOAD elements not present in Page Source: 
+            - Do not include code for checking CAPTCHA, OTP, or file upload elements in the generated script unless mentioned in the HTML page source provided
 
-      If file download exists:
-        - Check whether file upload is required/necessary before it based on the test case steps
-        - If required, pause execution for manual upload at the appropriate step
-        - If not required, proceed without pausing or triggering file upload elements, logging the decision (e.g., `logger.info('File upload not required for this test case.')`)
-        - Configure the test to automatically download the file into the operating system's default 'Downloads' directory (platform-aware: Windows, macOS, Linux)
-        - Do not compare the downloaded file name as it may vary if it already exists
-        - Only compare files before and after downloading to get the latest file
+        If file download exists:
+          - Check whether file upload is required/necessary before it based on the test case steps
+          - If required, pause execution for manual upload at the appropriate step
+          - If not required, proceed without pausing or triggering file upload elements, logging the decision (e.g., `logger.info('File upload not required for this test case.')`)
+          - Configure the test to automatically download the file into the operating system's default 'Downloads' directory (platform-aware: Windows, macOS, Linux)
+          - Do not compare the downloaded file name as it may vary if it already exists
+          - Only compare files before and after downloading to get the latest file
 
-      For color validations, use a generic method to check if the color is red, handling both rgb and rgba formats:
-        - Use `getComputedStyle` to retrieve the color
-        - Normalize and check for red (255, 0, 0) or named 'red'
+        For color validations, use a generic method to check if the color is red, handling both rgb and rgba formats:
+          - Use `getComputedStyle` to retrieve the color
+          - Normalize and check for red (255, 0, 0) or named 'red'
 
-      For field validation:
-        - Check HTML5 `:invalid` state for required fields
-        - Look for error messages or classes (e.g., 'is-invalid', '.error') with partial matching
-        - For invalid input tests (e.g., username or password), use consistent logic:
-          - Fill the field with test data
-          - Submit the form
-          - Validate the expected error (class, message, or alert) using partial matching
+        For field validation:
+          - Check HTML5 `:invalid` state for required fields
+          - Look for error messages or classes (e.g., 'is-invalid', '.error') with partial matching
+          - For invalid input tests (e.g., username or password), use consistent logic:
+            - Fill the field with test data
+            - Submit the form
+            - Validate the expected error (class, message, or alert) using partial matching
 
-      For URL validations (e.g., redirection tests):
-        - Compare ONLY the domain and path, ignoring the protocol (http/https)
-        - Use Python's `urlparse` to extract and compare `netloc` (domain) and `path`
-        - Example: For "http://www.example.com/about", compare only "www.example.com/about"
+        For URL validations (e.g., redirection tests):
+          - Compare ONLY the domain and path, ignoring the protocol (http/https)
+          - Use Python's `urlparse` to extract and compare `netloc` (domain) and `path`
+          - Example: For "http://www.example.com/about", compare only "www.example.com/about"
 
-      For navigation type test cases:
-        - Do not include checks or pauses for OTP, CAPTCHA, or file upload elements unless explicitly required by the test case
+        For navigation type test cases:
+          - Do not include checks or pauses for OTP, CAPTCHA, or file upload elements unless explicitly required by the test case
 
-      For checkbox and radio button interactions:
-        - Implement a robust, generic method to handle checkboxes and radio buttons across different pages
-        - The method should:
-          - Locate the input element using the provided selector (e.g., CSS or XPath)
-          - If the input has an `id` attribute, attempt to find the associated label using `label[for='{{input_id}}']`
-          - If a label is found, use `click_element` to click the label; otherwise, use `click_element` to click the input directly
-          - For checkboxes, check the current state with `is_selected()` and use `click_element` to toggle it only if the desired state (checked/unchecked) differs
-          - For radio buttons, use `click_element` to select the desired option if not already selected
-          - Retry up to 3 times with a 1-second delay between attempts if the state cannot be set or verified
-          - Log each attempt and any exceptions (e.g., `ElementClickInterceptedException`)
-          - If the state cannot be set after retries, log an error and raise an exception
+        For checkbox and radio button interactions:
+          - Implement a robust, generic method to handle checkboxes and radio buttons across different pages
+          - The method should:
+            - Locate the input element using the provided selector (e.g., CSS or XPath)
+            - If the input has an `id` attribute, attempt to find the associated label using `label[for='{{input_id}}']`
+            - If a label is found, use `click_element` to click the label; otherwise, use `click_element` to click the input directly
+            - For checkboxes, check the current state with `is_selected()` and use `click_element` to toggle it only if the desired state (checked/unchecked) differs
+            - For radio buttons, use `click_element` to select the desired option if not already selected
+            - Retry up to 3 times with a 1-second delay between attempts if the state cannot be set or verified
+            - Log each attempt and any exceptions (e.g., `ElementClickInterceptedException`)
+            - If the state cannot be set after retries, log an error and raise an exception
 
-      For date picker interactions:
-        - Implement a robust method to handle date picker elements to avoid stale element references
-        - The method should:
-          - Locate the date input field using the provided selector
-          - Use `click_element` to open the date picker
-          - Wait for the date picker to become visible using `WebDriverWait` and `visibility_of_element_located` for the date picker's container (e.g., a div with a specific class or id)
-          - Locate the specific date element within the date picker using a dynamic selector (e.g., based on the date value or text)
-          - Use `click_element` to select the date
-          - Implement a retry mechanism (up to 3 attempts) for locating and clicking the date element to handle dynamic updates
-          - After selecting the date, verify that the input field reflects the chosen date
-          - Log each step and any exceptions for debugging purposes
+        For date picker interactions:
+          - Implement a robust method to handle date picker elements to avoid stale element references
+          - The method should:
+            - Locate the date input field using the provided selector
+            - Use `click_element` to open the date picker
+            - Wait for the date picker to become visible using `WebDriverWait` and `visibility_of_element_located` for the date picker's container (e.g., a div with a specific class or id)
+            - Locate the specific date element within the date picker using a dynamic selector (e.g., based on the date value or text)
+            - Use `click_element` to select the date
+            - Implement a retry mechanism (up to 3 attempts) for locating and clicking the date element to handle dynamic updates
+            - After selecting the date, verify that the input field reflects the chosen date
+            - Log each step and any exceptions for debugging purposes
 
-      For UI validation tests involving CSS properties:
-        - Retrieve computed styles using `getComputedStyle` and validate against expected patterns or presence of styles as present in the page source/UI
-        - DO NOT assume consistency across elements (e.g., same font-family, font-size) unless explicitly specified in the page metadata; validate each element's properties individually
-        - Focus on:
-          - Ensuring properties are set (e.g., `font-family` is not empty)
-          - Checking if properties match expected patterns (e.g., `font-size` is a positive value with units like 'px', 'em', etc.)
-          - Verifying that styles are applied as per the page's CSS classes or inline styles from the page source or metadata
-        - If specific expected values are provided in page_metadata or test_case, validate against those
-        - Otherwise, use generic validation:
-          - `font-family`: Not empty or 'inherit'
-          - `font-size`: Positive numeric value with valid CSS units
-          - `color`: Valid CSS color format (e.g., rgb, rgba, hex, named color)
-          - `background-color`: Valid CSS color format or 'transparent'
-          - `border`: Valid CSS border style (e.g., 'none', 'solid', etc.) or not empty
-          - Include other properties if present in the page's CSS classes or inline styles
-        - Log the computed value and validation result for each property
-
+          For UI validation tests involving CSS properties:
+          - Retrieve computed styles using `getComputedStyle` and validate against expected patterns or presence of styles as present in the page source/UI
+          - DO NOT assume consistency across elements (e.g., same font-family, font-size) unless explicitly specified in the page metadata; validate each element's properties individually
+          - Focus on:
+            - Ensuring properties are set (e.g., `font-family` is not empty)
+            - Checking if properties match expected patterns (e.g., `font-size` is a positive value with units like 'px', 'em', etc.)
+            - Verifying that styles are applied as per the page's CSS classes or inline styles from the page source or metadata
+          - If specific expected values are provided in page_metadata or test_case, validate against those
+          - Otherwise, use generic validation:
+            - `font-family`: Not empty or 'inherit'
+            - `font-size`: Positive numeric value with valid CSS units
+            - `color`: Valid CSS color format (e.g., rgb, rgba, hex, named color)
+            - `background-color`: Valid CSS color format or 'transparent'
+            - `border`: Valid CSS border style (e.g., 'none', 'solid', etc.) or not empty
+            - Include other properties if present in the page's CSS classes or inline styles
+          - Log the computed value and validation result for each property
+          
       Return ONLY executable {language} code in markdown format.
       Return ONLY CODE in markdown blocks. No explanations.
       
