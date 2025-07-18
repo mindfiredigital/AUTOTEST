@@ -351,20 +351,13 @@ generate_script:
             - Log the action, e.g., `logger.info(f"Redirect URL `redirected_url` already verified in database for parent page `starting_url`")`.
             - Continue the process and close the browser.
           - If no matching record exists:
-            - Prompt the user with `input()` to verify the redirected URL, e.g., `response = input(f"Is the redirect to `redirected_url` correct? (y/n): ")`.
-            - If the user enters 'y':
-              - Store the redirect in the `redirects` table with:
-                - `page_url`: the starting URL (parent page URL).
-                - `event_selector`: the selector of the element clicked (e.g., button, link) from the page source.
-                - `redirected_url`: the captured redirected URL.
-                - `event_description`: a brief step by step description, e.g., "Navigated to [element text or selector] then clicked on [element text or selector] in the `parent page (brief description)` and got redirected to [redirected_url]".
-              - Log the action, e.g., `logger.info(f"Stored redirect URL `redirected_url` for parent page `starting_url`")`.
-            - If the user enters 'n':
-              - Prompt the user for the correct URL, e.g., `correct_url = input("Enter the correct redirect URL: ")`.
-              - Follow the same steps as above to store the correct redirect URL in the 'redirects' table.
-              - Log the action, e.g., `logger.info(f"Stored corrected redirect URL `correct_url` for parent page `starting_url`")`.
-              - Navigate to the correct URL using `driver.get(correct_url)`.
-            - Refresh the db/table after committing successfully
+            - Automatically store the redirect in the redirects table with:
+              - page_url: the starting URL (parent page URL).
+              - event_selector: the selector of the element clicked (e.g., button, link) from the page source.
+              - redirected_url: the captured redirected URL.
+              - event_description: a brief step-by-step description, e.g., "Navigated to [element text or selector] then clicked on [element text or selector] in the parent page (brief description) and got redirected to [redirected_url]".
+            - Log the action, e.g., logger.info(f"Stored new redirect URL 'redirected_url' for parent page 'starting_url'").
+            - Refresh the database view/table after committing successfully.
       - This database interaction should only occur for navigation type test cases involving redirection; other test case types (e.g., registration, UI validation) should not interact with the database.
 
         For CSS Selectors in test cases:

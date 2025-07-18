@@ -12,9 +12,9 @@ class TestCase(Base):
     __tablename__ = "test_case_data"
     id = Column(Integer, primary_key=True, index=True)
     page_url = Column(String, ForeignKey("page.page_url"))
-    test_case_name = Column(String)
+    test_case_title = Column(String)
     test_case_type = Column(String)
-    test_case = Column(JSON)  # JSON string
+    test_case_data = Column(JSON)  # JSON string
     test_script = Column(Text)
     script_path = Column(String)
     timestamp = Column(DateTime, default=get_local_time, onupdate=get_local_time)

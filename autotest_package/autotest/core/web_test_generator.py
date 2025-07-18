@@ -481,9 +481,9 @@ class WebTestGenerator:
                                 
                                 if script:
                                     test_case.page_url=self.driver.current_url
-                                    test_case.test_case_name=selected_test_case.get('name', 'Unnamed Test Case')
+                                    test_case.test_case_title=selected_test_case.get('name', 'Unnamed Test Case')
                                     test_case.test_case_type=selected_test_case.get('type', 'N/A')
-                                    test_case.test_case=selected_test_case
+                                    test_case.test_case_data=selected_test_case
                                     test_case.test_script=script
                                     test_case.script_path=script_path
                                         
@@ -521,9 +521,9 @@ class WebTestGenerator:
                         if script:
                             # scripts.append(script)
                             test_case = TestCase(page_url=self.driver.current_url,
-                                                    test_case_name=selected_test_case.get('name', 'Unnamed Test Case'),
+                                                    test_case_title=selected_test_case.get('name', 'Unnamed Test Case'),
                                                     test_case_type=selected_test_case.get('type', 'N/A'),
-                                                    test_case=selected_test_case,
+                                                    test_case_data=selected_test_case,
                                                     test_script=script,
                                                     script_path=script_path
                                                 )
