@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import tempfile
+import tldextract
 import time
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -28,6 +29,12 @@ from .llm_wrapper import LLMWrapper
 from .prompt_manager import PromptManager
 from .url_extractor import URLExtractor
 from ..utils.logging_utils import setup_logger
+
+from ..db.database import init_db, SessionLocal
+from sqlalchemy import func
+from ..tables.page import Page
+from ..tables.test_case_data import TestCase
+from ..tables.domain import Domain
 
 from bs4 import BeautifulSoup, Comment
 
@@ -101,11 +108,14 @@ class WebTestGenerator:
             wait_time (str): Custom wait time for CAPTCHA handling
             testing_tool (str): Testing framework to use
             language (str): Programming language for test scripts
-        """
+        """ 
         self.log_level = log_level.upper()
         self.selenium_version = selenium_version
         self.wait_time = wait_time
         self.testing_tool = testing_tool.lower()
+
+        # Initialize DB on startup
+        self.initialize_database() 
         
         # Validate language support
         valid_langs = SUPPORTED_LANGUAGES.get(testing_tool.lower(), [])
@@ -130,6 +140,9 @@ class WebTestGenerator:
         # Setup browser and URL extractor
         self.setup_browser()
         self.url_extractor = URLExtractor(self.driver, self.logger)
+
+    def initialize_database(self):
+        init_db()  # Create tables if they don’t exist 
 
     def setup_browser(self):
         """Setup Chrome browser with headless configuration"""
@@ -259,50 +272,94 @@ class WebTestGenerator:
         
         return cleaned_html
         
-    def analyze_page(self, context="current"):
+    def analyze_page(self, regenerate, first_time, context="current"):
         """
         Analyze current page and generate metadata
         
         Args:
+            regenerate (bool): Whether to regenerate the test data
             context (str): Context description for logging
             
         Returns:
             dict: Page analysis results with metadata, test cases, and scripts
         """
-        self.logger.info(f"Analyzing {context} page...")
-        page_source = self.driver.page_source
-        # minimised_html = self.extract_test_relevant_html(page_source)
-        #self.logger.info(f"PAGE_SOURCE: {page_source}")
-        
-        # Static metadata extraction
-        static_metadata = {
-            "title": self.driver.title,
-            "url": self.driver.current_url,
-            "forms": self.extract_forms(),
-            "buttons": self.extract_interactive_elements(),
-            "tables": self.extract_data_tables(),
-            "key_flows": self.identify_key_flows()
-        }
-        
-        self.logger.debug(f"Static page metadata: {static_metadata}")
-        
-        # LLM-powered dynamic analysis
-        minimized_html = self.extract_test_relevant_html(page_source)
-        #minimized_html = page_source
-        llm_metadata = self.llm_page_analysis(minimized_html)
-        self.logger.debug(f"LLM Analysed page metadata: {llm_metadata}")
-        
-        # Combine static and dynamic metadata
-        page_metadata = {**static_metadata, **llm_metadata}
-        self.logger.debug(f"Combined page metadata: {page_metadata}")
-        
-        # Generate test cases and scripts
-        test_cases = self.generate_page_specific_tests(page_metadata, minimized_html)
-        # scripts = [self.generate_script_for_test_case(tc, page_metadata, minimized_html) 
-        #           for tc in test_cases]
+        if regenerate or first_time:
+            self.logger.debug(f"Analyzing {context} page...")
+            page_source = self.driver.page_source
+            
+            # Static metadata extraction
+            static_metadata = {
+                "title": self.driver.title,
+                "url": self.driver.current_url,
+                "forms": self.extract_forms(),
+                "buttons": self.extract_interactive_elements(),
+                "tables": self.extract_data_tables(),
+                "key_flows": self.identify_key_flows()
+            }
+            
+            self.logger.debug(f"Static page metadata: {static_metadata}")
+            
+            # LLM-powered dynamic analysis
+            minimized_html = self.extract_test_relevant_html(page_source)
+            #minimized_html = page_source
+            llm_metadata = self.llm_page_analysis(minimized_html)
+            self.logger.debug(f"LLM extracted page metadata: {llm_metadata}")
+            
+            # Combine static and dynamic metadata
+            page_metadata = {**static_metadata, **llm_metadata}
+            # page_metadata = llm_metadata
+            self.logger.debug(f"Combined page metadata: {page_metadata}")
+            
+            # Generate test cases and scripts
+            test_cases = self.generate_page_specific_tests(page_metadata, minimized_html)
+            extracted = tldextract.extract(context)
+            domain_name = f"{extracted.domain}.{extracted.suffix}"
+            with SessionLocal() as db:
+                # Check if domain is already in database or not
+                domain_exists = db.query(Domain).filter(Domain.domain_name == domain_name).first()
+                if not domain_exists:
+                    # If not, add it to database
+                    new_domain = Domain(domain_name=domain_name)
+                    db.add(new_domain)
+                    db.commit()
+                    db.refresh(new_domain)
+                    domain_id = new_domain.id
+                else:
+                    domain_id = domain_exists.id
+                    
+                page = db.query(Page).filter(Page.page_url == context).first()
+                if not page:
+                    page = Page(page_url = context)
+                    db.add(page)
+
+                page.domain_id = domain_id
+                page.page_title = self.driver.title   
+                page.page_source = minimized_html
+                page.page_metadata = page_metadata
+                page.test_cases = test_cases
+                page.test_cases_count = len(test_cases)
+                
+                db.commit()
+                db.refresh(page)
+
+            # scripts = [self.generate_script_for_test_case(tc, page_metadata, minimized_html) 
+            #           for tc in test_cases]
+        else:
+            self.logger.debug(f"Fetching data for '{context}' page from database...")
+            with SessionLocal() as db:
+                page = db.query(Page).filter(Page.page_url == context).first()
+
+            minimized_html = page.page_source
+            self.logger.debug(f"Successfully fetched page metadata: {page.page_metadata}")
+            page_metadata = page.page_metadata
+            self.logger.debug(f"Successfully fetched {page.test_cases_count} test cases")
+            test_cases = page.test_cases
+            self.logger.debug(f"Test Case Details:\n {page.test_cases}")
+                
+            
 
         # Manual intervention for script generation
-        scripts, selected_test_cases = self.generate_scripts_with_manual_intervention(test_cases, page_metadata, minimized_html)
+        scripts, selected_test_cases = self.generate_scripts_with_manual_intervention(test_cases, page_metadata, minimized_html, regenerate)
         
         return {
             "metadata": page_metadata,
@@ -311,7 +368,7 @@ class WebTestGenerator:
             "selected_test_cases": selected_test_cases
         }
     
-    def generate_scripts_with_manual_intervention(self, test_cases, page_metadata, minimized_html):
+    def generate_scripts_with_manual_intervention(self, test_cases, page_metadata, minimized_html, regenerate):
         """
         Generate scripts with manual intervention - user selects which test cases to generate scripts for
         
@@ -324,148 +381,168 @@ class WebTestGenerator:
             tuple: (scripts, selected_test_cases) - Generated scripts and corresponding test cases
         """
         if not test_cases:
-            self.logger.info("No test cases found to generate scripts for.")
+            self.logger.debug("No test cases found to generate scripts for.")
             return [], []
         
         scripts = []
         selected_test_cases = []  # Track which test cases were selected
         
         # Display test cases with serial numbers
-        print("\n" + "="*60)
-        self.logger.debug("\n" + "="*60)
-        print("AVAILABLE TEST CASES:")
-        self.logger.debug("AVAILABLE TEST CASES:")
-        print("="*60)
+        self.logger.debug("="*60)
+        self.logger.debug("\t\t\t\t\tAVAILABLE TEST CASES:")
         self.logger.debug("="*60)
         for i, test_case in enumerate(test_cases, 1):
-            print(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
             self.logger.debug(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
-            print(f"   Type: {test_case.get('type', 'N/A')}")
             self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
-            print(f"   Steps: {len(test_case.get('steps', []))} step(s)")
             self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
 
             # Display complete steps
             steps = test_case.get('steps', [])
             if steps:
-                print(f"   Steps:")
                 self.logger.debug(f"   Steps:")
                 for j, step in enumerate(steps, 1):
-                    print(f"      {j}. {step}")
                     self.logger.debug(f"      {j}. {step}")
             else:
-                print(f"   Steps: No steps defined")
                 self.logger.debug(f"   Steps: No steps defined")
 
             # Display validation
             validation = test_case.get('validation', '')
             if validation:
-                print(f"   Validation: {validation}")
                 self.logger.debug(f"   Validation: {validation}")
             else:
-                print(f"   Validation: No validation defined")
                 self.logger.debug(f"   Validation: No validation defined")
 
             print()
-            #self.logger.debug()
-        
-        #print("Enter test case numbers to generate scripts (or 'quit' to stop)")
-        print("Enter test case numbers to generate scripts, 'list' to show cases, or 'quit' to stop")
-        self.logger.debug("Enter test case numbers to generate scripts, 'list' to show cases, or 'quit' to stop")
-        print("="*60)
-        self.logger.debug("="*60)
         
         while True:
             try:
                 #user_input = input("\nEnter test case number (or 'quit' to stop): ").strip()
-                user_input = input("\nEnter test case number, 'list' to show cases, or 'quit' to stop: ").strip()
-                self.logger.debug("\nEnter test case number, 'list' to show cases, or 'quit' to stop: ")
+                user_input = input("Enter test case number, 'list' to show cases, or 'quit' to stop: ").strip()
+                self.logger.debug("Enter test case number, 'list' to show cases, or 'quit' to stop: ")
                 self.logger.debug(f"User entered: {user_input}")
                 
                 if user_input.lower() == 'quit':
-                    print("Script generation stopped by user.")
                     self.logger.debug("Script generation stopped by user.")
                     break
 
                 if user_input.lower() == 'list':
-                    print("\n" + "="*60)
-                    self.logger.debug("\n" + "="*60)
-                    print("AVAILABLE TEST CASES:")
-                    self.logger.debug("AVAILABLE TEST CASES:")
-                    print("="*60)
+                    self.logger.debug("="*60)
+                    self.logger.debug("\t\t\t\t\tAVAILABLE TEST CASES:")
                     self.logger.debug("="*60)
                     for i, test_case in enumerate(test_cases, 1):
-                        print(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
                         self.logger.debug(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
-                        print(f"   Type: {test_case.get('type', 'N/A')}")
                         self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
-                        print(f"   Steps: {len(test_case.get('steps', []))} step(s)")
                         self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
 
                         # Display complete steps
                         steps = test_case.get('steps', [])
                         if steps:
-                            print(f"   Steps:")
                             self.logger.debug(f"   Steps:")
                             for j, step in enumerate(steps, 1):
-                                print(f"      {j}. {step}")
                                 self.logger.debug(f"      {j}. {step}")
                         else:
-                            print(f"   Steps: No steps defined")
                             self.logger.debug(f"   Steps: No steps defined")
 
                         # Display validation
                         validation = test_case.get('validation', '')
                         if validation:
-                            print(f"   Validation: {validation}")
                             self.logger.debug(f"   Validation: {validation}")
                         else:
-                            print(f"   Validation: No validation defined")
                             self.logger.debug(f"   Validation: No validation defined")
 
                         print()
-                        #self.logger.debug()
                     continue
                 
                 # Validate input
                 try:
                     test_case_num = int(user_input)
                     if test_case_num < 1 or test_case_num > len(test_cases):
-                        print(f"Invalid test case number. Please enter a number between 1 and {len(test_cases)}")
                         self.logger.debug(f"Invalid test case number. Please enter a number between 1 and {len(test_cases)}")
                         continue
                 except ValueError:
-                    print("Invalid input. Please enter a valid number, 'list', or 'quit'")
                     self.logger.debug("Invalid input. Please enter a valid number, 'list', or 'quit'")
                     continue
                 
                 # Generate script for selected test case
                 selected_test_case = test_cases[test_case_num - 1]
-                print(f"\nGenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
-                self.logger.debug(f"\nGenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
-                print("Please wait...")
-                self.logger.debug("Please wait...")
+                with SessionLocal() as db:
+                    test_case = db.query(TestCase).filter((TestCase.page_url == self.driver.current_url) & (TestCase.test_case == selected_test_case)).first()
+                    if test_case: 
+                        self.logger.debug(f"Test script already exists for the selected test case at {test_case.script_path}")
+                        while True:
+                            user_input = input("Do you want to regenerate the script for the selected test case? (y/n): ").strip()
+                            self.logger.debug("Do you want to regenerate the script for the selected test case? (y/n): ")
+                            self.logger.debug(f"User entered: {user_input}")
+                            if user_input.lower() == 'y':
+                                self.logger.debug(f"Regenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
+                                self.logger.debug("Please wait...")
                 
-                script, filename = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
+                                script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
+                                
+                                if script:
+                                    test_case.page_url=self.driver.current_url
+                                    test_case.test_case_title=selected_test_case.get('name', 'Unnamed Test Case')
+                                    test_case.test_case_type=selected_test_case.get('type', 'N/A')
+                                    test_case.test_case_data=selected_test_case
+                                    test_case.test_script=script
+                                    test_case.script_path=script_path
+                                        
+                                    db.commit()
+                                    db.refresh(test_case)
+                                    scripts.append({'script': script, 'filename': filename})
+                                    selected_test_cases.append(selected_test_case)
+                                    self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
+                                    break
+                                else:
+                                    self.logger.debug(f"✗ Failed to generate script for test case {test_case_num}")
+                                    continue
+
+
+                            if user_input.lower() == 'n':
+                                self.logger.debug(f"\nFetching script for: '{selected_test_case.get('name', 'Unnamed Test Case')}' from database")
+                                self.logger.debug("Please wait...")
+                                scripts.append({'script': test_case.test_script, 'filename': os.path.basename(test_case.script_path)})
+                                selected_test_cases.append(selected_test_case)
+                                self.logger.debug(f"Test script fetched:\n{test_case.test_script}")
+                                self.logger.debug(f"Test script stored: {test_case.script_path}")
+                                self.logger.debug(f"✓ Script fetched successfully for test case {test_case_num} from the database")
+                                break
+
+                            else:
+                                self.logger.debug("Invalid input. Please enter 'y' or 'n'")
+                                continue
+                                
+                    else:
+                        self.logger.debug(f"Generating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
+                        self.logger.debug("Please wait...")
+                        
+                        script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
+                        
+                        if script:
+                            # scripts.append(script)
+                            test_case = TestCase(page_url=self.driver.current_url,
+                                                    test_case_title=selected_test_case.get('name', 'Unnamed Test Case'),
+                                                    test_case_type=selected_test_case.get('type', 'N/A'),
+                                                    test_case_data=selected_test_case,
+                                                    test_script=script,
+                                                    script_path=script_path
+                                                )
+                            
+                            db.add(test_case)    
+                            db.commit()
+                            db.refresh(test_case)
+                            scripts.append({'script': script, 'filename': filename})
+                            selected_test_cases.append(selected_test_case)
+                            self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
+                        else:
+                            self.logger.debug(f"✗ Failed to generate script for test case {test_case_num}")
                 
-                if script:
-                    # scripts.append(script)
-                    scripts.append({'script': script, 'filename': filename})
-                    selected_test_cases.append(selected_test_case)
-                    print(f"✓ Script generated successfully for test case {test_case_num}")
-                    self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
-                else:
-                    print(f"✗ Failed to generate script for test case {test_case_num}")
-                    self.logger.debug(f"✗ Failed to generate script for test case {test_case_num}")
-                    
             except KeyboardInterrupt:
-                print("\n\nScript generation interrupted by user.")
                 self.logger.debug("\n\nScript generation interrupted by user.")
                 break
             except Exception as e:
                 self.logger.error(f"Error during script generation: {str(e)}")
-                print(f"Error occurred: {str(e)}")
-                continue
+                continue                        
         
         return scripts, selected_test_cases
 
@@ -481,17 +558,18 @@ class WebTestGenerator:
         """
         try:
             system_prompt = self.prompt_manager.get_prompt("llm_page_analysis", "system")
-            self.logger.debug(f"LLM analysis system prompt: {system_prompt}")
+            # self.logger.debug(f"LLM analysis system prompt: {system_prompt}")
             test_data = self.load_test_data()
             self.logger.debug(f"Test Data: {test_data}")
+            self.logger.debug("Sending request to LLM for page metadata extraction...")
             user_prompt_template = self.prompt_manager.get_prompt("llm_page_analysis", "user")
             user_prompt = user_prompt_template.format(page_source=minimized_html)
-            self.logger.debug(f"LLM analysis user prompt: {user_prompt}")
+            # self.logger.debug(f"LLM analysis user prompt: {user_prompt}")
             
             result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
             
-            self.logger.info("LLM analysis of current page completed")
-            self.logger.debug(f"Raw LLM response: {result}")
+            self.logger.debug("LLM extraction of current page metadata completed")
+            # self.logger.debug(f"Raw LLM response: {result}")
             
             try:
                 # Parse JSON response
@@ -501,7 +579,7 @@ class WebTestGenerator:
                 elif "```" in result:
                     json_str = result.split("```")[1].strip()
 
-                self.logger.debug(f"Sanitized LLM response: {json_str}")
+                # self.logger.debug(f"Sanitized LLM response: {json_str}")
                 return json.loads(json_str)
             
             except json.JSONDecodeError as e:
@@ -627,14 +705,14 @@ class WebTestGenerator:
             prompt_suffix_new += contact_form_suffix
         
         try:
-            self.logger.info("Sending request to LLM for test case generation...")
+            self.logger.debug("Sending request to LLM for test case generation...")
             system_prompt = self.prompt_manager.get_prompt("generate_tests", "system")
             user_prompt_template = self.prompt_manager.get_prompt("generate_tests", "user")
             
             user_prompt = user_prompt_template.format(
                 page_metadata=json.dumps(page_metadata, indent=2),
                 prompt_suffix=prompt_suffix_new,
-                title=page_metadata['title'],
+                title=self.driver.title,
                 forms=json.dumps(page_metadata['forms']),
                 buttons=json.dumps(page_metadata['buttons']),
                 interactive_elements=json.dumps(page_metadata.get('interactive_elements', [])),
@@ -645,8 +723,8 @@ class WebTestGenerator:
             )
             
             result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
-            self.logger.debug(f"Raw LLM response: {result}")
-            self.logger.info("Received response from LLM")
+            # self.logger.debug(f"Raw LLM response: {result}")
+            self.logger.debug("Received response from LLM")
             
             try:
                 # Parse JSON response
@@ -659,7 +737,7 @@ class WebTestGenerator:
                 parsed = json.loads(json_str)
                 test_cases = parsed['test_cases']
                 
-                self.logger.info(f"Successfully parsed {len(test_cases)} test cases")
+                self.logger.debug(f"Successfully parsed {len(test_cases)} test cases")
                 self.logger.debug("Test Case Details:\n" + json.dumps(test_cases, indent=2))
                 
                 # Validate test data usage
@@ -711,7 +789,7 @@ class WebTestGenerator:
             )
             
             script_content = self.llm.generate(system_prompt, user_prompt, model_type="selenium")
-            self.logger.debug(f"Raw LLM response generated code: {script_content}")
+            # self.logger.debug(f"Raw LLM response generated code: {script_content}")
             
             # Extract code from markdown blocks
             #code = self._extract_code_from_response(script_content)
@@ -759,11 +837,11 @@ class WebTestGenerator:
                 #     f.write(code)
                 with open(script_path, 'w') as f:
                     f.write(code)
-                    
-                # self.logger.info(f"Saved test script: {script_name}")
-                self.logger.info(f"Saved test script: {script_path}")
+
+                self.logger.debug(f"LLM generated test script:\n{code}")   
+                self.logger.debug(f"Saved test script: {script_path}")
                 
-            return code, filename
+            return code, filename, script_path
             
         except Exception as e:
             self.logger.error(f"Script generation failed: {str(e)}")
@@ -798,7 +876,7 @@ class WebTestGenerator:
         
         with open(script_name, 'w') as f:
             f.write(code)
-        self.logger.info(f"Saved test script: {script_name}")
+        self.logger.debug(f"Saved test script: {script_name}")
 
     def execute_test_cycle(self, analysis):
         """Execute test cycle for page analysis results"""
@@ -974,7 +1052,7 @@ class WebTestGenerator:
     #         if self.driver:
     #             self.driver.quit()
 
-    def run_workflow(self, url, username=None, password=None, recursive=False, max_depth=1):
+    def run_workflow(self, url, username=None, password=None, no_cache=False, recursive=False, max_depth=1):
         """
         Main workflow execution with optional recursive URL discovery
         
@@ -982,6 +1060,7 @@ class WebTestGenerator:
             url (str): URL to test
             username (str): Optional username for authentication
             password (str): Optional password for authentication
+            no_cache (bool): Whether to use cache memory (database)or not
             recursive (bool): Whether to perform recursive URL extraction
             max_depth (int): Maximum depth for recursive extraction
             
@@ -998,21 +1077,34 @@ class WebTestGenerator:
 
                 # Process each URL
                 for discovered_url in all_urls:
-                    self.process_single_url(discovered_url, username, password)
+                    self.process_single_url(discovered_url, username, password, no_cache)
                     
                 return self.generate_report()
             else:
                 # Original single-page workflow
                 self.driver.get(url)
-
+                if not no_cache:
+                    with SessionLocal() as db:
+                        page = db.query(Page).filter(Page.page_url == url and Page.page_source == self.driver.page_source).first()
+                        if page:
+                            self.logger.debug(f"Provided webpage: '{url}' is already tested and validated...!!!")
+                            regenerate = False
+                            first_time = False
+                        else:
+                            self.logger.debug("Detected a new webpage. Proceeding with the analysis...")
+                            regenerate = True
+                            first_time = True
+                else:
+                    self.logger.debug("Cache is disabled. Proceeding with the analysis...")
+                    regenerate = True  
+                    first_time = False
                 # Optional authentication check and handling
                 # if self._requires_login():
                 #     if not username or not password:
                 #         self.logger.warning(f"Skipping {url} - authentication required but credentials not provided")
                 #         return
-                #     self.login_to_website(url, username, password)
-
-                initial_analysis = self.analyze_page(context=url)
+                #     self.login_to_website(url, username, password) 
+                initial_analysis = self.analyze_page(regenerate=regenerate, first_time=first_time, context=url)
                 self.execute_test_cycle(initial_analysis)
                 self.track_navigation(url)
                 return self.generate_report()
@@ -1021,7 +1113,7 @@ class WebTestGenerator:
             if self.driver:
                 self.driver.quit()
 
-    def process_single_url(self, url, username, password):
+    def process_single_url(self, url, username, password, no_cache):
         """
         Process individual URL with existing workflow
         
@@ -1030,12 +1122,27 @@ class WebTestGenerator:
             username (str): Optional username for authentication
             password (str): Optional password for authentication
         """
-        self.logger.info(f"\n{'='*50}")
-        self.logger.info(f"Processing URL: {url}")
+        self.logger.debug(f"\n{'='*50}")
+        self.logger.debug(f"Processing URL: {url}")
         
         try:
             self.driver.get(url)
-            
+            if not no_cache:
+                with SessionLocal() as db:
+                    page = db.query(Page).filter(Page.page_url == url and Page.page_source == self.driver.page_source).first()
+                    if page:
+                        self.logger.debug(f"Provided webpage: '{url}' is already tested and validated...!!!")
+                        regenerate = False
+                        first_time = False
+                        return 
+                    else:
+                        self.logger.debug("Detected a new webpage. Proceeding with the analysis...")
+                        regenerate = False
+                        first_time = True
+            else:
+                self.logger.debug("Cache is disabled. Proceeding with the analysis...")
+                regenerate = True 
+                first_time = False
             # Optional authentication check and handling
             # if self._requires_login():
             #     if not username or not password:
@@ -1043,7 +1150,7 @@ class WebTestGenerator:
             #         return
             #     self.login_to_website(url, username, password)
             
-            analysis = self.analyze_page(context=url)
+            analysis = self.analyze_page(regenerate=regenerate, first_time=first_time, context=url)
             self.execute_test_cycle(analysis)
             self.track_navigation(url)
             
@@ -1146,7 +1253,7 @@ class WebTestGenerator:
                         if self.validate_field_input(value, field_info.get('type')):
                             field_values[field_name] = value
                             break
-                        print(f"Invalid format for {field_name}. Please try again.")
+                        self.logger.debug(f"Invalid format for {field_name}. Please try again.")
                     
                     self.driver.find_element(By.CSS_SELECTOR, field_info['selector']).send_keys(field_values[field_name])
 
@@ -1200,7 +1307,7 @@ class WebTestGenerator:
                 current_url = new_url
                 
             except TimeoutException:
-                self.logger.info("Navigation tracking completed")
+                self.logger.debug("Navigation tracking completed")
                 break
 
     def generate_report(self):

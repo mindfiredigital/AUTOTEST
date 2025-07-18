@@ -34,6 +34,10 @@ def main():
                        default=1,
                        help="Maximum depth for recursive URL extraction (default: 1)")
     
+    parser.add_argument("--no-cache",
+                        action="store_true",
+                        help="Disable use of cache memory during testing")
+    
     args = parser.parse_args()
     
     try:
@@ -48,7 +52,7 @@ def main():
         print(f"Invalid configuration: {str(e)}")
         sys.exit(1)
         
-    report_file = tester.run_workflow(args.url, args.username, args.password, recursive=args.recursive, max_depth=args.max_depth)
+    report_file = tester.run_workflow(args.url, args.username, args.password, args.no_cache, recursive=args.recursive, max_depth=args.max_depth)
     print(f"Test report generated: {report_file}")
 
 if __name__ == "__main__":

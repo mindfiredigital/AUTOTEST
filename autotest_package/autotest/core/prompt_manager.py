@@ -18,7 +18,7 @@ class PromptManager:
         if prompt_file is None:
             # Get the package directory and default prompt file path
             package_dir = os.path.dirname(os.path.dirname(__file__))
-            prompt_file = os.path.join(package_dir, '..', 'config', 'prompts4.yaml')
+            prompt_file = os.path.join(package_dir, 'config', 'prompts4.yaml')
             
         with open(prompt_file, "r", encoding="utf-8") as f:
             self.prompts = yaml.safe_load(f)
