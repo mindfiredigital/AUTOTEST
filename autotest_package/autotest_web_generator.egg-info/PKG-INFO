@@ -1,9 +1,54 @@
+Metadata-Version: 2.4
+Name: autotest-web-generator
+Version: 1.0.0
+Summary: Automated Web Testing Framework with LLM Integration
+Home-page: https://github.com/mindfiredigital/AUTOTEST
+Author: Ankit Saha
+Author-email: Ankit Saha <ankit.s@mindfiresolutions.com>
+License: MIT
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: selenium==4.15.2
+Requires-Dist: webdriver-manager==4.0.2
+Requires-Dist: python-dotenv==1.0.0
+Requires-Dist: groq>=0.4.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: pillow==11.1.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: tldextract>=5.3.0
+Requires-Dist: jsonschema==4.23.0
+Requires-Dist: langchain-openai==0.3.15
+Requires-Dist: langchain-groq==0.3.2
+Requires-Dist: langchain-google-genai==2.1.4
+Requires-Dist: langchain-community==0.3.23
+Requires-Dist: langchain==0.3.24
+Requires-Dist: playwright==1.42.0
+Requires-Dist: pyppeteer==2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
 # AUTOTEST: Automated test case and Selenium script generation using LLM 
 
 <img src="./autotest_image.jpg" alt="Project Logo" width="100" height="auto"> <!-- Include a project logo or banner here, if applicable -->
 
 
-## Table of  Contents
+## Table of Contents
 
 - [Project Name](#project-name)
   - [Table of Contents](#table-of-contents)

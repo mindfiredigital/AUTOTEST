@@ -1,0 +1,2 @@
+[console_scripts]
+autotest-cli = autotest.cli.main:main

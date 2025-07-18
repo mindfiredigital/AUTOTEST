@@ -223,8 +223,9 @@ class WebTestGenerator:
         
         # Create file handler
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = f"logs/test_run_{timestamp}.log"
         os.makedirs('logs', exist_ok=True)
+        log_file = f"logs/test_run_{timestamp}.log"
+        
         
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(numeric_level)
@@ -247,6 +248,7 @@ class WebTestGenerator:
     def analyze_page(self, context="current"):
         self.logger.info(f"Analyzing {context} page...")
         page_source = self.driver.page_source
+        self.logger.info(f"PAGE_SOURCE: {page_source}")
         #page_source = self.driver.page_source[:5000]  # First 5000 characters for LLM context so that it doesn't exceed token limit
         
         # Static metadata extraction
@@ -456,7 +458,7 @@ class WebTestGenerator:
         # Remove schema from prompt to prevent LLM from echoing it back
         """Generate context-aware test cases based on page content for both base functionality and authentication"""
         test_data = None
-        prompt_suffix = ""
+        # prompt_suffix = ""
         prompt_suffix_new = ""
         # Get prompt suffix templates from YAML
         suffix_templates = self.prompt_manager.get_prompt("generate_tests", "prompt_suffix")
@@ -475,106 +477,106 @@ class WebTestGenerator:
         # Condition 2: Add contact form fields
         if page_metadata.get('contact_form_fields'):
             contact_form_suffix = suffix_templates["contact_form"].format(
-                contact_form_fields=json.dumps(page_metadata['contact_form_fields'], indent=2)
+                contact_form_fields=json.dumps(page_metadata['contact_form_fields'][0]['fields'], indent=2)
             )
             prompt_suffix_new += contact_form_suffix
 
-        # Load and format test data if auth required
-        if page_metadata.get('auth_requirements', {}).get('auth_required') or page_metadata.get('contact_form_fields'):
-            test_data = self.load_test_data()
-            if test_data:
-                prompt_suffix = f"""
-                Available Test Data:
-                {json.dumps(test_data, indent=2)}
+        # # Load and format test data if auth required
+        # if page_metadata.get('auth_requirements', {}).get('auth_required') or page_metadata.get('contact_form_fields'):
+        #     test_data = self.load_test_data()
+        #     if test_data:
+        #         prompt_suffix = f"""
+        #         Available Test Data:
+        #         {json.dumps(test_data, indent=2)}
                 
-                For authentication tests:
-                - Use EXACT values from 'valid' credentials for positive tests
-                - Use 'invalid' values for negative tests
-                - Follow field-specific validation rules
-                - Also test missing values or inputs in required fields for negative tests
+        #         For authentication tests:
+        #         - Use EXACT values from 'valid' credentials for positive tests
+        #         - Use 'invalid' values for negative tests
+        #         - Follow field-specific validation rules
+        #         - Also test missing values or inputs in required fields for negative tests
 
-                Usage Rules for contact_form data (if applicable):
-                - For contact forms use EXACT values from 'contact_form.valid' for positive tests
-                - Use 'contact_form.invalid' for negative tests
-                - Follow field-specific validation rules
-                - Also test missing values or inputs in required fields for negative tests
+        #         Usage Rules for contact_form data (if applicable):
+        #         - For contact forms use EXACT values from 'contact_form.valid' for positive tests
+        #         - Use 'contact_form.invalid' for negative tests
+        #         - Follow field-specific validation rules
+        #         - Also test missing values or inputs in required fields for negative tests
 
-                Authentication Requirements: 
-                {json.dumps(page_metadata.get('auth_requirements', {}), indent=2)}
-                """
+        #         Authentication Requirements: 
+        #         {json.dumps(page_metadata.get('auth_requirements', {}), indent=2)}
+        #         """
 
-        # Add contact form fields to prompt
-        if page_metadata.get('contact_form_fields'):
-            prompt_suffix += f"""
-            When testing for negative cases on contact form fields, properly look for error messages which exist on the page for the respective fields.
-            Contact Form Fields:
-            {json.dumps(page_metadata['contact_form_fields'], indent=2)}
-            """
+        # # Add contact form fields to prompt
+        # if page_metadata.get('contact_form_fields'):
+        #     prompt_suffix += f"""
+        #     When testing for negative cases on contact form fields, properly look for error messages which exist on the page for the respective fields.
+        #     Contact Form Fields:
+        #     {json.dumps(page_metadata['contact_form_fields'], indent=2)}
+        #     """
 
-        prompt = f"""Generate test cases in VALID JSON format with specific actual current page elements.
-        Generate comprehensive test cases including both regular and authentication tests.
-        Output ONLY valid JSON using this EXACT structure:
-        {{
-            "test_cases": [
-                {{
-                    "name": "Test name",
-                    "type": "functional|auth-positive|auth-negative",
-                    "steps": ["step1", "step2"],
-                    "selectors": {{
-                        "element1": "css_selector",
-                        "element2": "xpath"
-                    }},
-                    "validation": "Expected outcome",
-                    "test_data": {{
-                        "field_name": "specific_value"
-                    }}
-                }}
-            ]
-        }}
+        # prompt = f"""Generate test cases in VALID JSON format with specific actual current page elements.
+        # Generate comprehensive test cases including both regular and authentication tests.
+        # Output ONLY valid JSON using this EXACT structure:
+        # {{
+        #     "test_cases": [
+        #         {{
+        #             "name": "Test name",
+        #             "type": "functional|auth-positive|auth-negative",
+        #             "steps": ["step1", "step2"],
+        #             "selectors": {{
+        #                 "element1": "css_selector",
+        #                 "element2": "xpath"
+        #             }},
+        #             "validation": "Expected outcome",
+        #             "test_data": {{
+        #                 "field_name": "specific_value"
+        #             }}
+        #         }}
+        #     ]
+        # }}
         
-        Current page elements (Page Structure Metadata):
-        {json.dumps(page_metadata, indent=2)}
+        # Current page elements (Page Structure Metadata):
+        # {json.dumps(page_metadata, indent=2)}
 
-        {prompt_suffix}
+        # {prompt_suffix}
 
-        Use selectors from this page structure:
-        {{
-        "title": "{page_metadata['title']}",
-        "forms": {json.dumps(page_metadata['forms'])},
-        "buttons": {json.dumps(page_metadata['buttons'])}
-        }}
+        # Use selectors from this page structure:
+        # {{
+        # "title": "{page_metadata['title']}",
+        # "forms": {json.dumps(page_metadata['forms'])},
+        # "buttons": {json.dumps(page_metadata['buttons'])}
+        # }}
 
-        Current page URL: {page_metadata['url']}
-        Current Page HTML: {page_source}
+        # Current page URL: {page_metadata['url']}
+        # Current Page HTML: {page_source}
          
-        Guidelines:
-        1. Create tests SPECIFIC to these page elements
-        2. Functional tests for core page elements
-        3. Cover functional, UI consistency checks, and security aspects
-        4. Prioritize main user flows
-        5. Include edge cases for observed input types
-        6. Include both positive and negative test cases to test functionality
+        # Guidelines:
+        # 1. Create tests SPECIFIC to these page elements
+        # 2. Functional tests for core page elements
+        # 3. Cover functional, UI consistency checks, and security aspects
+        # 4. Prioritize main user flows
+        # 5. Include edge cases for observed input types
+        # 6. Include both positive and negative test cases to test functionality
     	 
-        Focus on:
-        - Form validation rules
-        - Navigation consistency
-        - Data presentation integrity
-        - Interactive element functionality
-        - Security considerations
+        # Focus on:
+        # - Form validation rules
+        # - Navigation consistency
+        # - Data presentation integrity
+        # - Interactive element functionality
+        # - Security considerations
         
-        Rules:
-        1. Never add comments or explanations
-        2. Validate JSON before responding
-        3. Use actual selectors from page metadata
-        4. For auth tests (if applicable), reference EXACT values from provided test data
-        5. Auth tests (if auth required):
-            - Valid credential submission
-            - Invalid format tests
-            - Missing required fields
-            - Security validations
-        6. Include both positive and negative cases
+        # Rules:
+        # 1. Never add comments or explanations
+        # 2. Validate JSON before responding
+        # 3. Use actual selectors from page metadata
+        # 4. For auth tests (if applicable), reference EXACT values from provided test data
+        # 5. Auth tests (if auth required):
+        #     - Valid credential submission
+        #     - Invalid format tests
+        #     - Missing required fields
+        #     - Security validations
+        # 6. Include both positive and negative cases
         
-        Return test cases in specified valid JSON format with Selenium selectors."""
+        # Return test cases in specified valid JSON format with Selenium selectors."""
         
         try:
             self.logger.info("Sending request to LLM for test case generation...")
@@ -613,6 +615,8 @@ class WebTestGenerator:
                 title=page_metadata['title'],
                 forms=json.dumps(page_metadata['forms']),
                 buttons=json.dumps(page_metadata['buttons']),
+                interactive_elements = json.dumps(page_metadata['interactive_elements']),
+                ui_validation_indicators = json.dumps(page_metadata['ui_validation_indicators']),
                 url=page_metadata['url'],
                 page_source=page_source
             )
@@ -658,22 +662,46 @@ class WebTestGenerator:
         for tc in test_cases:
             if 'auth' in tc.get('type', ''):
                 if not self._contains_test_data_values(tc, test_data):
-                    self.logger.warning(f"Test case {tc['name']} doesn't use provided test data")
+                    self.logger.debug(f"Test case '{tc['name']}' doesn't use provided test data")
+                else:
+                    self.logger.debug(f"Test case '{tc['name']}' has properly used provided test data")
     
     def _contains_test_data_values(self, test_case, test_data):
-        """Check if test case uses values from test data"""
-        for step in test_case.get('steps', []):
-            if any(v in step for v in test_data['credentials']['valid'].values()):
-                return True
-            if any(v in step for v in test_data['credentials']['invalid'].values()):
-                return True
-            # Check contact form data
-            if any(v in step for v in test_data['contact_form']['valid'].values()):
-                return True
-            if any(v in step for v in test_data['contact_form']['invalid'].values()):
-                return True
-            if any(v in step for v in test_data['registration_fields']['username'].values()):
-                return True
+        """Check if test case uses appropriate values from test data for credentials, contact_form, or registration_fields"""
+        test_fields = set(test_case['test_data'].keys())
+        
+        # Iterate through each section in test_data
+        for section in test_data:
+            if section == 'registration_fields':
+                # For registration_fields, fields are the top-level keys
+                fields = set(test_data['registration_fields'].keys())
+                if test_fields <= fields:
+                    # Validate each field value against allowed values
+                    for field in test_fields:
+                        allowed_values = (
+                            test_data['registration_fields'][field]['valid'] +
+                            test_data['registration_fields'][field]['invalid'] +
+                            [""]
+                        )
+                        if test_case['test_data'][field] not in allowed_values:
+                            return False
+                    return True
+            elif 'valid' in test_data[section] and isinstance(test_data[section]['valid'], dict):
+                # For credentials and contact_form, fields are keys in the 'valid' dictionary
+                fields = set(test_data[section]['valid'].keys())
+                if test_fields <= fields:
+                    # Validate each field value against allowed values
+                    for field in test_fields:
+                        allowed_values = [
+                            test_data[section]['valid'][field],
+                            test_data[section]['invalid'][field],
+                            ""
+                        ]
+                        if test_case['test_data'][field] not in allowed_values:
+                            return False
+                    return True
+        
+        # Return False if no matching section is found
         return False
         
     # def generate_page_specific_tests(self, page_metadata, page_source):
@@ -690,45 +718,45 @@ class WebTestGenerator:
 
     def generate_script_for_test_case(self, test_case, page_metadata, page_source):
         captcha_wait_time = self.wait_time or "2 minutes (120 seconds)"
-        prompt = f"""Generate Python Selenium script for the following test cases:
-        {json.dumps(test_case, indent=2)}
+        # prompt = f"""Generate Python Selenium script for the following test cases:
+        # {json.dumps(test_case, indent=2)}
         
-        Page Structure:
-        {json.dumps(page_metadata, indent=2)}
+        # Page Structure:
+        # {json.dumps(page_metadata, indent=2)}
 
-        Current page HTML:
-        {page_source}
+        # Current page HTML:
+        # {page_source}
         
-        Use reliable selectors from page structure.
-        IMPORTANT - Use EXACTLY this WebDriver setup for Selenium 4.15.2:
-        ```
-        from selenium import webdriver
-        from selenium.webdriver.chrome.service import Service
-        from webdriver_manager.chrome import ChromeDriverManager
+        # Use reliable selectors from page structure.
+        # IMPORTANT - Use EXACTLY this WebDriver setup for Selenium 4.15.2:
+        # ```
+        # from selenium import webdriver
+        # from selenium.webdriver.chrome.service import Service
+        # from webdriver_manager.chrome import ChromeDriverManager
         
-        # This is the correct way to initialize Chrome in Selenium 4.15.2
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service)
-        ```
+        # # This is the correct way to initialize Chrome in Selenium 4.15.2
+        # service = Service(ChromeDriverManager().install())
+        # driver = webdriver.Chrome(service=service)
+        # ```
         
-        DO NOT use: webdriver.Chrome(ChromeDriverManager().install()) directly as it will cause errors
+        # DO NOT use: webdriver.Chrome(ChromeDriverManager().install()) directly as it will cause errors
 
-        **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
-        - Use a robust method such as:
-            - Waiting for `document.readyState == 'complete'`
-            - Waiting for jQuery/AJAX activity to finish if present
+        # **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
+        # - Use a robust method such as:
+        #     - Waiting for `document.readyState == 'complete'`
+        #     - Waiting for jQuery/AJAX activity to finish if present
 
-        Include CAPTCHA handling when present:
-            1. Security Features: {page_metadata.get('security_indicators', [])}
-            2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
-            3. If CAPTCHA detected:
-                - Print clear instructions for manual solving
-                - Pause execution for 2 minutes (120 seconds)
-                - Add timeout exception handling
+        # Include CAPTCHA handling when present:
+        #     1. Security Features: {page_metadata.get('security_indicators', [])}
+        #     2. Check for common CAPTCHA selectors (#captcha, .g-recaptcha, etc.)
+        #     3. If CAPTCHA detected:
+        #         - Print clear instructions for manual solving
+        #         - Pause execution for 2 minutes (120 seconds)
+        #         - Add timeout exception handling
 
-        Return ONLY executable Python code in markdown format.
-        Return ONLY CODE in markdown blocks. No explanations.
-        """
+        # Return ONLY executable Python code in markdown format.
+        # Return ONLY CODE in markdown blocks. No explanations.
+        # """
         
         try:
             # response = self.client.chat.completions.create(
@@ -769,13 +797,13 @@ class WebTestGenerator:
             #             - Includes detailed logging and reporting
             #             - Is specific to the website being tested, not generic"""
 
-            #system_prompt = self.prompt_manager.get_prompt("generate_script", "system", tool=self.testing_tool)
+            # system_prompt = self.prompt_manager.get_prompt("generate_script", "system", tool=self.testing_tool)
             system_prompt_template = self.prompt_manager.get_prompt("generate_script", "system", tool=self.testing_tool)
-            #system_prompt = system_prompt_template.format(selenium_version=self.selenium_version, language=self.language)
+            system_prompt = system_prompt_template.format(selenium_version=self.selenium_version, language=self.language)
 
             ## For Puppeteer-2.0.0:
-            system_prompt = system_prompt_template.format(language=self.language)
-            #self.logger.debug(f"system prompt for script generation: {system_prompt}")
+            # system_prompt = system_prompt_template.format(language=self.language)
+            self.logger.debug(f"system prompt for script generation: {system_prompt}")
             user_prompt_template = self.prompt_manager.get_prompt("generate_script", "user", tool=self.testing_tool)
             # user_prompt = self.prompt_manager.get_prompt("generate_script", "user").format(
             #     test_case=json.dumps(test_case, indent=2),
@@ -786,7 +814,7 @@ class WebTestGenerator:
             # Format with dynamic values
             user_prompt = user_prompt_template.format(
                 language=self.language,
-                #selenium_version=self.selenium_version,
+                selenium_version=self.selenium_version,
                 test_case=json.dumps(test_case, indent=2),
                 page_metadata=json.dumps(page_metadata, indent=2),
                 page_source=page_source,
@@ -827,10 +855,19 @@ class WebTestGenerator:
                     os.makedirs(script_dir)
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                # Sanitize the test case name
+                # Replace any character that's not alphanumeric, hyphen, or underscore with underscore
+                sanitized_name = re.sub(r'[^a-zA-Z0-9\-_]', '_', test_case['name'])
+                # Optional: Remove multiple consecutive underscores
+                sanitized_name = re.sub(r'_+', '_', sanitized_name)
+                # Optional: Remove leading/trailing underscores
+                sanitized_name = sanitized_name.strip('_')
+
                 if "```python" in script_content:
-                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.py"
+                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.py"
                 else:
-                    script_name = f"{script_dir}/test_{timestamp}_{test_case['name'].replace(' ', '_')}.java"
+                    script_name = f"{script_dir}/test_{timestamp}_{sanitized_name}.java"
 
                 with open(script_name, 'w') as f:
                     f.write(code)
@@ -1062,22 +1099,22 @@ class WebTestGenerator:
     #     finally:
     #         self.driver.quit()
 
-    def process_single_url(self, url, username, password):
-        """Process individual URL with existing workflow"""
-        self.logger.info(f"\n{'='*50}")
-        self.logger.info(f"Processing URL: {url}")
+    # def process_single_url(self, url, username, password):
+    #     """Process individual URL with existing workflow"""
+    #     self.logger.info(f"\n{'='*50}")
+    #     self.logger.info(f"Processing URL: {url}")
         
-        self.driver.get(url)
+    #     self.driver.get(url)
         
-        # if self._requires_login():
-        #     if not username or not password:
-        #         raise ValueError("Login required but credentials not provided")
-        #     self.login_to_website(url, username, password)
+    #     # if self._requires_login():
+    #     #     if not username or not password:
+    #     #         raise ValueError("Login required but credentials not provided")
+    #     #     self.login_to_website(url, username, password)
             
-        #analysis = self.analyze_page(url)
-        analysis = self.analyze_page(context=url)
-        self.execute_test_cycle(analysis)
-        self.track_navigation(url)
+    #     #analysis = self.analyze_page(url)
+    #     analysis = self.analyze_page(context=url)
+    #     self.execute_test_cycle(analysis)
+    #     self.track_navigation(url)
 
     ## Dynamic with LLM Analysis
     def login_to_website(self, url, username=None, password=None):
