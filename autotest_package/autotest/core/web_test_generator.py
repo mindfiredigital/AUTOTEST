@@ -1087,6 +1087,7 @@ class WebTestGenerator:
                     self.process_single_url(discovered_url, username, password, no_cache)
                     report_path = self.generate_report()
                     reports.append(report_path)
+                    # self.logger.debug(f"Test Report generated at: {report_path}")
                     
                 #return self.generate_report()
                 return reports  # Return list of all report paths
@@ -1351,7 +1352,8 @@ class WebTestGenerator:
             
         with open(report_file, 'w') as f:
             json.dump(report, f, indent=2)
-            
+
+        self.logger.debug(f"Test Report generated at: {report_file}")    
         return report_file
 
     def _log_test_result(self, result, test_name=None, file_name=None):
