@@ -354,7 +354,12 @@ class WebTestGenerator:
             page_metadata = page.page_metadata
             self.logger.debug(f"Successfully fetched {page.test_cases_count} test cases")
             test_cases = page.test_cases
-            self.logger.debug(f"Test Case Details:\n {page.test_cases}")
+            #self.logger.debug(f"Test Case Details:\n {page.test_cases}")
+            # self.logger.debug("Test Case Details:")
+            # for i, test_case in enumerate(page.test_cases, 1):
+            #     self.logger.debug(f"Test Case {i}: {test_case}")
+            self.logger.debug(f"Test Case Details:\n{json.dumps(page.test_cases, indent=2)}")
+            #self.logger.debug("Test Case Details:\n" + json.dumps(page.test_cases, indent=2))
                 
             
 
@@ -992,7 +997,9 @@ class WebTestGenerator:
             'does not match expected',
             'element not found',
             'timeout',
-            'exception:'
+            'exception:',
+            '[error]',
+            'failed'
         ]
         
         # Check for explicit failure indicators
@@ -1058,12 +1065,13 @@ class WebTestGenerator:
             url (str): URL to test
             username (str): Optional username for authentication
             password (str): Optional password for authentication
-            no_cache (bool): Whether to use cache memory (database)or not
+            no_cache (bool): Whether to use cache memory (database) or not
             recursive (bool): Whether to perform recursive URL extraction
             max_depth (int): Maximum depth for recursive extraction
             
         Returns:
-            str: Path to generated report file
+            list or str: List of paths to generated report files when recursive=True, 
+            single path string when recursive=False
         """
         try:
             if recursive:
@@ -1073,11 +1081,15 @@ class WebTestGenerator:
                     self.logger.warning("No URLs found to test")
                     return self.generate_report()
 
+                reports = []
                 # Process each URL
                 for discovered_url in all_urls:
                     self.process_single_url(discovered_url, username, password, no_cache)
+                    report_path = self.generate_report()
+                    reports.append(report_path)
                     
-                return self.generate_report()
+                #return self.generate_report()
+                return reports  # Return list of all report paths
             else:
                 # Original single-page workflow
                 self.driver.get(url)
@@ -1090,7 +1102,7 @@ class WebTestGenerator:
                             first_time = False
                         else:
                             self.logger.debug("Detected a new webpage. Proceeding with the analysis...")
-                            regenerate = True
+                            regenerate = False
                             first_time = True
                 else:
                     self.logger.debug("Cache is disabled. Proceeding with the analysis...")
@@ -1119,6 +1131,7 @@ class WebTestGenerator:
             url (str): URL to process
             username (str): Optional username for authentication
             password (str): Optional password for authentication
+            no_cache (bool): Whether to use cache memory (database) or not
         """
         self.logger.debug(f"\n{'='*50}")
         self.logger.debug(f"Processing URL: {url}")
@@ -1132,7 +1145,7 @@ class WebTestGenerator:
                         self.logger.debug(f"Provided webpage: '{url}' is already tested and validated...!!!")
                         regenerate = False
                         first_time = False
-                        return 
+                        #return 
                     else:
                         self.logger.debug("Detected a new webpage. Proceeding with the analysis...")
                         regenerate = False
