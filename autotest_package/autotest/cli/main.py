@@ -52,8 +52,16 @@ def main():
         print(f"Invalid configuration: {str(e)}")
         sys.exit(1)
         
-    report_file = tester.run_workflow(args.url, args.username, args.password, args.no_cache, recursive=args.recursive, max_depth=args.max_depth)
-    print(f"Test report generated: {report_file}")
+    #report_file = tester.run_workflow(args.url, args.username, args.password, args.no_cache, recursive=args.recursive, max_depth=args.max_depth)
+    #print(f"Test report generated: {report_file}")
+
+    report_result = tester.run_workflow(args.url, args.username, args.password, args.no_cache, recursive=args.recursive, max_depth=args.max_depth)
+    if args.recursive:
+        print(f"Test reports generated ({len(report_result)} files):")
+        for i, report_file in enumerate(report_result, 1):
+            print(f"  {i}. {report_file}")
+    else:
+        print(f"Test report generated: {report_result}")
 
 if __name__ == "__main__":
     main()
