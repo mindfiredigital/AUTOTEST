@@ -141,6 +141,8 @@ class WebTestGenerator:
         self.setup_browser()
         self.url_extractor = URLExtractor(self.driver, self.logger)
 
+        self._generation_interrupted = False
+
     def initialize_database(self):
         init_db()  # Create tables if they don’t exist 
 
@@ -373,25 +375,25 @@ class WebTestGenerator:
             "selected_test_cases": selected_test_cases
         }
     
+
     def generate_scripts_with_manual_intervention(self, test_cases, page_metadata, minimized_html, regenerate):
         """
         Generate scripts with manual intervention - user selects which test cases to generate scripts for
-        
+
         Args:
             test_cases (list): List of test cases
             page_metadata (dict): Page metadata
             minimized_html (str): Minimized HTML content
-            
+
         Returns:
             tuple: (scripts, selected_test_cases) - Generated scripts and corresponding test cases
         """
         if not test_cases:
             self.logger.debug("No test cases found to generate scripts for.")
             return [], []
-        
+
         scripts = []
         selected_test_cases = []  # Track which test cases were selected
-        
         # Display test cases with serial numbers
         self.logger.debug("="*60)
         self.logger.debug("\t\t\t\t\tAVAILABLE TEST CASES:")
@@ -400,32 +402,30 @@ class WebTestGenerator:
             self.logger.debug(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
             self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
             self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
-
+            
             # Display complete steps
             steps = test_case.get('steps', [])
             if steps:
                 self.logger.debug(f"   Steps:")
                 for j, step in enumerate(steps, 1):
-                    self.logger.debug(f"      {j}. {step}")
+                    self.logger.debug(f"     {j}. {step}")
             else:
                 self.logger.debug(f"   Steps: No steps defined")
-
+            
             # Display validation
             validation = test_case.get('validation', '')
             if validation:
                 self.logger.debug(f"   Validation: {validation}")
             else:
                 self.logger.debug(f"   Validation: No validation defined")
-
             print()
-        
+
         while True:
             try:
-                #user_input = input("\nEnter test case number (or 'quit' to stop): ").strip()
-                user_input = input("Enter test case number, 'list' to show cases, or 'quit' to stop: ").strip()
-                self.logger.debug("Enter test case number, 'list' to show cases, or 'quit' to stop: ")
+                user_input = input("Enter test case number(s), 'all', 'list' to show cases, or 'quit' to stop: ").strip()
+                self.logger.debug("Enter test case number(s), 'all', 'list' to show cases, or 'quit' to stop: ")
                 self.logger.debug(f"User entered: {user_input}")
-                
+
                 if user_input.lower() == 'quit':
                     self.logger.debug("Script generation stopped by user.")
                     break
@@ -438,115 +438,148 @@ class WebTestGenerator:
                         self.logger.debug(f"{i}. {test_case.get('name', 'Unnamed Test Case')}")
                         self.logger.debug(f"   Type: {test_case.get('type', 'N/A')}")
                         self.logger.debug(f"   Steps: {len(test_case.get('steps', []))} step(s)")
-
+                        
                         # Display complete steps
                         steps = test_case.get('steps', [])
                         if steps:
                             self.logger.debug(f"   Steps:")
                             for j, step in enumerate(steps, 1):
-                                self.logger.debug(f"      {j}. {step}")
+                                self.logger.debug(f"     {j}. {step}")
                         else:
                             self.logger.debug(f"   Steps: No steps defined")
-
+                        
                         # Display validation
                         validation = test_case.get('validation', '')
                         if validation:
                             self.logger.debug(f"   Validation: {validation}")
                         else:
                             self.logger.debug(f"   Validation: No validation defined")
-
                         print()
                     continue
-                
-                # Validate input
-                try:
-                    test_case_num = int(user_input)
-                    if test_case_num < 1 or test_case_num > len(test_cases):
-                        self.logger.debug(f"Invalid test case number. Please enter a number between 1 and {len(test_cases)}")
+
+                # Handle "all" input
+                if user_input.lower() == 'all':
+                    test_case_numbers = list(range(1, len(test_cases) + 1))
+                    self.logger.debug(f"Processing all test cases: {test_case_numbers}")
+                else:
+                    # Handle comma-separated input
+                    try:
+                        test_case_numbers = [int(num.strip()) for num in user_input.split(',')]
+                        
+                        # Validate all numbers are within range
+                        invalid_numbers = [num for num in test_case_numbers if num < 1 or num > len(test_cases)]
+                        if invalid_numbers:
+                            self.logger.debug(f"Invalid test case number(s): {invalid_numbers}. Please enter numbers between 1 and {len(test_cases)}")
+                            continue
+                            
+                    except ValueError:
+                        self.logger.debug("Invalid input. Please enter valid numbers separated by commas, 'all', 'list', or 'quit'")
                         continue
-                except ValueError:
-                    self.logger.debug("Invalid input. Please enter a valid number, 'list', or 'quit'")
-                    continue
-                
-                # Generate script for selected test case
-                selected_test_case = test_cases[test_case_num - 1]
-                with SessionLocal() as db:
-                    test_case = db.query(TestCase).filter((TestCase.page_url == self.driver.current_url) & (TestCase.test_case_data == selected_test_case)).first()
-                    if test_case: 
-                        self.logger.debug(f"Test script already exists for the selected test case at {test_case.script_path}")
-                        while True:
-                            user_input = input("Do you want to regenerate the script for the selected test case? (y/n): ").strip()
-                            self.logger.debug("Do you want to regenerate the script for the selected test case? (y/n): ")
-                            self.logger.debug(f"User entered: {user_input}")
-                            if user_input.lower() == 'y':
-                                self.logger.debug(f"Regenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
+
+                # Process each selected test case
+                for test_case_num in test_case_numbers:
+                    selected_test_case = test_cases[test_case_num - 1]
+                    
+                    with SessionLocal() as db:
+                        test_case = db.query(TestCase).filter(
+                            (TestCase.page_url == self.driver.current_url) & 
+                            (TestCase.test_case_data == selected_test_case)
+                        ).first()
+                        if test_case and not regenerate:
+                            self.logger.debug(f"Test script already exists for test case {test_case_num}: '{selected_test_case.get('name', 'Unnamed Test Case')}' at {test_case.script_path}")
+                            self.logger.debug(f"Skipping existing script for test case {test_case_num}: '{selected_test_case.get('name', 'Unnamed Test Case')}'")
+                            # For "all" or multiple selections, auto-skip existing scripts unless regenerating
+                            if len(test_case_numbers) > 1:
+                                if selected_test_case in selected_test_cases:
+                                    self.logger.debug(f"Test script stored: {test_case.script_path}")
+                                    self.logger.debug(f"✓ Script fetched successfully for test case {test_case_num} from the database")
+                                else:
+                                    filename = os.path.basename(test_case.script_path)
+                                    selected_test_cases.append(selected_test_case)
+                                    scripts.append({'script': test_case.test_script, 'filename': filename})
+                                    self.logger.debug(f"Test script stored: {test_case.script_path}")
+                                    self.logger.debug(f"✓ Script fetched successfully for test case {test_case_num} from the database")
+                            else:
+                                # Single test case - ask user for regeneration
+                                while True:
+                                    regen_input = input("Do you want to regenerate the script for the selected test case? (y/n): ").strip()
+                                    self.logger.debug("Do you want to regenerate the script for the selected test case? (y/n): ")
+                                    self.logger.debug(f"User entered: {regen_input}")
+                                    
+                                    if regen_input.lower() == 'y':
+                                        self.logger.debug(f"Regenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
+                                        self.logger.debug("Please wait...")
+                                        script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
+                                        
+                                        if script:
+                                            test_case.page_url = self.driver.current_url
+                                            test_case.test_case_title = selected_test_case.get('name', 'Unnamed Test Case')
+                                            test_case.test_case_type = selected_test_case.get('type', 'N/A')
+                                            test_case.test_case_data = selected_test_case
+                                            test_case.test_script = script
+                                            test_case.script_path = script_path
+                                            db.commit()
+                                            db.refresh(test_case)
+                                            scripts.append({'script': script, 'filename': filename})
+                                            selected_test_cases.append(selected_test_case)
+                                            self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
+                                            break
+                                        else:
+                                            self.logger.debug(f"✗ Failed to generate script for test case {test_case_num}")
+                                            continue
+                                    
+                                    elif regen_input.lower() == 'n':
+                                        self.logger.debug("Skipping script regeneration")
+                                        self.logger.debug(f"Fetching script for: '{selected_test_case.get('name', 'Unnamed Test Case')}' from database")
+                                        self.logger.debug("Please wait...")
+                                        self.logger.debug(f"Test script stored: {test_case.script_path}")
+                                        self.logger.debug(f"✓ Script fetched successfully for test case {test_case_num} from the database")
+                                        break
+                                    else:
+                                        self.logger.debug("Invalid input. Please enter 'y' or 'n'")
+                                        continue
+                        if not test_case or regenerate:
+                            if selected_test_case in selected_test_cases:
+                                self.logger.debug(f"Test script stored: {test_case.script_path}")
+                                self.logger.debug(f"✓ Script fetched successfully for test case {test_case_num} from the database")
+                            # Generate new script
+                            else:
+                                self.logger.debug(f"Generating script for test case {test_case_num}: {selected_test_case.get('name', 'Unnamed Test Case')}")
                                 self.logger.debug("Please wait...")
-                
                                 script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
                                 
                                 if script:
-                                    test_case.page_url=self.driver.current_url
-                                    test_case.test_case_title=selected_test_case.get('name', 'Unnamed Test Case')
-                                    test_case.test_case_type=selected_test_case.get('type', 'N/A')
-                                    test_case.test_case_data=selected_test_case
-                                    test_case.test_script=script
-                                    test_case.script_path=script_path
-                                        
+                                    test_case = TestCase(
+                                        page_url=self.driver.current_url,
+                                        test_case_title=selected_test_case.get('name', 'Unnamed Test Case'),
+                                        test_case_type=selected_test_case.get('type', 'N/A'),
+                                        test_case_data=selected_test_case,
+                                        test_script=script,
+                                        script_path=script_path
+                                    )
+                                    
+                                    db.add(test_case)
                                     db.commit()
                                     db.refresh(test_case)
                                     scripts.append({'script': script, 'filename': filename})
                                     selected_test_cases.append(selected_test_case)
                                     self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
-                                    break
                                 else:
                                     self.logger.debug(f"✗ Failed to generate script for test case {test_case_num}")
-                                    continue
 
+                # If processing multiple test cases, break the main loop after processing
+                if len(test_case_numbers) == len(test_cases):
+                    break
 
-                            if user_input.lower() == 'n':
-                                self.logger.debug("Skipping script regeneration")
-                                self.logger.debug(f"Fetching script for: '{selected_test_case.get('name', 'Unnamed Test Case')}' from database")
-                                self.logger.debug("Please wait...")
-                                self.logger.debug(f"Test script stored: {test_case.script_path}")
-                                self.logger.debug(f"✓ Script fetched successfully for test case {test_case_num} from the database")
-                                break
-
-                            else:
-                                self.logger.debug("Invalid input. Please enter 'y' or 'n'")
-                                continue
-                                
-                    else:
-                        self.logger.debug(f"Generating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
-                        self.logger.debug("Please wait...")
-                        
-                        script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
-                        
-                        if script:
-                            # scripts.append(script)
-                            test_case = TestCase(page_url=self.driver.current_url,
-                                                    test_case_title=selected_test_case.get('name', 'Unnamed Test Case'),
-                                                    test_case_type=selected_test_case.get('type', 'N/A'),
-                                                    test_case_data=selected_test_case,
-                                                    test_script=script,
-                                                    script_path=script_path
-                                                )
-                            
-                            db.add(test_case)    
-                            db.commit()
-                            db.refresh(test_case)
-                            scripts.append({'script': script, 'filename': filename})
-                            selected_test_cases.append(selected_test_case)
-                            self.logger.debug(f"✓ Script generated successfully for test case {test_case_num}")
-                        else:
-                            self.logger.debug(f"✗ Failed to generate script for test case {test_case_num}")
-                
             except KeyboardInterrupt:
                 self.logger.debug("\n\nScript generation interrupted by user.")
+                # Set a flag to indicate interruption occurred
+                self._generation_interrupted = True
                 break
             except Exception as e:
                 self.logger.error(f"Error during script generation: {str(e)}")
-                continue                        
-        
+                continue
+
         return scripts, selected_test_cases
 
     def llm_page_analysis(self, minimized_html):
@@ -883,6 +916,10 @@ class WebTestGenerator:
 
     def execute_test_cycle(self, analysis):
         """Execute test cycle for page analysis results"""
+        # Check if generation was interrupted
+        if hasattr(self, '_generation_interrupted') and self._generation_interrupted:
+            self.logger.debug("Test cycle execution skipped due to user interruption")
+            return
         scripts = analysis['scripts']
         selected_test_cases = analysis.get('selected_test_cases', [])
 
@@ -1330,8 +1367,9 @@ class WebTestGenerator:
             'test_results': self.test_results,
             'success_rate': (len([r for r in self.test_results if r['result']['success']]) / 
                            len(self.test_results) if self.test_results else 0),
-            'generated_scripts': [f for f in os.listdir('test_scripts') 
-                                if f.endswith(('.py', '.java'))] if os.path.exists('test_scripts') else [],
+            # 'generated_scripts': [f for f in os.listdir('test_scripts') 
+            #                     if f.endswith(('.py', '.java'))] if os.path.exists('test_scripts') else [],
+            'generated_scripts': list(set([r['file_name'] for r in self.test_results if r['file_name']])),
 
             'test_summary': [
                 {
@@ -1358,9 +1396,16 @@ class WebTestGenerator:
 
     def _log_test_result(self, result, test_name=None, file_name=None):
         """Log test execution result"""
+
+        try:
+            current_url = self.driver.current_url if self.driver else "Unknown (Driver terminated)"
+        except Exception:
+            current_url = "Unknown (Driver connection lost)"
+
         self.test_results.append({
             'timestamp': datetime.now().isoformat(),
-            'url': self.driver.current_url,
+            #'url': self.driver.current_url,
+            'url': current_url,
             'test_name': test_name,
             'file_name': file_name,
             'result': result
