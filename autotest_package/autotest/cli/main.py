@@ -38,6 +38,12 @@ def main():
                         action="store_true",
                         help="Disable use of cache memory during testing")
     
+    parser.add_argument("--llm-provider",
+                    type=int,
+                    choices=[1, 2, 3, 4, 5],
+                    default=1,
+                    help="LLM Provider choice: 1=OpenAI, 2=Groq, 3=Google-Gemini, 4=Anthropic, 5=Ollama")
+    
     args = parser.parse_args()
     
     try:
@@ -46,7 +52,8 @@ def main():
             selenium_version=args.selenium_version, 
             wait_time=args.wait_time, 
             testing_tool=args.testing_tool, 
-            language=args.language
+            language=args.language,
+            llm_provider_choice=args.llm_provider  # Add this line
         )
     except ValueError as e:
         print(f"Invalid configuration: {str(e)}")

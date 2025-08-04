@@ -98,7 +98,7 @@ class WebTestGenerator:
     """Main class for automated web test generation"""
     
     def __init__(self, log_level="INFO", selenium_version="4.15.2", 
-                 wait_time="", testing_tool="selenium", language="python"):
+                 wait_time="", testing_tool="selenium", language="python", llm_provider_choice=1):
         """
         Initialize WebTestGenerator
         
@@ -108,6 +108,7 @@ class WebTestGenerator:
             wait_time (str): Custom wait time for CAPTCHA handling
             testing_tool (str): Testing framework to use
             language (str): Programming language for test scripts
+            llm_provider_choice (int): LLM provider choice (1=OpenAI, 2=Groq, 3=Google-Gemini, 4=Anthropic, 5=Ollama)
         """ 
         self.log_level = log_level.upper()
         self.selenium_version = selenium_version
@@ -127,8 +128,8 @@ class WebTestGenerator:
         
         self.language = language.lower()
         
-        # Initialize components
-        self.llm = LLMWrapper()
+        # Initialize components with provider choice
+        self.llm = LLMWrapper(llm_provider_choice=llm_provider_choice)
         self.prompt_manager = PromptManager()
         self.driver = None
         self.visited_pages = set()
