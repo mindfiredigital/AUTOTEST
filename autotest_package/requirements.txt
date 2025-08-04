@@ -7,6 +7,8 @@ langchain==0.3.24
 langchain_openai==0.3.15
 langchain_groq==0.3.2
 langchain_google_genai==2.1.4
+langchain_anthropic==0.3.18
+langchain_ollama==0.3.6
 playwright==1.42.0
 pillow==11.1.0
 jsonschema==4.23.0
