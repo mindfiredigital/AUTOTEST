@@ -100,6 +100,12 @@ class LLMWrapper:
                     api_key=api_key, 
                     model=params["selenium_model"], 
                     temperature=params["temperature"]
+                ),
+                "result_analysis": ChatOpenAI(
+                    api_key=api_key, 
+                    model=params["result_analysis_model"], 
+                    temperature=1.0, 
+                    model_kwargs={"response_format": {"type": "json_object"}}
                 )
             }
         elif provider == "groq":
@@ -114,6 +120,12 @@ class LLMWrapper:
                     api_key=api_key, 
                     model=params["selenium_model"], 
                     temperature=params["temperature"]
+                ),
+                "result_analysis": ChatGroq(
+                    api_key=api_key, 
+                    model=params["result_analysis_model"], 
+                    temperature=params["temperature"], 
+                    model_kwargs={"response_format": {"type": "json_object"}}
                 )
             }
         elif provider == "google-gemini":
@@ -130,7 +142,14 @@ class LLMWrapper:
                     api_key=api_key,
                     model=params["selenium_model"], 
                     temperature=params["temperature"]
-                )
+                ),
+                "result_analysis": ChatGoogleGenerativeAI(
+                    # api_key=os.getenv("GOOGLE_API_KEY"), 
+                    api_key=api_key,
+                    model=params["result_analysis_model"], 
+                    temperature=params["temperature"], 
+                   # model_kwargs={"response_format": {"type": "json_object"}}
+                ),
             }
         
         elif provider == "anthropic":
@@ -145,7 +164,13 @@ class LLMWrapper:
                     api_key=api_key,
                     model=params["selenium_model"],
                     temperature=params["temperature"]
-                )
+                ),
+                "result_analysis": ChatAnthropic(
+                    api_key=api_key,
+                    model=params["result_analysis_model"],
+                    temperature=params["temperature"],
+                    # model_kwargs={"response_format": {"type": "json_object"}}
+                ),
             }
         
         elif provider == "ollama":
@@ -158,7 +183,12 @@ class LLMWrapper:
                 "selenium": ChatOllama(
                     model=params["selenium_model"],
                     temperature=params["temperature"]
-                )
+                ),
+                "result_analysis": ChatOllama(
+                    model=params["result_analysis_model"],
+                    temperature=params["temperature"],
+                    format="json"  # Native JSON mode for Ollama
+                ),
             }
         else:
             raise ValueError(f"Unsupported provider: {provider}")
@@ -174,14 +204,14 @@ class LLMWrapper:
         Args:
             system_prompt (str): System prompt for the model
             user_prompt (str): User prompt for the model
-            model_type (str): Type of model to use ('analysis' or 'selenium')
+            model_type (str): Type of model to use ('analysis', 'selenium' or 'result_analysis')
             
         Returns:
             str: Generated response content
         """
 
         # For providers that don't support response_format, add JSON instruction to prompt
-        if model_type == "analysis" and self._needs_json_in_prompt():
+        if (model_type == "analysis" or model_type == "result_analysis") and self._needs_json_in_prompt():
             json_instruction = "\n\nIMPORTANT: Please respond with valid JSON format only. Do not include any text outside the JSON structure."
             system_prompt += json_instruction
 

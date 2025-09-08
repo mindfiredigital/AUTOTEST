@@ -136,6 +136,7 @@ generate_tests:
           {{
               "name": "Test name",
               "type": "functional|auth-positive|auth-negative|ui-validation",
+              "test_case_type": "auto-generated",
               "steps": ["step1", "step2"],
               "selectors": {{
                   "element1": "css_selector_or_xpath",
@@ -321,10 +322,15 @@ generate_script:
       ```
       from selenium import webdriver
       from selenium.webdriver.chrome.service import Service
+      from selenium.webdriver.chrome.options import Options
       from webdriver_manager.chrome import ChromeDriverManager
 
       service = Service(ChromeDriverManager().install())
-      driver = webdriver.Chrome(service=service)
+      options = Options()
+      options.add_argument("--no-sandbox")
+      options.add_argument("--disable-dev-shm-usage")
+      options.add_argument('--disable-gpu')
+      driver = webdriver.Chrome(service=service, options=options)
       ```
 
       **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
@@ -799,3 +805,133 @@ auth_form_selectors:
         }}
     }}
     Current page HTML: {page_html}
+
+generate_manual_test:
+  system: |
+    You are a test case generator that creates specific test cases based on user descriptions and page context.
+    
+    Your task is to:
+    1. Analyze the user's test case description and intent
+    2. Create a detailed test case that matches the user's requirements
+    3. Ensure the test case is specific to the provided page context
+    4. Return the test case in the exact JSON schema format as specified
+    
+    Always return a single test case object in the following JSON format:
+    {{
+      "test_case": 
+        {{
+            "name": "descriptive_test_case_name",
+            "type": "functional|ui|integration|validation|navigation|form|auth-positive|auth-negative",
+            "test_case_type": "manual",
+            "priority": "high|medium|low",
+            "description": "detailed_description_of_what_the_test_validates",
+            "steps": [
+              "step 1 description",
+              "step 2 description",
+              "step N description"
+            ],
+            "selectors": {{
+                  "element1": "css_selector_or_xpath",
+                  "element2": "xpath"
+              }},
+            "validation": "what_should_be_validated_or_verified",
+            "test_data": {{
+              "field_name1": "specific_value1",
+              "field_name2": "specific_value2"
+            }},
+            "expected_outcome": "expected_result_after_test_execution"
+        }}
+    }}
+    
+    Guidelines:
+    - Focus specifically on the user's intent and requirements
+    - Use only elements and interactions that exist on the current page
+    - Make test steps clear, actionable, and sequential
+    - Include realistic test data if form interactions are required
+    - Ensure validation criteria are specific and measurable
+    - The test case should be executable on the current page context
+
+  user: |
+    Create a test case based on the following user description and page context:
+    
+    User Test Case Description: "{user_test_description}"
+    
+    Page Context:
+    - Title: {title}
+    - URL: {url}
+    - Page Metadata: {page_metadata}
+
+    {prompt_suffix}
+    
+    Page HTML Structure:
+    {page_source}
+
+    
+    Requirements:
+    1. Create a test case that specifically addresses the user's description: "{user_test_description}"
+    2. Ensure all test steps use actual elements present on this page
+    3. Include appropriate test data if the test involves form interactions
+    4. Make the validation criteria specific to the user's intent
+    5. Set the test_case_type to "manual"
+    6. Choose an appropriate test type (functional, ui, integration, validation, navigation, form, auth)
+    7. Set priority based on the apparent importance of the user's test scenario
+    8. Use only valid and actual elements and selectors in the test case as present on this page
+    
+    Return only the JSON response with the test case object.
+  prompt_suffix:
+    test_data: |
+      Available Test Data:
+      {test_data}
+
+      For authentication tests:
+      - Use EXACT values from 'valid' credentials for positive tests
+      - Use 'invalid' values for negative tests
+      - Follow field-specific validation rules
+      - Also test missing values or inputs in required fields for negative tests
+
+      Usage Rules for contact_form data (if applicable):
+      - For contact forms use EXACT values from 'contact_form.valid' for positive tests
+      - Use 'contact_form.invalid' for negative tests
+      - Follow field-specific validation rules
+      - Also test missing values or inputs in required fields for negative tests
+
+      Authentication Requirements:
+      {auth_requirements}
+
+    contact_form: |
+      When testing for negative cases on contact form fields, properly look for error messages which exist on the page for the respective fields.
+      Contact Form Fields:
+      {contact_form_fields}
+
+test_output_analysis:
+  system: |
+    You are a test execution analyzer. Your task is to analyze test script output and determine if the test passed or failed.
+    
+    You should consider:
+    - Explicit success/failure messages
+    - Error messages and exceptions
+    - Return codes (0 typically means success, non-zero means failure)
+    - Test assertions and validations
+    - Element not found errors
+    - Timeout issues
+    - Any other indicators of test success or failure
+    
+    Respond with a JSON object containing:
+    - "test_passed": boolean (true if test passed, false if failed)
+    - "reasoning": string explaining your decision
+    
+  user: |
+    Analyze the following test execution output and determine if the test passed or failed:
+    
+    Test Output:
+    {test_output}
+    
+    Return Code: {return_code}
+    
+    Please analyze this output and return a JSON response indicating whether the test passed (true) or failed (false), along with your reasoning.
+    
+    Expected JSON format:
+    {{
+      "test_passed": boolean,
+      "reasoning": "Brief explanation of why you determined the test passed or failed"
+    }}
