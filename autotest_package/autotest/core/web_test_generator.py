@@ -18,7 +18,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (TimeoutException,
                                       NoSuchElementException,
-                                      StaleElementReferenceException)
+                                      ElementClickInterceptedException)
 import base64
 from io import BytesIO
 from PIL import Image
@@ -136,6 +136,7 @@ class WebTestGenerator:
         self.test_results = []
         self.logger = setup_logger("WebTestGenerator", log_level)
         self.temperature = 0.3
+        self.auth_data = {}
         #self.extract_test_relevant_html()
         
         # Setup browser and URL extractor
@@ -275,7 +276,7 @@ class WebTestGenerator:
         
         return cleaned_html
         
-    def analyze_page(self, regenerate, first_time, context="current"):
+    def analyze_page(self, regenerate, first_time, context="current", require_login=False, username=None, password=None):
         """
         Analyze current page and generate metadata
         
@@ -367,7 +368,7 @@ class WebTestGenerator:
             
 
         # Manual intervention for script generation
-        scripts, selected_test_cases = self.generate_scripts_with_manual_intervention(test_cases, page_metadata, minimized_html, regenerate)
+        scripts, selected_test_cases = self.generate_scripts_with_manual_intervention(test_cases, page_metadata, minimized_html, regenerate, require_login, username, password)
         
         return {
             "metadata": page_metadata,
@@ -377,7 +378,7 @@ class WebTestGenerator:
         }
     
 
-    def generate_scripts_with_manual_intervention(self, test_cases, page_metadata, minimized_html, regenerate):
+    def generate_scripts_with_manual_intervention(self, test_cases, page_metadata, minimized_html, regenerate, require_login, username, password):
         """
         Generate scripts with manual intervention - user selects which test cases to generate scripts for
 
@@ -483,8 +484,7 @@ class WebTestGenerator:
                     
                     with SessionLocal() as db:
                         test_case = db.query(TestCase).filter(
-                            (TestCase.page_url == self.driver.current_url) & 
-                            (TestCase.test_case_data == selected_test_case)
+                            (TestCase.page_url == self.driver.current_url) & (TestCase.test_case_data == selected_test_case)
                         ).first()
                         if test_case and not regenerate:
                             self.logger.debug(f"Test script already exists for test case {test_case_num}: '{selected_test_case.get('name', 'Unnamed Test Case')}' at {test_case.script_path}")
@@ -510,7 +510,7 @@ class WebTestGenerator:
                                     if regen_input.lower() == 'y':
                                         self.logger.debug(f"Regenerating script for: {selected_test_case.get('name', 'Unnamed Test Case')}")
                                         self.logger.debug("Please wait...")
-                                        script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
+                                        script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html, require_login, username, password)
                                         
                                         if script:
                                             test_case.page_url = self.driver.current_url
@@ -547,7 +547,7 @@ class WebTestGenerator:
                             else:
                                 self.logger.debug(f"Generating script for test case {test_case_num}: {selected_test_case.get('name', 'Unnamed Test Case')}")
                                 self.logger.debug("Please wait...")
-                                script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html)
+                                script, filename, script_path = self.generate_script_for_test_case(selected_test_case, page_metadata, minimized_html, require_login, username, password)
                                 
                                 if script:
                                     test_case = TestCase(
@@ -785,13 +785,18 @@ class WebTestGenerator:
             
             except json.JSONDecodeError as e:
                 self.logger.error(f"Failed to parse JSON for test cases: {str(e)}")
+                # Print the problematic part of the JSON (20 chars before and after)
+                start = max(e.pos - 40, 0)
+                end = min(e.pos + 40, len(json_str))
+                error_snippet = json_str[start:end]
+                self.logger.debug(f"\n🔍 Error context:\n...{error_snippet}...")
                 self.logger.debug(f"Raw response: {result}")
                 return {"test_cases": []}
         except Exception as e:
             self.logger.error(f"Test generation failed: {str(e)}")
             return []
         
-    def generate_script_for_test_case(self, test_case, page_metadata, minimized_html):
+    def generate_script_for_test_case(self, test_case, page_metadata, minimized_html, require_login, username, password):
         """
         Generate test script for a specific test case
         
@@ -815,6 +820,12 @@ class WebTestGenerator:
             #self.logger.debug(f"system prompt for script generation: {system_prompt}")
             user_prompt_template = self.prompt_manager.get_prompt(
                 "generate_script", "user", tool=self.testing_tool)
+            
+            if require_login and username and password:
+                login_instructions = "yes"
+            else:
+                login_instructions = "no"
+
             user_prompt = user_prompt_template.format(
                 language=self.language,
                 selenium_version=self.selenium_version,
@@ -822,6 +833,10 @@ class WebTestGenerator:
                 page_metadata=json.dumps(page_metadata, indent=2),
                 page_source=minimized_html,
                 captcha_wait_time=captcha_wait_time,
+                login_instructions=login_instructions,
+                username=username,
+                password=password,
+                auth_data=self.auth_data,
                 security_indicators=page_metadata.get('security_indicators', [])
             )
             
@@ -1148,12 +1163,18 @@ class WebTestGenerator:
                     regenerate = True  
                     first_time = False
                 # Optional authentication check and handling
-                # if self._requires_login():
-                #     if not username or not password:
-                #         self.logger.warning(f"Skipping {url} - authentication required but credentials not provided")
-                #         return
-                #     self.login_to_website(url, username, password) 
-                initial_analysis = self.analyze_page(regenerate=regenerate, first_time=first_time, context=url)
+                require_login=False
+        
+                if self.driver.current_url != url:
+                    if self._requires_login():
+                        self.logger.debug(f"Authentication required for page '{url}'")
+                        if not username or not password:
+                            self.logger.warning(f"Skipping {url} - authentication required but credentials not provided")
+                            return
+                        self.login_to_website(url, username, password) 
+                        require_login = True
+                    
+                initial_analysis = self.analyze_page(regenerate=regenerate, first_time=first_time, context=url, require_login=require_login, username=username, password=password)
                 self.execute_test_cycle(initial_analysis)
                 self.track_navigation(url)
                 return self.generate_report()
@@ -1177,6 +1198,7 @@ class WebTestGenerator:
         
         try:
             self.driver.get(url)
+            require_login=False
             if not no_cache:
                 with SessionLocal() as db:
                     page = db.query(Page).filter(Page.page_url == url and Page.page_source == self.driver.page_source).first()
@@ -1194,13 +1216,18 @@ class WebTestGenerator:
                 regenerate = True 
                 first_time = False
             # Optional authentication check and handling
-            # if self._requires_login():
-            #     if not username or not password:
-            #         self.logger.warning(f"Skipping {url} - authentication required but credentials not provided")
-            #         return
-            #     self.login_to_website(url, username, password)
+            require_login=False
+  
+            if self.driver.current_url != url:
+                if self._requires_login():
+                    self.logger.debug(f"Authentication required for page '{self.driver.current_url}'")
+                    if not username or not password:
+                        self.logger.warning(f"Skipping {url} - authentication required but credentials not provided")
+                        return
+                    self.login_to_website(url, username, password) 
+                    require_login = True
             
-            analysis = self.analyze_page(regenerate=regenerate, first_time=first_time, context=url)
+            analysis = self.analyze_page(regenerate=regenerate, first_time=first_time, context=url, require_login=require_login, username=username, password=password)
             self.execute_test_cycle(analysis)
             self.track_navigation(url)
             
@@ -1259,6 +1286,7 @@ class WebTestGenerator:
             raise ValueError("Credentials required for authentication")
             
         try:
+            self.logger.debug(f"Authentication in progress...")
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'body'))
             )
@@ -1272,18 +1300,16 @@ class WebTestGenerator:
                 page_html=page_html
             )
             result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
-            
-            #auth_data = json.loads(response.choices[0].message.content)
+            # Parse LLM response
             try:
-                # Extract JSON from potential text explanation
                 json_str = result
                 if "```json" in result:
                     json_str = result.split("```json")[1].split("```")[0].strip()
                 elif "```" in result:
                     json_str = result.split("```")[1].strip()
-
-                self.logger.debug(f"Sanitized LLM response: {json_str}")
-                auth_data= json.loads(json_str)
+                    
+                auth_data = json.loads(json_str)
+                self.auth_data = auth_data
             except json.JSONDecodeError as e:
                 self.logger.error(f"Failed to parse LLM response: {str(e)}")
                 return {}
@@ -1308,11 +1334,40 @@ class WebTestGenerator:
                     self.driver.find_element(By.CSS_SELECTOR, field_info['selector']).send_keys(field_values[field_name])
 
             # Submit form
-            self.driver.find_element(By.CSS_SELECTOR, auth_data['submit_selector']).click()
+            submit_button = self.driver.find_element(By.CSS_SELECTOR, auth_data['submit_selector'])
+            try:
+                submit_button.click()
+            except ElementClickInterceptedException:
+                self.logger.debug("Click intercepted, attempting JavaScript click...")
+                self.driver.execute_script("arguments[0].click();", submit_button)
             
+            # Wait for potential redirection (up to 10 seconds)
             WebDriverWait(self.driver, 10).until(
-                lambda d: d.current_url != url
+                EC.url_changes(self.driver.current_url)
             )
+            
+            # Get the redirected URL
+            redirected_url = self.driver.current_url
+            self.logger.debug(f"Redirected to: {redirected_url}")
+            
+            # Check if redirected URL matches the provided URL
+            if redirected_url == url:
+                self.logger.debug("Redirection matches the provided URL. Authentication successful...!")
+            else:
+                self.logger.debug(f"Redirected URL: '{redirected_url}' does not match provided URL: '{url}'. Navigating to provided URL...")
+                # Navigate to the provided URL using the same session
+                self.driver.get(url)
+                
+                # Validate that the page has loaded the correct URL
+                WebDriverWait(self.driver, 10).until(
+                    EC.url_to_be(url)
+                )
+                if self.driver.current_url == url:
+                    self.logger.debug(f"Successfully navigated to provided URL: {url}")
+                    self.logger.debug("Authentication and navigation successful...!")
+                else:
+                    self.logger.error(f"Failed to navigate to provided URL: {url}. Current URL: {self.driver.current_url}")
+                    raise RuntimeError("Failed to load the provided URL after redirection")   
             return True
             
         except json.JSONDecodeError as e:
@@ -1321,9 +1376,13 @@ class WebTestGenerator:
         except NoSuchElementException as e:
             self.logger.error(f"Auth element not found: {str(e)}")
             raise RuntimeError("Authentication elements missing on page")
+        except TimeoutException as e:
+            self.logger.error(f"Timeout during redirection or navigation: {str(e)}")
+            raise RuntimeError("Failed to detect redirection or navigate to the provided URL")
         except Exception as e:
             self.logger.error(f"Authentication failed: {str(e)}")
             raise
+
 
     def validate_field_input(self, value, field_type):
         """Basic validation for different field types"""
