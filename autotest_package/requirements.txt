@@ -17,3 +17,4 @@ pyyaml==6.0.2
 groq==0.22.0
 openai==1.76.2
 langchain-community==0.3.23
+bs4==0.0.2
