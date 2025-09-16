@@ -1,8 +1,8 @@
 {
     "credentials": {
         "valid": {
-            "username": "abc123",
-            "password": "c!m69hGNQ5cnuVZ"
+            "username": "superadmin_staging",
+            "password": "Mindfire$123"
         },
         "invalid": {
             "username": "invaliduser",
@@ -26,10 +26,11 @@
     "contact_form": {
         "valid": {
             "Name" : {
-                "First Name": "John",
-                "Last Name": "Doe"
+                "First Name": "Ankit",
+                "Last Name": "Saha"
             },
-            "Email": "abc@gmail.com",
+            "Email": "ankit.s@mindfiresolutions.com",
+            "Comment or Message": "Hi there!",
             "Gender": "Male",
             "Mobile Number": "9312345678",
             "Date of Birth": "2 Aug 2000",
@@ -41,7 +42,9 @@
         },
         "invalid": {
             "First Name": "",
-            "Last Name": "abc",
+            "Last Name": "",
+            "Email": "invalid-email",
+            "Comment or Message": "",
             "UserName": "invalid-username"
         }
     }
