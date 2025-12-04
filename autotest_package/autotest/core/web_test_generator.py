@@ -38,6 +38,7 @@ from ..tables.test_case_data import TestCase
 from ..tables.domain import Domain
 
 from bs4 import BeautifulSoup, Comment
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -1485,7 +1486,7 @@ class WebTestGenerator:
                 temp_file = f.name
                 
             result = subprocess.run(
-                ['python', temp_file],
+                [sys.executable, temp_file],
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -1902,13 +1903,13 @@ class WebTestGenerator:
         """Perform dynamic login/registration with user input for additional fields"""
         if not username or not password:
             raise ValueError("Credentials required for authentication")
-            
+           
         try:
             self.logger.debug(f"Authentication in progress...")
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'body'))
             )
-            
+           
             #page_html = self.driver.page_source[:10000]
             page_html = self.driver.page_source
             system_prompt = self.prompt_manager.get_prompt("auth_form_selectors", "system")
@@ -1925,7 +1926,7 @@ class WebTestGenerator:
                     json_str = result.split("```json")[1].split("```")[0].strip()
                 elif "```" in result:
                     json_str = result.split("```")[1].strip()
-                    
+                   
                 auth_data = json.loads(json_str)
                 self.auth_data = auth_data
             except json.JSONDecodeError as e:
@@ -1933,11 +1934,10 @@ class WebTestGenerator:
                 return {}
             #auth_data = json.loads(result)
             self.logger.debug(f"Auth form structure: {json.dumps(auth_data, indent=2)}")
-
+ 
             # Fill credentials
             self.driver.find_element(By.CSS_SELECTOR, auth_data['username_selector']).send_keys(username)
             self.driver.find_element(By.CSS_SELECTOR, auth_data['password_selector']).send_keys(password)
-
             # Handle additional fields
             if 'additional_fields' in auth_data:
                 field_values = {}
@@ -1948,9 +1948,8 @@ class WebTestGenerator:
                             field_values[field_name] = value
                             break
                         self.logger.debug(f"Invalid format for {field_name}. Please try again.")
-                    
+                   
                     self.driver.find_element(By.CSS_SELECTOR, field_info['selector']).send_keys(field_values[field_name])
-
             # Submit form
             submit_button = self.driver.find_element(By.CSS_SELECTOR, auth_data['submit_selector'])
             try:
@@ -1958,36 +1957,12 @@ class WebTestGenerator:
             except ElementClickInterceptedException:
                 self.logger.debug("Click intercepted, attempting JavaScript click...")
                 self.driver.execute_script("arguments[0].click();", submit_button)
-            
             # Wait for potential redirection (up to 10 seconds)
-            WebDriverWait(self.driver, 10).until(
-                EC.url_changes(self.driver.current_url)
-            )
-            
-            # Get the redirected URL
-            redirected_url = self.driver.current_url
-            self.logger.debug(f"Redirected to: {redirected_url}")
-            
-            # Check if redirected URL matches the provided URL
-            if redirected_url == url:
-                self.logger.debug("Redirection matches the provided URL. Authentication successful...!")
-            else:
-                self.logger.debug(f"Redirected URL: '{redirected_url}' does not match provided URL: '{url}'. Navigating to provided URL...")
-                # Navigate to the provided URL using the same session
-                self.driver.get(url)
-                
-                # Validate that the page has loaded the correct URL
-                WebDriverWait(self.driver, 10).until(
-                    EC.url_to_be(url)
-                )
-                if self.driver.current_url == url:
-                    self.logger.debug(f"Successfully navigated to provided URL: {url}")
-                    self.logger.debug("Authentication and navigation successful...!")
-                else:
-                    self.logger.error(f"Failed to navigate to provided URL: {url}. Current URL: {self.driver.current_url}")
-                    raise RuntimeError("Failed to load the provided URL after redirection")   
+            page_html_after = self.driver.page_source
+ 
+            if not self.llm_is_logged_in(page_html_after):
+                raise RuntimeError("LLM indicates login did not succeed")
             return True
-            
         except json.JSONDecodeError as e:
             self.logger.error(f"Failed to parse auth selectors: {str(e)}")
             raise RuntimeError("Failed to analyze login form structure")
@@ -2000,7 +1975,23 @@ class WebTestGenerator:
         except Exception as e:
             self.logger.error(f"Authentication failed: {str(e)}")
             raise
-
+ 
+ 
+    def llm_is_logged_in(self, page_html):
+        system_prompt = self.prompt_manager.get_prompt("login_state_check", "system")
+        user_prompt_template = self.prompt_manager.get_prompt("login_state_check", "user")
+        user_prompt = user_prompt_template.format(page_html=page_html)
+ 
+        result = self.llm.generate(system_prompt, user_prompt, model_type="analysis")
+ 
+        # Expect the LLM to answer exactly: true or false (as text)
+        text = result.strip().lower()
+        self.logger.info(f"Authentication state returned by llm: {str(text)}")
+        if "true" in text and "false" not in text:
+            return True
+        if "false" in text and "true" not in text:
+            return False
+        return False
 
     def validate_field_input(self, value, field_type):
         """Basic validation for different field types"""
