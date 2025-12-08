@@ -3,6 +3,7 @@ import api, { setAuthToken } from '../axios'
 
 export const authApi = {
   login: async (email: string, password: string): Promise<User> => {
+    console.log("email: string, password: string",email,password)
     // const { data } = await api.post('/auth/login', { email, password })
     // console.log('data', data)
     // const { accessToken, user } = data?.data
@@ -21,7 +22,8 @@ export const authApi = {
   },
 
   register: async (email: string, password: string, firstName: string, lastName: string): Promise<User> => {
-  //   const { data } = await api.post('/auth/register', { email, password, firstName,
+  console.log("email: string, password: string, firstName: string, lastName: string",email, password, firstName, lastName)
+    //   const { data } = await api.post('/auth/register', { email, password, firstName,
   // lastName, })
     // const { accessToken, user } = data.data
     const accessToken = '12345678'
