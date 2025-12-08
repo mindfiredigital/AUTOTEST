@@ -935,3 +935,8 @@ test_output_analysis:
       "test_passed": boolean,
       "reasoning": "Brief explanation of why you determined the test passed or failed"
     }}
+
+login_state_check:
+  system: "You are a classifier. Given HTML of a page after a login attempt, you must answer strictly with true if the user appears logged in (dashboard, welcome message, logout link, success message), or false if they are still on a login form or see an error. Do not explain, just output true or false."
+  user: |
+    HTML:\n{page_html}\n\nIs the user logged in? Answer only true or false.
