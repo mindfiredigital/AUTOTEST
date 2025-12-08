@@ -91,6 +91,23 @@ services:
     networks: 
       - autotest
 
+  autotest_react_frontend:
+    restart: always
+    container_name: autotest_react_frontend
+    env_file:
+      - .env
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: autotest_react_frontend
+    ports:
+      - ${FRONTEND_PORT}
+    depends_on:
+      - autotest_fastapi_backend
+    volumes:
+      - ./frontend:/app
+    networks:
+      - autotest
 networks:
   autotest:
     driver: bridge 
