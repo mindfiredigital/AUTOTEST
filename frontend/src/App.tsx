@@ -6,18 +6,21 @@ import { AppProviders } from '@/providers/AppProviders'
 import { AppRoutes } from '@/routes/AppRoutes'
 import { memo, Suspense } from 'react'
 import InlineLoader from './components/layout/InlineLoader'
+import { SidebarProvider } from './contexts/SidebarContext'
 
 const App = memo(() => {
   return (
     <AppProviders>
-      <Router>
-        <Suspense fallback={<InlineLoader />}>
-          <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <AppRoutes />
-          </ErrorBoundary>
-          <Toaster richColors position="top-right" />
-        </Suspense>
-      </Router>
+      <SidebarProvider>
+        <Router>
+          <Suspense fallback={<InlineLoader />}>
+            <ErrorBoundary FallbackComponent={ErrorFallback}>
+              <AppRoutes />
+            </ErrorBoundary>
+            <Toaster richColors position="top-right" />
+          </Suspense>
+        </Router>
+      </SidebarProvider>
     </AppProviders>
   )
 })

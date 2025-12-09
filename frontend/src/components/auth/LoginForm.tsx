@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useloginMutation } from '@/utils/queries/authQueries'
 import { useForm } from 'react-hook-form'
-import mindfireLogo from '@/assets/mindfire-logo.png' // <-- Add your logo here
+import mindfireLogo from '@/assets/mindfire-logo.png'
 
 type LoginValues = {
   email: string
