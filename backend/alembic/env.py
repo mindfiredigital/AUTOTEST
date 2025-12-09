@@ -40,27 +40,21 @@ def include_object(object, name, type_, reflected, compare_to):
     """
     Filter function to prevent foreign keys from being generated during migration.
     """
-    print(f"object type being checked: {type_}, name: {name}")
 
     # Check if the object is an Index and inspect its columns for ForeignKey
     if type_ == 'index' and isinstance(object, Index):
-        print(f"Checking columns in index: {name}")
-        print(f"object: {object}")
         for col in object.columns:
               # Check if the column has any foreign keys associated with it
             if hasattr(col, 'foreign_keys') and len(col.foreign_keys) > 0:
-                print(f"Skipping Index '{name}' due to FK presence.")
                 return False
         return True
 
     # This is the primary logic: Check if the object being processed is explicitly a ForeignKeyConstraint
     if isinstance(object, ForeignKeyConstraint):
-        print(f"Skipping generation of foreign key constraint: {name} (via isinstance check)")
         return False
         
     # This check specifically targets the column type itself (e.g., when generating the sa.Column(...) line)
     if type_ == 'column' and isinstance(object, Column) and len(object.foreign_keys) > 0:
-         print(f"Skipping foreign key column definition for: {name}")
          return False
     # 4. Filter if the object is a Table that contains ForeignKeyConstraints
     if isinstance(object, Table):
@@ -70,7 +64,6 @@ def include_object(object, name, type_, reflected, compare_to):
             c for c in object.constraints 
             if not isinstance(c, ForeignKeyConstraint)
         }
-        print(f"Sanitized Table: {name} of FKs before creation.")
         return True
     return True
 
