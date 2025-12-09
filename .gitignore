@@ -32,3 +32,5 @@ wheels/
 .installed.cfg
 *.egg
 data/
+.history
+.idea

@@ -19,7 +19,7 @@ services:
       retries: 5
       start_period: 30s
     volumes:
-      - ./data/mysql:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     networks: 
       - autotest
 
@@ -108,6 +108,7 @@ services:
       - ./frontend:/app
     networks:
       - autotest
+      
 networks:
   autotest:
     driver: bridge 
