@@ -1,7 +1,13 @@
 import React from 'react'
 import { Search, Calendar } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 
 interface SearchBarProps {
@@ -22,9 +28,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, onSearchChang
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />
-          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground pointer-events-none" aria-hidden="true" />
+          <Search
+            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground pointer-events-none"
+            aria-hidden="true"
+          />
         </div>
-        
+
         <div className="flex items-center border border-l-0 border-input rounded-r-md bg-background shrink-0">
           <Select defaultValue="created">
             <SelectTrigger className="w-[140px] sm:w-[169px] border-l-0 rounded-l-none">
@@ -42,10 +51,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, onSearchChang
         </div>
       </div>
 
-      <Button className="shrink-0 w-full sm:w-auto">
-        Add New Site
-      </Button>
+      <Button className="shrink-0 w-full sm:w-auto">Add New Site</Button>
     </div>
   )
 }
-

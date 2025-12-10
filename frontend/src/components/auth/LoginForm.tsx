@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
-import { useloginMutation } from '@/utils/queries/authQueries'
+import { useLoginMutation } from '@/utils/queries/authQueries'
 import { useForm } from 'react-hook-form'
 import mindfireLogo from '@/assets/mindfire-logo.png'
 
@@ -24,7 +24,7 @@ const LoginForm: React.FC = () => {
     defaultValues: { email: '', password: '' },
   })
 
-  const loginMutation = useloginMutation()
+  const loginMutation = useLoginMutation()
 
   const onSubmit = (data: LoginValues) => {
     loginMutation.mutate(data, {
@@ -32,8 +32,9 @@ const LoginForm: React.FC = () => {
         toast.success('Login successful!')
         reset()
       },
-      onError: (error: any) => {
-        toast.error(error?.response?.data?.message || 'Login failed')
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string } } }
+        toast.error(err?.response?.data?.detail || 'Login failed')
       },
     })
   }
@@ -41,7 +42,6 @@ const LoginForm: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="flex flex-col items-center w-full">
-        {/* Logo */}
         <img src={mindfireLogo} alt="Mindfire Logo" className="h-14 mb-6 mt-4" />
 
         <Card className="w-full max-w-md shadow-lg border rounded-xl">
@@ -51,7 +51,6 @@ const LoginForm: React.FC = () => {
 
           <CardContent className="space-y-5">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Email */}
               <div className="space-y-1">
                 <Label htmlFor="email" className="font-medium">
                   Email
@@ -65,12 +64,9 @@ const LoginForm: React.FC = () => {
                   disabled={loginMutation.isPending}
                   className="h-11"
                 />
-                {errors.email && (
-                  <p className="text-xs text-red-500">{errors.email.message}</p>
-                )}
+                {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
               </div>
 
-              {/* Password */}
               <div className="space-y-1">
                 <Label htmlFor="password" className="font-medium">
                   Password
@@ -89,30 +85,22 @@ const LoginForm: React.FC = () => {
                 )}
               </div>
 
-              {/* Forgot Password */}
               <div className="text-right">
-                <Link
-                  to="/forgot-password"
-                  className="text-sm text-gray-600 hover:text-black"
-                >
+                <Link to="/forgot-password" className="text-sm text-gray-600 hover:text-black">
                   Forgot Password?
                 </Link>
               </div>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full bg-red-600 hover:bg-red-700 h-11 text-white"
                 disabled={loginMutation.isPending}
               >
-                {loginMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+                {loginMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign In
               </Button>
             </form>
 
-            {/* Sign-up footer */}
             <div className="text-center text-sm text-gray-600 pt-2">
               Don’t have an account?{' '}
               <Link to="/register" className="font-semibold text-red-600 hover:underline">

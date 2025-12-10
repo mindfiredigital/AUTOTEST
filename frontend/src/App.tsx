@@ -10,18 +10,18 @@ import { SidebarProvider } from './contexts/SidebarContext'
 
 const App = memo(() => {
   return (
-    <AppProviders>
-      <SidebarProvider>
-        <Router>
+    <Router>
+      <AppProviders>
+        <SidebarProvider>
           <Suspense fallback={<InlineLoader />}>
             <ErrorBoundary FallbackComponent={ErrorFallback}>
               <AppRoutes />
             </ErrorBoundary>
-            <Toaster richColors position="top-right" />
+            <Toaster richColors position="bottom-right" />
           </Suspense>
-        </Router>
-      </SidebarProvider>
-    </AppProviders>
+        </SidebarProvider>
+      </AppProviders>
+    </Router>
   )
 })
 

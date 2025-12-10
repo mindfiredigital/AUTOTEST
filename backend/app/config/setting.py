@@ -6,12 +6,13 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Autotest"
     VERSION: str = "1.0.0"
     DESCRIPTION: str = "A FastAPI application for managing users"
-    ALLOWED_HOSTS: List[str] = ["http://localhost:8501", "http://127.0.0.1:8501"]
+    ALLOWED_HOSTS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173","http://localhost:3000", "http://127.0.0.1:3000"]
     
     DATABASE_URL: str
     JWT_SECRET: str = "change_me"
     ALGO: str ="HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES:int =60
+    ACCESS_TOKEN_EXPIRE_MINUTES:int =5
+    REFRESH_TOKEN_EXPIRE_MINUTES:int =60*2
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "Admin@123"
     ADMIN_NAME: str = "Admin User"

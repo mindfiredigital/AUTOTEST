@@ -16,6 +16,7 @@ class SecurityService:
         self.secret_key = settings.JWT_SECRET
         self.algorithm = settings.ALGO
         self.default_exp_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        self.default_refresh_exp_minutes = settings.REFRESH_TOKEN_EXPIRE_MINUTES
 
 
     def hash_password(self, password: str) -> str:
@@ -50,6 +51,28 @@ class SecurityService:
 
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
+    def create_refresh_token(
+    self,
+    *,
+    subject: str,
+    user_id: int,
+    role_id: int,
+    expires_delta: timedelta | None = None,
+    ) -> str:
+
+        expire = datetime.now(timezone.utc) + (
+            expires_delta or timedelta(minutes=self.default_refresh_exp_minutes)
+        )
+
+        payload = {
+            "sub": subject,
+            "exp": expire,
+            "user_id": user_id,
+            "role_id": role_id,
+            "type": "refresh"
+        }
+
+        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
     def decode_token(self, token: str) -> dict:
         """Decode a JWT token and return its payload."""

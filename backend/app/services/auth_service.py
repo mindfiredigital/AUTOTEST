@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
-from app.schemas.auth_schema import RegisterRequest, RegisterResponse
+from app.schemas.auth_schema import RegisterRequest, RegisterResponse,LoginRequest,LoginResponse
 from app.models.user import User
 from app.models.role import Role
 from app.config.security import security_service   
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Response, Request
+from app.config.setting import settings
 
 
 
@@ -68,5 +69,103 @@ class AuthService:
             email=new_user.email,
             role=default_role.type
         )
+    def login(self,response: Response, data: LoginRequest, db: Session) -> LoginResponse:
+        user = db.query(User).filter(User.email == data.email).first()
 
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid email or password"
+            )
+
+        if not security_service.verify_password(data.password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid email or password"
+            )
+
+        access_token = security_service.create_access_token(
+            subject=user.email,
+            user_id=user.id,
+            role_id=user.role_id
+        )
+        refresh_token = security_service.create_refresh_token(
+            subject=user.email,
+            user_id=user.id,
+            role_id=user.role_id
+        )
+        role = db.query(Role).filter(Role.id == user.role_id).first()
+        response.set_cookie(
+                key="access_token",
+                value=access_token,
+                httponly=True,
+                secure=False,
+                samesite="lax",
+                max_age=60 * settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=7 * 24 * 60 * 60,
+        )
+        return LoginResponse(
+            name=user.name,
+            email=user.email,
+            role=role.type if role else None
+        )
+        
+    def refresh(self, request: Request, response: Response) -> dict:
+        refresh_token = request.cookies.get("refresh_token")
+
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token missing"
+            )
+
+        try:
+            payload = security_service.decode_token(refresh_token)
+            if payload.get("type") != "refresh":
+                raise Exception("Invalid token type")
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+
+        new_access_token = security_service.create_access_token(
+            subject=payload["sub"],
+            user_id=payload["user_id"],
+            role_id=payload["role_id"]
+        )
+
+        response.set_cookie(
+            key="access_token",
+            value=new_access_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=60 * settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
+
+        return {"message": "Access token refreshed"}
+
+
+    def get_me(self, request: Request, db: Session, user: User):
+
+
+        return {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": db.query(Role).filter(Role.id == user.role_id).first().type
+        }
+
+    def logout(self, response: Response):
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+        return {"message": "Logged out successfully"}
 auth_service = AuthService()

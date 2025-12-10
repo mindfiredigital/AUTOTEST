@@ -6,6 +6,7 @@ import InlineLoader from '@/components/layout/InlineLoader'
 const Layout = lazy(() => import('@/components/layout/Layout'))
 const ProtectedRoute = lazy(() => import('../routes/ProtectedRoute'))
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
+const Page = lazy(() => import('@/pages/Page'))
 const LoginForm = lazy(() => import('@/components/auth/LoginForm'))
 const RegisterForm = lazy(() => import('@/components/auth/RegisterForm'))
 const NetworkIssue = lazy(() => import('@/components/layout/NetworkIssue'))
@@ -37,6 +38,7 @@ export const AppRoutes: React.FC = React.memo(() => {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route path="page" element={<Page />} />
         <Route path="network-issue" element={<NetworkIssue />} />
       </Route>
       <Route path="*" element={<NotFound />} />

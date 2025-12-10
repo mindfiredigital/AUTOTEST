@@ -10,8 +10,8 @@ import { useForm } from 'react-hook-form'
 import mindfireLogo from '@/assets/mindfire-logo.png'
 
 type RegisterValues = {
-  firstName: string
-  lastName: string
+  firstname: string
+  lastname: string
   email: string
   password: string
 }
@@ -23,7 +23,7 @@ const RegisterForm: React.FC = () => {
     reset,
     formState: { errors },
   } = useForm<RegisterValues>({
-    defaultValues: { firstName: '', lastName: '', email: '', password: '' },
+    defaultValues: { firstname: '', lastname: '', email: '', password: '' },
   })
 
   const registerMutation = useRegisterMutation()
@@ -34,8 +34,9 @@ const RegisterForm: React.FC = () => {
         toast.success('Account created successfully!')
         reset()
       },
-      onError: (error: any) => {
-        toast.error(error?.response?.data?.message || 'Registration failed')
+      onError: (error: unknown) => {
+        const err = error as { response?: { data?: { detail?: string } } }
+        toast.error(err?.response?.data?.detail || 'Registration failed')
       },
     })
   }
@@ -43,8 +44,6 @@ const RegisterForm: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="flex flex-col items-center w-full">
-        
-        {/* Logo */}
         <img src={mindfireLogo} alt="Mindfire Logo" className="h-14 mt-4 mb-6" />
 
         <Card className="w-full max-w-md shadow-lg rounded-xl border">
@@ -54,38 +53,40 @@ const RegisterForm: React.FC = () => {
 
           <CardContent className="space-y-5">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-
-              {/* First Name */}
               <div className="space-y-1">
-                <Label htmlFor="firstName">First Name</Label>
+                <Label htmlFor="firstname">First Name</Label>
                 <Input
-                  id="firstName"
+                  id="firstname"
                   placeholder="Enter first name"
-                  {...register('firstName', { required: 'First name is required' })}
+                  {...register('firstname', {
+                    required: 'First name is required',
+                    maxLength: { value: 50, message: 'First name must be max 50 characters' },
+                  })}
                   disabled={registerMutation.isPending}
                   className="h-11"
                 />
-                {errors.firstName && (
-                  <p className="text-xs text-red-500">{errors.firstName.message}</p>
+                {errors.firstname && (
+                  <p className="text-xs text-red-500">{errors.firstname.message}</p>
                 )}
               </div>
 
-              {/* Last Name */}
               <div className="space-y-1">
-                <Label htmlFor="lastName">Last Name</Label>
+                <Label htmlFor="lastname">Last Name</Label>
                 <Input
-                  id="lastName"
+                  id="lastname"
                   placeholder="Enter last name"
-                  {...register('lastName', { required: 'Last name is required' })}
+                  {...register('lastname', {
+                    required: 'Last name is required',
+                    maxLength: { value: 50, message: 'last name must be max 50 characters' },
+                  })}
                   disabled={registerMutation.isPending}
                   className="h-11"
                 />
-                {errors.lastName && (
-                  <p className="text-xs text-red-500">{errors.lastName.message}</p>
+                {errors.lastname && (
+                  <p className="text-xs text-red-500">{errors.lastname.message}</p>
                 )}
               </div>
 
-              {/* Email */}
               <div className="space-y-1">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
@@ -95,16 +96,14 @@ const RegisterForm: React.FC = () => {
                   {...register('email', {
                     required: 'Email is required',
                     pattern: { value: /^\S+@\S+$/i, message: 'Invalid email address' },
+                    maxLength: { value: 50, message: 'email must be max 50 characters' },
                   })}
                   disabled={registerMutation.isPending}
                   className="h-11"
                 />
-                {errors.email && (
-                  <p className="text-xs text-red-500">{errors.email.message}</p>
-                )}
+                {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
               </div>
 
-              {/* Password */}
               <div className="space-y-1">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -113,7 +112,8 @@ const RegisterForm: React.FC = () => {
                   placeholder="Enter password"
                   {...register('password', {
                     required: 'Password is required',
-                    minLength: { value: 6, message: 'Password must be at least 6 characters' }
+                    minLength: { value: 6, message: 'Password must be at least 6 characters' },
+                    maxLength: { value: 50, message: 'Password must be max 50 characters' },
                   })}
                   disabled={registerMutation.isPending}
                   className="h-11"
@@ -123,26 +123,19 @@ const RegisterForm: React.FC = () => {
                 )}
               </div>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full bg-red-600 hover:bg-red-700 h-11 text-white"
                 disabled={registerMutation.isPending}
               >
-                {registerMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+                {registerMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign Up
               </Button>
             </form>
 
-            {/* Footer */}
             <div className="text-center text-sm text-gray-600 pt-2">
               Already have an account?{' '}
-              <Link
-                to="/login"
-                className="font-semibold text-red-600 hover:underline"
-              >
+              <Link to="/login" className="font-semibold text-red-600 hover:underline">
                 Sign In
               </Link>
             </div>

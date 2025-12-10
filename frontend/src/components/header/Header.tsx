@@ -1,17 +1,18 @@
-import React from "react";
-import { Menu} from "lucide-react";
-import { useSidebar } from "@/contexts/SidebarContext";
+import React from 'react'
+import { Menu } from 'lucide-react'
+import { useSidebar } from '@/contexts/SidebarContext'
+import UserMenu from './UserMenu'
 
 export const Header: React.FC = () => {
-  const { collapse, toggle } = useSidebar();
+  const { collapse, toggle } = useSidebar()
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
-      collapse();
+      collapse()
     } else {
-      toggle();
+      toggle()
     }
-  };
+  }
 
   return (
     <header className="sticky top-0 z-10 h-[72px] border-b border-border bg-background">
@@ -29,15 +30,9 @@ export const Header: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <button
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/20 hover:bg-muted/40 transition-colors"
-            aria-label="User profile"
-          >
-            <div className="h-9 w-9 rounded-full bg-muted" />
-            
-          </button>
+          <UserMenu />
         </div>
       </div>
     </header>
-  );
-};
+  )
+}
