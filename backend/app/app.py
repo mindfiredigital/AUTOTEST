@@ -4,18 +4,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text 
 
 from app.config.setting import settings
-from app.db.session import SessionLocal
-
-def get_db():
-    """
-    Dependency function to create and close a database session for each request.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
+from app.routers.auth import router as auth_router
+from app.db.session import get_db
 def create_app() -> FastAPI:
     """
     Factory function to create and configure the FastAPI application instance.
@@ -56,6 +46,9 @@ def create_app() -> FastAPI:
             
     # from app.api.routers import users
     # app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+    app.include_router(auth_router, prefix="/api/v1/auth")
+    
+
 
     return app
 

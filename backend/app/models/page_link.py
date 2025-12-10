@@ -27,6 +27,6 @@ class PageLink(Base):
     target_page: Mapped["Page"] = relationship("Page", foreign_keys=[page_id_target])
     source_scenario: Mapped["TestScenario | None"] = relationship("TestScenario", foreign_keys=[test_scenario_id_source])
 
-    test_cases_map: Mapped[list["PageLinkTestCase"]] = relationship(
-        "PageLinkTestCase", back_populates="page_link", cascade="all, delete-orphan"
-    )
+    # test_cases_map: Mapped[list["PageLinkTestCase"]] = relationship(
+    #     "PageLinkTestCase", back_populates="page_link", cascade="all, delete-orphan"
+    # )

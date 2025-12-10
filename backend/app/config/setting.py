@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     
     DATABASE_URL: str
     JWT_SECRET: str = "change_me"
+    ALGO: str ="HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES:int =60
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "Admin@123"
     ADMIN_NAME: str = "Admin User"
