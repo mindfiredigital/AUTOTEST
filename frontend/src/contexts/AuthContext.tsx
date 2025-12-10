@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation()
-  const isAuthPage = ['/login', '/register'].includes(location.pathname)
+  const isAuthPage = ['/register'].includes(location.pathname)
 
   const { data, isLoading } = useGetMeQuery({
     enabled: !isAuthPage,
