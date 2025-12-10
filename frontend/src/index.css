@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -40,59 +40,59 @@
 :root {
   --radius: 6px;
 
-  --background: #FFFFFF;
+  --background: #ffffff;
   --foreground: #000000;
 
-  --card: #FFFFFF;
+  --card: #ffffff;
   --card-foreground: #000000;
 
-  --popover: #FFFFFF;
+  --popover: #ffffff;
   --popover-foreground: #000000;
 
-  --primary: #FC0101;
-  --primary-foreground: #FFFFFF;
+  --primary: #fc0101;
+  --primary-foreground: #ffffff;
 
-  --secondary: #F6F3F3;
+  --secondary: #f6f3f3;
   --secondary-foreground: #000000;
 
-  --muted: #F6F3F3;
+  --muted: #f6f3f3;
   --muted-foreground: #606060;
 
-  --accent: #F4F4F4;
+  --accent: #f4f4f4;
   --accent-foreground: #000000;
 
-  --destructive: #FC0101;
-  --destructive-foreground: #FFFFFF;
+  --destructive: #fc0101;
+  --destructive-foreground: #ffffff;
 
-  --border: #E6D8D8;
-  --input: #E6D8D8;
-  --ring: #E6D8D8;
+  --border: #e6d8d8;
+  --input: #e6d8d8;
+  --ring: #e6d8d8;
 }
 
 .dark {
   --background: #000000;
-  --foreground: #FFFFFF;
+  --foreground: #ffffff;
 
   --card: #000000;
-  --card-foreground: #FFFFFF;
+  --card-foreground: #ffffff;
 
   --popover: #000000;
-  --popover-foreground: #FFFFFF;
+  --popover-foreground: #ffffff;
 
-  --primary: #FC0101;
-  --primary-foreground: #FFFFFF;
+  --primary: #fc0101;
+  --primary-foreground: #ffffff;
 
-  --secondary: #1A1A1A;
-  --secondary-foreground: #FFFFFF;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ffffff;
 
-  --muted: #1A1A1A;
-  --muted-foreground: #E6E6E6;
+  --muted: #1a1a1a;
+  --muted-foreground: #e6e6e6;
 
-  --accent: #1A1A1A;
-  --accent-foreground: #FFFFFF;
+  --accent: #1a1a1a;
+  --accent-foreground: #ffffff;
 
-  --destructive: #FC0101;
-  --destructive-foreground: #FFFFFF;
+  --destructive: #fc0101;
+  --destructive-foreground: #ffffff;
 
   --border: #333333;
   --input: #444444;

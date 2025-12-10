@@ -4,8 +4,9 @@ export async function handleApi<T>(
   try {
     const response = await apiCall()
     return { success: response.data.success, data: response.data.data }
-  } catch (error: any) {
-    const message = error?.response?.data?.message || 'Something went wrong'
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: { message?: string } } }
+    const message = err?.response?.data?.message || 'Something went wrong'
     // console.log(error)
     return { success: false, message }
   }

@@ -16,7 +16,7 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <QueryClientProvider client={queryClient}>
       {/* <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme"> */}
-        <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>{children}</AuthProvider>
       {/* </ThemeProvider> */}
     </QueryClientProvider>
   )

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
-export const useloginMutation = () => {
+export const useLoginMutation = () => {
   const { login } = useAuth()
   const navigate = useNavigate()
   return useMutation({
@@ -17,23 +17,21 @@ export const useloginMutation = () => {
   })
 }
 export const useRegisterMutation = () => {
-  const { login } = useAuth()
   const navigate = useNavigate()
   return useMutation({
     mutationFn: ({
       email,
       password,
-      firstName,
-      lastName
+      firstname,
+      lastname,
     }: {
       email: string
       password: string
-      firstName: string
-      lastName: string
-    }) => authApi.register(email, password, firstName,lastName),
-    onSuccess: (user) => {
-      login(user)
-      navigate('/')
+      firstname: string
+      lastname: string
+    }) => authApi.register(email, password, firstname, lastname),
+    onSuccess: () => {
+      navigate('/login')
     },
   })
 }
@@ -47,7 +45,7 @@ export const useLogout = () => {
       logout()
       toast.success('Logged out successfully')
     },
-    onError: (error: any) => {
+    onError: (error: TypeError) => {
       toast.error(error?.message || 'Logout failed')
     },
   })
