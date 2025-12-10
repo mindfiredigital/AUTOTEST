@@ -33,8 +33,8 @@ const LoginForm: React.FC = () => {
         reset()
       },
       onError: (error: unknown) => {
-        const err = error as { response?: { data?: { message?: string } } }
-        toast.error(err?.response?.data?.message || 'Login failed')
+        const err = error as { response?: { data?: { detail?: string } } }
+        toast.error(err?.response?.data?.detail || 'Login failed')
       },
     })
   }

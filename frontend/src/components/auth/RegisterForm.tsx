@@ -35,8 +35,8 @@ const RegisterForm: React.FC = () => {
         reset()
       },
       onError: (error: unknown) => {
-        const err = error as { response?: { data?: { message?: string } } }
-        toast.error(err?.response?.data?.message || 'Registration failed')
+        const err = error as { response?: { data?: { detail?: string } } }
+        toast.error(err?.response?.data?.detail || 'Registration failed')
       },
     })
   }
@@ -58,7 +58,10 @@ const RegisterForm: React.FC = () => {
                 <Input
                   id="firstname"
                   placeholder="Enter first name"
-                  {...register('firstname', { required: 'First name is required' })}
+                  {...register('firstname', {
+                    required: 'First name is required',
+                    maxLength: { value: 50, message: 'First name must be max 50 characters' },
+                  })}
                   disabled={registerMutation.isPending}
                   className="h-11"
                 />
@@ -72,7 +75,10 @@ const RegisterForm: React.FC = () => {
                 <Input
                   id="lastname"
                   placeholder="Enter last name"
-                  {...register('lastname', { required: 'Last name is required' })}
+                  {...register('lastname', {
+                    required: 'Last name is required',
+                    maxLength: { value: 50, message: 'last name must be max 50 characters' },
+                  })}
                   disabled={registerMutation.isPending}
                   className="h-11"
                 />
@@ -90,6 +96,7 @@ const RegisterForm: React.FC = () => {
                   {...register('email', {
                     required: 'Email is required',
                     pattern: { value: /^\S+@\S+$/i, message: 'Invalid email address' },
+                    maxLength: { value: 50, message: 'email must be max 50 characters' },
                   })}
                   disabled={registerMutation.isPending}
                   className="h-11"
@@ -106,6 +113,7 @@ const RegisterForm: React.FC = () => {
                   {...register('password', {
                     required: 'Password is required',
                     minLength: { value: 6, message: 'Password must be at least 6 characters' },
+                    maxLength: { value: 50, message: 'Password must be max 50 characters' },
                   })}
                   disabled={registerMutation.isPending}
                   className="h-11"

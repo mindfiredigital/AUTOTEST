@@ -1,17 +1,15 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
 import { authApi } from '../apis/userApi'
 import { toast } from 'sonner'
-import { useAuth } from '@/contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import type { User } from '@/types'
 
 export const useLoginMutation = () => {
-  const { login } = useAuth()
   const navigate = useNavigate()
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       authApi.login(email, password),
-    onSuccess: (user) => {
-      login(user)
+    onSuccess: () => {
       navigate('/')
     },
   })
@@ -35,14 +33,25 @@ export const useRegisterMutation = () => {
     },
   })
 }
+type GetMeQueryOptions = UseQueryOptions<User, unknown, User, ['get-user']>
 
+export const useGetMeQuery = (options?: GetMeQueryOptions) => {
+  return useQuery<User, unknown, User, ['get-user']>({
+    queryKey: ['get-user'],
+    queryFn: () => authApi.getMe(),
+    retry: false,
+    ...options,
+  })
+}
 export const useLogout = () => {
-  const { logout } = useAuth()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
-      logout()
+      queryClient.clear()
+      navigate('/login')
       toast.success('Logged out successfully')
     },
     onError: (error: TypeError) => {
