@@ -12,7 +12,7 @@ SiteStatusEnum = Enum("New", "Processing", "Pause", "Done", name="site_status")
 class Site(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     site_title: Mapped[str] = mapped_column(String(200), nullable=False)
-    site_url: Mapped[str] = mapped_column(String(200), nullable=False)
+    site_url: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
     status: Mapped[str] = mapped_column(SiteStatusEnum, nullable=False, default="New")
     created_on: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)

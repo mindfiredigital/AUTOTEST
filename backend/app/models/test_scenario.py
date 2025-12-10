@@ -37,6 +37,7 @@ class TestScenario(Base):
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
 
     page: Mapped["Page"] = relationship("Page")
-    # test_cases: Mapped[list["TestCase"]] = relationship(
-    #     "TestCase", back_populates="scenario", cascade="all, delete-orphan"
-    # )
+    
+    test_cases: Mapped[list["TestCase"]] = relationship(
+        "TestCase", back_populates="scenario", cascade="all, delete-orphan"
+    )

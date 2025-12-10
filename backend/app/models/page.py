@@ -3,7 +3,6 @@ from sqlalchemy import Integer, String, Text, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.mysql import JSON
 from app.db.base import Base
-# from app.models.site import Site
 
 # The XLSX shows a pipeline-like status. Use representative states as enum members.
 PageStatusEnum = Enum("new", "generating_metadata", "generating_test_scenarios", "generating_test_cases", "test_cases_generated", "generating_test_scripts", "done", name="page_status")
@@ -22,4 +21,20 @@ class Page(Base):
     updated_on: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
 
-    site: Mapped["Site"] = relationship("Site", back_populates="pages")
+    site: Mapped["Site"] = relationship(
+        "Site", 
+        back_populates="pages"
+    )
+    
+    links_source: Mapped[list["PageLink"]] = relationship(
+        "PageLink",
+        back_populates="page_source",
+        foreign_keys="PageLink.page_id_source",
+        cascade="all, delete-orphan"
+    )
+
+    links_target: Mapped[list["PageLink"]] = relationship(
+        "PageLink",
+        back_populates="page_target",
+        foreign_keys="PageLink.page_id_target"
+    )

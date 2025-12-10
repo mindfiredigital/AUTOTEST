@@ -6,8 +6,9 @@ from app.db.base import Base
 
 class SiteAlias(Base):
     __tablename__ = "site_alias"
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    site_id: Mapped[int] = mapped_column(ForeignKey("site.id"), nullable=False, index=True)
+    site_id: Mapped[int] = mapped_column(ForeignKey("site.id", ondelete="CASCADE"), nullable=False, index=True)
     site_alias_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     site_alias_url: Mapped[str] = mapped_column(String(255), nullable=False)
 
