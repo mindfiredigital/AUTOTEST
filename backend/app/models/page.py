@@ -38,3 +38,7 @@ class Page(Base):
         back_populates="page_target",
         foreign_keys="PageLink.page_id_target"
     )
+
+    page_test_cases: Mapped["TestCase"] = relationship(
+        "TestCase",
+        back_populates = "page")
