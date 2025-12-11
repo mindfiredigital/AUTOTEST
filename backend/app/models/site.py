@@ -20,5 +20,7 @@ class Site(Base):
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
 
     # relationships
-    aliases: Mapped[list["SiteAlias"]] = relationship("SiteAlias", back_populates="site", cascade="all, delete-orphan")
+    aliases: Mapped[list["SiteAlias"]] = relationship("SiteAlias", 
+                 back_populates="site" ,
+    cascade="all, delete-orphan")
     pages: Mapped[list["Page"]] = relationship("Page", back_populates="site")
