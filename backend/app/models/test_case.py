@@ -46,9 +46,9 @@ class TestCase(Base):
     updated_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
 
     # relationships
-    page: Mapped["Page"] = relationship("Page", back_populates="test_cases")
+    page: Mapped["Page"] = relationship("Page", back_populates="page_test_cases")
 
-    test_scenario: Mapped["TestScenario"] = relationship("TestScenario")
+    scenario: Mapped["TestScenario"] = relationship("TestScenario", back_populates="test_cases")
 
     last_execution: Mapped["TestExecution | None"] = relationship(
         "TestExecution",
