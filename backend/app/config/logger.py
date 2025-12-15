@@ -1,26 +1,27 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
+from datetime import datetime
 
 LOG_DIR = "logs"
-LOG_FILE = "autotest.log"
 
-# Create directory if not exists
+current_date = datetime.now().strftime("%Y-%m-%d")
+LOG_FILE = f"autotest_{current_date}.log"
+
 os.makedirs(LOG_DIR, exist_ok=True)
 
 def setup_logger():
     logger = logging.getLogger("autotest")
-    logger.setLevel(logging.INFO)  
-
+    logger.setLevel(logging.INFO)
     logger.propagate = False
 
     file_handler = TimedRotatingFileHandler(
         filename=os.path.join(LOG_DIR, LOG_FILE),
-        when="midnight",         
+        when="midnight",
         interval=1,
-        backupCount=7,         
+        backupCount=7,
         encoding="utf-8",
-        utc=False                 
+        utc=False
     )
 
     formatter = logging.Formatter(
