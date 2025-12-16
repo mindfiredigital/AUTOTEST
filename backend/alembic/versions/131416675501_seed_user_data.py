@@ -11,7 +11,6 @@ from alembic import op
 import sqlalchemy as sa
 from datetime import datetime
 
-
 # revision identifiers, used by Alembic.
 revision: str = '131416675501'
 down_revision: Union[str, Sequence[str], None] = '933a97f90659'
@@ -21,7 +20,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    pass
+    op.execute(f"""
+        INSERT INTO user (id, role_id, username, password, name, email, is_active)
+        VALUES
+            (1, '1', 'admin@test.com', '{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 'Admin User', 'admin@test.com', 1),
+            (2, '2', 'qa@test.com', '{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', 'QA User', 'qa@test.com', 1)
+    """)
 
 
 def downgrade() -> None:
