@@ -14,7 +14,6 @@ class AuthService:
     def register(self, data: RegisterRequest, db: Session) -> RegisterResponse:
         """
         Handles user registration:
-        - Build username
         - Validate unique username & email
         - Hash password
         - Assign default role (e.g., 'user')
@@ -22,7 +21,6 @@ class AuthService:
         - Return response schema
         """
         logger.info(f"Registration attempt for email={data.email}")
-        username = data.firstname.lower() + data.lastname[0].lower()
         name = f"{data.firstname} {data.lastname}"
 
 
@@ -34,9 +32,9 @@ class AuthService:
                 detail="Email already exists"
             )
 
-        existing_username = db.query(User).filter(User.username == username).first()
+        existing_username = db.query(User).filter(User.username == data.username).first()
         if existing_username:
-            logger.warning(f"Registration failed: username '{username}' already exists")
+            logger.warning(f"Registration failed: username '{data.username}' already exists")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already exists"
@@ -55,7 +53,7 @@ class AuthService:
 
 
         new_user = User(
-            username=username,
+            username=data.username,
             password=hashed_password,
             name=name,
             email=data.email,
@@ -74,6 +72,11 @@ class AuthService:
             role=default_role.type
         )
     def login(self,response: Response, data: LoginRequest, db: Session) -> LoginResponse:
+        """
+        Logs in the user, verifies credentials, generates JWT access & refresh tokens,
+        and stores them in secure HttpOnly cookies.
+        Returns basic user details or raises an error if authentication fails.
+        """
         logger.info(f"Login attempt for email={data.email}")
         user = db.query(User).filter(User.email == data.email).first()
 
@@ -126,6 +129,12 @@ class AuthService:
         )
         
     def refresh(self, request: Request, response: Response) -> dict:
+        """
+        Refreshes the access token using the valid refresh token stored in cookies.
+        Generates a new access token and updates the cookie.
+
+        Raises an error if the refresh token is missing or invalid.
+         """
         refresh_token = request.cookies.get("refresh_token")
 
         if not refresh_token:
@@ -167,6 +176,10 @@ class AuthService:
 
 
     def get_me(self, request: Request, db: Session, user: User):
+        """
+        Returns the authenticated user's profile details including id, name, email,
+        and role. Assumes the user is already validated by authentication middleware.
+        """
         logger.info(f"User profile accessed: user_id={user.id}")
         return {
             "id": user.id,
@@ -176,6 +189,10 @@ class AuthService:
         }
 
     def logout(self, response: Response):
+        """
+        Logs out the user by deleting access and refresh token cookies.
+        Returns a success message after clearing authentication cookies.
+        """
         response.delete_cookie("access_token")
         response.delete_cookie("refresh_token")
         logger.info("User logged out successfully")

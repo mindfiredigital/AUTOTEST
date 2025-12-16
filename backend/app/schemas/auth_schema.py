@@ -7,6 +7,7 @@ class RegisterRequest(BaseModel):
     firstname: str = Field(..., max_length=50)
     lastname: str = Field(..., max_length=50)
     email: str = EmailStr
+    username:str= Field(...,max_length=50)
     password: str = Field(
         ...,
         min_length=6,
