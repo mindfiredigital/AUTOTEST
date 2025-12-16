@@ -34,4 +34,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    pass
+    op.execute("DELETE FROM site")
