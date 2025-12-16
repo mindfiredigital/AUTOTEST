@@ -1,13 +1,16 @@
-// components/sidebar/Sidebar.tsx
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useSidebar } from '@/contexts/SidebarContext'
+import { useSidebarLayout } from '@/contexts/SidebarLayoutContext'
 import mindfireLogo from '@/assets/mindfire-logo.png'
-import { menuItems } from '@/constants/menuItems'
 import { NavItem } from './NavItem'
+import { ArrowLeft } from 'lucide-react'
 
 export const Sidebar: React.FC = () => {
   const { isCollapsed } = useSidebar()
+  const { items, showBack, backTo, backLabel } = useSidebarLayout()
+  const navigate = useNavigate()
 
   return (
     <aside
@@ -16,20 +19,36 @@ export const Sidebar: React.FC = () => {
         isCollapsed ? 'w-20' : 'w-[260px]',
       )}
     >
-      <div className="flex items-center justify-center h-[72px] border-b border-border">
-        {!isCollapsed ? (
-          <img src={mindfireLogo} alt="Logo" className="h-[60px]" />
-        ) : (
-          <img
-            src="https://ourgoalplan.co.in/Images/fire-logo.png"
-            alt="Logo"
-            className="h-[60px]"
-          />
+      <div className="border-b border-border">
+        <div className="flex items-center justify-center h-[72px] ">
+          {!isCollapsed ? (
+            <img src={mindfireLogo} alt="Logo" className="h-[60px]" />
+          ) : (
+            <img
+              src="https://ourgoalplan.co.in/Images/fire-logo.png"
+              alt="Logo"
+              className="h-[60px]"
+            />
+          )}
+        </div>
+
+        {showBack && backTo && (
+          <button
+            type="button"
+            onClick={() => navigate(backTo)}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 border-b border-border"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-md border">
+              <ArrowLeft className="text-red-500 text-lg leading-none" />
+            </span>
+
+            {!isCollapsed && (backLabel ?? 'Back to Menu')}
+          </button>
         )}
       </div>
 
       <nav className="flex-1 pt-0">
-        {menuItems.map((item) => (
+        {items.map((item) => (
           <NavItem key={item.id} item={item} isCollapsed={isCollapsed} />
         ))}
       </nav>

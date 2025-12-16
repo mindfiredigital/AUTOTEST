@@ -2,11 +2,13 @@ import React, { lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import InlineLoader from '@/components/layout/InlineLoader'
+import SiteInfoPage from '@/components/site/SiteInfoPage'
 
 const Layout = lazy(() => import('@/components/layout/Layout'))
 const ProtectedRoute = lazy(() => import('../routes/ProtectedRoute'))
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const Page = lazy(() => import('@/pages/Page'))
+const Site = lazy(() => import('@/pages/Site'))
 const LoginForm = lazy(() => import('@/components/auth/LoginForm'))
 const RegisterForm = lazy(() => import('@/components/auth/RegisterForm'))
 const NetworkIssue = lazy(() => import('@/components/layout/NetworkIssue'))
@@ -39,6 +41,9 @@ export const AppRoutes: React.FC = React.memo(() => {
       >
         <Route index element={<Dashboard />} />
         <Route path="page" element={<Page />} />
+        <Route path="site" element={<Site />} />
+        <Route path="site-info/test-scenario" element={<Site />} />
+        <Route path="site-info/:id" element={<SiteInfoPage />} />
         <Route path="network-issue" element={<NetworkIssue />} />
       </Route>
       <Route path="*" element={<NotFound />} />

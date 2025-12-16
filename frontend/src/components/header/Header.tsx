@@ -19,7 +19,7 @@ export const Header: React.FC = () => {
       <div className="flex h-full items-center justify-between px-5">
         <div className="flex h-full items-center gap-4">
           <button
-            className="p-2 bg-background border border-border rounded-md"
+            className="p-2 bg-background border border-border rounded-md  bg-gray-100"
             onClick={handleToggle}
             aria-label="Toggle menu"
           >
