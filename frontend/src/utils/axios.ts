@@ -37,12 +37,14 @@ api.interceptors.response.use(
     const isRefreshRequest = originalRequest.url?.includes('/auth/refresh')
 
     if (
+      error.code != 'ERR_NETWORK' &&
       error.response &&
       error.response.status === 401 &&
       window.location.pathname != '/login' &&
       !isRefreshRequest &&
       window.location.pathname != '/register' &&
-      !originalRequest._retry
+      !originalRequest._retry &&
+      window.location.pathname != '/network-issue'
     ) {
       originalRequest._retry = true
       if (isRefreshing) {

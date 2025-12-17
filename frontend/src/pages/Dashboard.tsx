@@ -1,14 +1,60 @@
-import React, { memo } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { AdminDashboard } from '@/components/dashboard/AdminDashboard'
-import { UserDashboard } from '@/components/dashboard/UserDashboard'
+import * as React from 'react'
+import { Button } from '@/components/ui/button'
+import { SiteTable } from '@/components/site/SiteTable'
+import { SearchBar } from '@/components/common/SearchBar'
+import { Pagination } from '@/components/common/Pagination'
+import { useSitesQuery } from '@/utils/queries/sitesQuery'
+import { AddSiteSheet } from '@/components/site/AddSiteDialog'
 
-const Dashboard: React.FC = memo(() => {
-  const { isAdmin } = useAuth()
+const Dashboard: React.FC = React.memo(() => {
+  const [search, setSearch] = React.useState('')
+  const [openAdd, setOpenAdd] = React.useState(false)
 
-  return <div className="w-full">{isAdmin ? <AdminDashboard /> : <UserDashboard />}</div>
+  const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(10)
+
+  const { data, isLoading } = useSitesQuery({
+    page,
+    limit: pageSize,
+    search,
+  })
+
+  const handleAdd = (values: { title: string; url: string }) => {
+    console.log('values', values)
+    setOpenAdd(false)
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <SearchBar searchQuery={search} onSearchChange={setSearch}>
+        <Button onClick={() => setOpenAdd(true)}>Add New Site</Button>
+        <AddSiteSheet open={openAdd} onOpenChange={setOpenAdd} onSubmit={handleAdd} />
+      </SearchBar>
+      <div className="">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+          </div>
+        ) : (
+          <>
+            <SiteTable data={data?.data || []} />
+            <Pagination
+              currentPage={data?.meta.page ?? 1}
+              totalPages={data?.meta.totalPages ?? 1}
+              itemsPerPage={data?.meta.limit ?? pageSize}
+              totalItems={data?.meta.totalItems ?? 0}
+              onPageChange={setPage}
+              onItemsPerPageChange={(size) => {
+                setPageSize(size)
+                setPage(1)
+              }}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  )
 })
 
 Dashboard.displayName = 'Dashboard'
-
 export default Dashboard

@@ -8,13 +8,13 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = memo(({ children }) => {
-  const { isAuthenticated, loading } = useAuth()
+  const { loading, status } = useAuth()
 
-  if (loading) {
+  if (loading || status === 'unknown') {
     return <InlineLoader />
   }
 
-  if (!isAuthenticated) {
+  if (status === 'unauthenticated') {
     return <Navigate to="/login" replace />
   }
 

@@ -6,7 +6,7 @@ import type { User } from '@/types'
 
 export const useLoginMutation = () => {
   const navigate = useNavigate()
-    const queryClient = useQueryClient()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
@@ -42,7 +42,7 @@ export const useGetMeQuery = (options?: GetMeQueryOptions) => {
   return useQuery<User, unknown, User, ['get-user']>({
     queryKey: ['get-user'],
     queryFn: () => authApi.getMe(),
-    retry:false,
+    retry: false,
     ...options,
   })
 }
