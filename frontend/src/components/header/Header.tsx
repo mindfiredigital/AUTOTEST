@@ -1,14 +1,14 @@
 import React from 'react'
 import { Menu } from 'lucide-react'
-import { useSidebar } from '@/contexts/SidebarContext'
 import UserMenu from './UserMenu'
+import { useSidebar } from '@/contexts/SidebarContext'
 
 export const Header: React.FC = () => {
-  const { collapse, toggle } = useSidebar()
+  const { toggleCollapse, toggle } = useSidebar()
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
-      collapse()
+      toggleCollapse()
     } else {
       toggle()
     }

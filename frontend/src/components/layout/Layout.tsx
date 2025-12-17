@@ -3,8 +3,8 @@ import { Outlet } from 'react-router-dom'
 import { Header } from '../header/Header'
 import { Sidebar } from '../sidebar/Sidebar'
 import { MobileMenu } from '../sidebar/MobileMenu'
-import { useSidebar } from '@/contexts/SidebarContext'
 import { cn } from '@/lib/utils'
+import { useSidebar } from '@/contexts/SidebarContext'
 
 const Layout: React.FC = memo(() => {
   const { isCollapsed } = useSidebar()
@@ -24,8 +24,7 @@ const Layout: React.FC = memo(() => {
         tabIndex={-1}
       >
         <Header />
-        {/* <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} /> */}
-        <div className="mx-2 my-4">
+        <div className="m-5">
           <Outlet />
         </div>
       </main>

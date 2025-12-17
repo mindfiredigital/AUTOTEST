@@ -14,19 +14,19 @@ export type SidebarItem = {
   path: string
 }
 
-export type SidebarDefinition = {
+export type SidebarConfig = {
   id: string
-  match: (pathname: string) => boolean
+  pathPattern: RegExp
   items: SidebarItem[]
   showBack?: boolean
   backTo?: string
   backLabel?: string
 }
 
-export const SIDEBARS: SidebarDefinition[] = [
+export const SIDEBAR_CONFIGS: SidebarConfig[] = [
   {
     id: 'root',
-    match: (p) => p === '/' || p.startsWith('/user') || p.startsWith('/settings'),
+    pathPattern: /^\/($|page$|user|settings)/,
     items: [
       { id: 'site', label: 'Site', icon: LayoutDashboard, path: '/' },
       { id: 'page', label: 'Page', icon: FileText, path: '/page' },
@@ -36,28 +36,33 @@ export const SIDEBARS: SidebarDefinition[] = [
   },
   {
     id: 'site-info',
-    match: (p) => p.startsWith('/site-info'),
+    pathPattern: /^\/site-info/,
     items: [
       { id: 'site-info', label: 'Site Info', icon: LayoutDashboard, path: '/site-info/:id' },
-      { id: 'page', label: 'Page', icon: FileText, path: '/site-info/page' },
+      { id: 'site-info-page', label: 'Page', icon: FileText, path: '/site-info/:id/site-page' },
       {
         id: 'test-scenario',
         label: 'Test Scenario',
         icon: ListTree,
-        path: '/site-info/test-scenario',
+        path: '/site-info/:id/test-scenario',
       },
-      { id: 'test-suite', label: 'Test Suite', icon: ListChecks, path: '/site-info/test-suite' },
+      {
+        id: 'test-suite',
+        label: 'Test Suite',
+        icon: ListChecks,
+        path: '/site-info/:id/test-suite',
+      },
       {
         id: 'configuration',
         label: 'Configuration',
         icon: Settings,
-        path: '/site-info/configuration',
+        path: '/site-info/:id/configuration',
       },
       {
         id: 'schedule-test',
         label: 'Schedule Test Case',
         icon: CalendarClock,
-        path: '/site-info/schedule',
+        path: '/site-info/:id/schedule',
       },
     ],
     showBack: true,

@@ -2,13 +2,12 @@ import React from 'react'
 import { X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useSidebar } from '@/contexts/SidebarContext'
-import { useSidebarLayout } from '@/contexts/SidebarLayoutContext'
 import { NavItem } from './NavItem'
 import { ArrowLeft } from 'lucide-react'
 
 export const MobileMenu: React.FC = () => {
   const { isOpen, close } = useSidebar()
-  const { items, showBack, backTo, backLabel } = useSidebarLayout()
+  const { items, showBack, backTo, backLabel } = useSidebar()
   const navigate = useNavigate()
 
   if (!isOpen) return null
