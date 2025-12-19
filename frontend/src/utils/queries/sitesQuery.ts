@@ -5,18 +5,21 @@ export const useSitesQuery = ({
   page,
   limit,
   search,
+  sort,
 }: {
   page: number
   limit: number
   search: string
+  sort?: 'asc' | 'desc'
 }) => {
   return useQuery({
-    queryKey: ['sites', page, limit, search],
+    queryKey: ['sites', page, limit, search, sort],
     queryFn: () =>
       siteApi.getSites({
         page,
         limit,
         search,
+        sort,
       }),
   })
 }

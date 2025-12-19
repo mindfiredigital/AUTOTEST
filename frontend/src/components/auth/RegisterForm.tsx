@@ -14,6 +14,7 @@ type RegisterValues = {
   lastname: string
   email: string
   password: string
+  username: string
 }
 
 const RegisterForm: React.FC = () => {
@@ -23,7 +24,7 @@ const RegisterForm: React.FC = () => {
     reset,
     formState: { errors },
   } = useForm<RegisterValues>({
-    defaultValues: { firstname: '', lastname: '', email: '', password: '' },
+    defaultValues: { firstname: '', lastname: '', email: '', password: '', username: '' },
   })
 
   const registerMutation = useRegisterMutation()
@@ -86,7 +87,23 @@ const RegisterForm: React.FC = () => {
                   <p className="text-xs text-red-500">{errors.lastname.message}</p>
                 )}
               </div>
-
+              <div className="space-y-1">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter username here"
+                  {...register('username', {
+                    required: 'Username is required',
+                    maxLength: { value: 50, message: 'username must be max 50 characters' },
+                  })}
+                  disabled={registerMutation.isPending}
+                  className="h-11"
+                />
+                {errors.username && (
+                  <p className="text-xs text-red-500">{errors.username.message}</p>
+                )}
+              </div>
               <div className="space-y-1">
                 <Label htmlFor="email">Email Address</Label>
                 <Input

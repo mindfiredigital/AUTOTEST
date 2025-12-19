@@ -12,6 +12,7 @@ export interface GetSitesParams {
   page: number
   limit: number
   search?: string
+  sort?: string
 }
 
 export interface GetSitesResponse {
