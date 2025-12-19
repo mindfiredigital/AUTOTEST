@@ -5,7 +5,35 @@ from sqlalchemy import text
 
 from app.config.setting import settings
 from app.routers.auth import router as auth_router
+from app.routers.site import router as site_router
 from app.db.session import get_db
+from app.config.rabbitmq import rabbitmq_connection
+from app.config.logger import logger
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting FastAPI application...")
+
+    # Startup: initialize RabbitMQ
+    try:
+        await rabbitmq_connection.connect()
+        logger.info("RabbitMQ initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize RabbitMQ: {e}")
+
+    yield
+
+    # Shutdown: close RabbitMQ
+    logger.info("Shutting down FastAPI application...")
+    try:
+        await rabbitmq_connection.close()
+        logger.info("RabbitMQ connection closed")
+    except Exception as e:
+        logger.error(f"Error closing RabbitMQ connection: {e}")
+
+
 def create_app() -> FastAPI:
     """
     Factory function to create and configure the FastAPI application instance.
@@ -14,7 +42,8 @@ def create_app() -> FastAPI:
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=settings.DESCRIPTION,
-        debug=settings.DEBUG
+        debug=settings.DEBUG,
+        lifespan=lifespan
     )
 
     app.add_middleware(
@@ -47,6 +76,7 @@ def create_app() -> FastAPI:
     # from app.api.routers import users
     # app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
     app.include_router(auth_router, prefix="/api/v1/auth")
+    app.include_router(site_router, prefix="/api/v1")
     
 
 

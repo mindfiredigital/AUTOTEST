@@ -20,7 +20,13 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT:int = 8000
     DEBUG:bool = True
-
+    # RabbitMQ
+    RABBITMQ_URL: str
+    RABBITMQ_USER: str = "guest"
+    RABBITMQ_PASSWORD: str = "guest"
+    RABBITMQ_VHOST: str = "/"
+    RABBITMQ_HOST: str = "autotest_rabbitmq"
+    RABBITMQ_PORT: int = 5672
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
