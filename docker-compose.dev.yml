@@ -34,7 +34,7 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
     ports:
-      - ${RABBITMQ_PORT}          # AMQP port (5672:5672)
+      - "15672:15672"        # AMQP port (5672:5672)
       - ${RABBITMQ_MANAGEMENT_PORT} # Management UI port (15672:15672)
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
@@ -86,8 +86,27 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
-    volumes:
-      - ./backend:/app
+    networks: 
+      - autotest
+  autotest_worker_backend:
+    restart: always
+    container_name: autotest_worker_backend
+    env_file:
+      - .env
+    build:
+      context: ./llm-service
+      dockerfile: Dockerfile
+    image: autotest_worker_backend
+    ports:
+      - ${WORKER_PORT}
+    depends_on:
+      autotest_mysql:
+        condition: service_healthy
+      autotest_rabbitmq:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
     networks: 
       - autotest
 

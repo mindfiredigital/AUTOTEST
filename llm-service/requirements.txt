@@ -1,0 +1,29 @@
+# FastAPI and web framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.25
+pymysql==1.1.0
+cryptography==42.0.0
+
+# RabbitMQ
+aio-pika==9.3.1
+# aiormq==6.8.0
+
+# Pydantic for data validation
+pydantic-settings==2.12.0
+pydantic[email]==2.12.0
+# Environment variables
+python-dotenv==1.0.0
+# Logging and monitoring
+python-json-logger==2.0.7
+
+# Testing (optional)
+pytest==7.4.4
+pytest-asyncio==0.23.3
+httpx==0.26.0
+
+# Utilities
+python-dateutil==2.8.2
