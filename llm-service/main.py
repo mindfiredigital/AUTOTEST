@@ -1,39 +1,44 @@
 from contextlib import asynccontextmanager
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.config.rabbitmq import rabbitmq_connection
 from app.config.logger import logger
 from app.config.setting import settings
+from app.services.rabbitmq_consumer import RabbitMQConsumer
 from app.workers.worker import worker_service
-import asyncio
-from app.services.rabbitmq_consumer import rabbitmq_consumer
-
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for FastAPI application
-    Handles startup and shutdown events
-    """
-    # Startup
     logger.info("Starting FastAPI application...")
-    print("Starting FastAPI application...")
+    consumer_task = None
 
-    # Initialize RabbitMQ connection
     try:
         await rabbitmq_connection.connect()
         logger.info("RabbitMQ connection initialized")
-        print("RabbitMQ connection initialized")
+
+        consumer = RabbitMQConsumer(channel_pool=rabbitmq_connection.channel_pool)
+        consumer.register_handler("site_analyse_queue", worker_service.process_message)
+
+        consumer_task = asyncio.create_task(consumer.consume_all())
+        logger.info("RabbitMQ consumer started")
+
     except Exception as e:
-        logger.error(f"Failed to initialize RabbitMQ: {e}")
+        logger.error(f"Failed to start RabbitMQ consumer: {e}")
 
     yield
 
-    # Shutdown
     logger.info("Shutting down FastAPI application...")
 
-    # Close RabbitMQ connection
+    if consumer_task:
+        await consumer.stop()
+        consumer_task.cancel()
+        try:
+            await consumer_task
+        except asyncio.CancelledError:
+            logger.info("RabbitMQ consumer stopped")
+
     try:
         await rabbitmq_connection.close()
         logger.info("RabbitMQ connection closed")
@@ -42,15 +47,12 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    """
-    Factory function to create and configure the FastAPI application instance.
-    """
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description=settings.DESCRIPTION,
         debug=settings.DEBUG,
-        lifespan=lifespan
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -63,29 +65,17 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     async def root():
-        """Root endpoint"""
-        return {
-            "message": "AutoTest API",
-            "version": "1.0.0",
-            "status": "running",
-        }
-
+        return {"message": "AutoTest API", "status": "running"}
 
     @app.get("/health")
     async def health_check():
-        """Health check endpoint"""
         return {
             "status": "healthy",
-            "rabbitmq": "connected" if rabbitmq_connection.connection_pool else "disconnected",
+            "rabbitmq": "connected"
+            if rabbitmq_connection.connection_pool
+            else "disconnected",
         }
 
     return app
-
-
-async def main():
-    await rabbitmq_consumer.consume_all()
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 app = create_app()

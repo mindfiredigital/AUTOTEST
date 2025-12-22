@@ -1,5 +1,4 @@
 import json
-import logging
 from typing import Dict, Any, Optional
 import aio_pika
 from aio_pika import DeliveryMode, Message

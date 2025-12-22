@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     RABBITMQ_PASSWORD: str = "guest"
     RABBITMQ_VHOST: str = "/"
     RABBITMQ_HOST: str = "autotest_rabbitmq"
-    RABBITMQ_PORT: int = 5672
+    RABBITMQ_PORT: str = "5672:5672"
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

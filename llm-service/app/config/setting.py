@@ -30,12 +30,12 @@ class Settings(BaseSettings):
     RABBITMQ_PASSWORD: str = "guest"
     RABBITMQ_VHOST: str = "/"
     RABBITMQ_HOST: str = "autotest_rabbitmq"
-    RABBITMQ_PORT: int = 5672
+    RABBITMQ_PORT: str = "5672:5672"
 
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,
-        extra="ignore",   # 🔥 THIS FIXES EXTRA VAR ERRORS
+        extra="ignore",
     )
 
 

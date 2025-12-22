@@ -11,7 +11,6 @@ from app.config.rabbitmq import rabbitmq_connection
 from app.config.logger import logger
 from contextlib import asynccontextmanager
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting FastAPI application...")
@@ -45,7 +44,6 @@ def create_app() -> FastAPI:
         debug=settings.DEBUG,
         lifespan=lifespan
     )
-
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.ALLOWED_HOSTS or ["*"],
