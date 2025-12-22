@@ -13,12 +13,14 @@ export const authApi = {
     password: string,
     firstname: string,
     lastname: string,
+    username: string,
   ): Promise<User> => {
     const { data } = await api.post('/auth/register', {
       email,
       password,
       firstname,
       lastname,
+      username,
     })
     return data
   },

@@ -15,8 +15,11 @@ PyJWT==2.8.0
 alembic==1.17.2
 
 # RabbitMQ dependencies
-celery==5.3.4
-kombu==5.3.4
-pika==1.3.2
+# celery==5.3.4
+# kombu==5.3.4
+# pika==1.3.2
+# aio-pika==9.3.1
+# requests==2.31.0
+# RabbitMQ
 aio-pika==9.3.1
-requests==2.31.0
+# aiormq==6.8.0

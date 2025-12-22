@@ -25,12 +25,14 @@ export const useRegisterMutation = () => {
       password,
       firstname,
       lastname,
+      username,
     }: {
       email: string
       password: string
       firstname: string
       lastname: string
-    }) => authApi.register(email, password, firstname, lastname),
+      username: string
+    }) => authApi.register(email, password, firstname, lastname, username),
     onSuccess: () => {
       navigate('/login')
     },
