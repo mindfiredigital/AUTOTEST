@@ -1,7 +1,6 @@
 import aio_pika
 from aio_pika.pool import Pool
 from typing import Optional
-import logging
 from app.config.setting import settings
 from app.config.logger import logger
 

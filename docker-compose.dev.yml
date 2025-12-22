@@ -34,7 +34,7 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
     ports:
-      - "15672:15672"        # AMQP port (5672:5672)
+      - ${RABBITMQ_PORT} # Management UI port (15672:15672)
       - ${RABBITMQ_MANAGEMENT_PORT} # Management UI port (15672:15672)
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]

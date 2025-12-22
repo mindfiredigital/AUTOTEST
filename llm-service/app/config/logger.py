@@ -3,7 +3,7 @@ from logging.handlers import TimedRotatingFileHandler
 import os
 from datetime import datetime
 
-LOG_DIR = "logs"
+LOG_DIR = "logs-worker"
 
 current_date = datetime.now().strftime("%Y-%m-%d")
 LOG_FILE = f"autotest_{current_date}.log"
