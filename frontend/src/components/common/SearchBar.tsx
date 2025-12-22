@@ -33,7 +33,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, onSearchChang
 
         {/* Created select */}
         <Select>
-          <SelectTrigger className="w-[120px]">
+          <SelectTrigger className="w-[120px] cursor-pointer">
             <SelectValue placeholder="Created" />
           </SelectTrigger>
           <SelectContent>
@@ -43,9 +43,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, onSearchChang
         </Select>
 
         {/* A–Z toggle */}
-        <Button variant="outline" className="flex items-center gap-2 font-normal">
-          <ArrowUpDown className="h-4 w-4" />
-          A–Z
+        <Button variant="outline" className="flex items-center gap-2 font-normal cursor-pointer">
+          <ArrowUpDown className="h-4 w-4 cursor-pointer" />
+          A-Z
         </Button>
       </div>
 

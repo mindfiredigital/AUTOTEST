@@ -1,0 +1,47 @@
+# Python cache & compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.*        # any env variations
+
+# IDE / Editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Git & version control
+.git/
+.gitignore
+
+
+
+# Tests (optional - depending if you need them inside image)
+tests/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
+__tests__/
+
+

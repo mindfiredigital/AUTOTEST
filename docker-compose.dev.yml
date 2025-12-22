@@ -34,8 +34,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
     ports:
-      - ${RABBITMQ_PORT} # Management UI port (15672:15672)
-      - ${RABBITMQ_MANAGEMENT_PORT} # Management UI port (15672:15672)
+      - ${RABBITMQ_PORT} 
+      - ${RABBITMQ_MANAGEMENT_PORT} 
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -97,8 +97,6 @@ services:
       context: ./llm-service
       dockerfile: Dockerfile
     image: autotest_worker_backend
-    ports:
-      - ${WORKER_PORT}
     depends_on:
       autotest_mysql:
         condition: service_healthy
