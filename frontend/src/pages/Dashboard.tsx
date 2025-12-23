@@ -27,7 +27,9 @@ const Dashboard: React.FC = React.memo(() => {
   return (
     <div className="flex h-full flex-col">
       <SearchBar searchQuery={search} onSearchChange={setSearch}>
-        <Button onClick={() => setOpenAdd(true)}>Add New Site</Button>
+        <Button onClick={() => setOpenAdd(true)} className="cursor-pointer">
+          Add New Site
+        </Button>
         <AddSiteSheet open={openAdd} onOpenChange={setOpenAdd} onSubmit={handleAdd} />
       </SearchBar>
       <div className="">

@@ -13,7 +13,7 @@ class RabbitMQConsumer:
         self.handlers[queue_name] = handler
         logger.info(f"Registered handler for queue: {queue_name}")
 
-    async def start_consuming_with_retry(self, queue_name, retries=5, delay=2):
+    async def start_consuming_with_retry(self, queue_name, retries=10, delay=2):
         """Consume messages with retry if RabbitMQ is not ready."""
         for attempt in range(1, retries + 1):
             try:

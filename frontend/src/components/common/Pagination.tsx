@@ -40,7 +40,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             value={String(itemsPerPage)}
             onValueChange={(value) => onItemsPerPageChange(Number(value))}
           >
-            <SelectTrigger className="h-7 w-[60px] border-none p-0 text-sm shadow-none focus:ring-0">
+            <SelectTrigger className="h-7 w-[60px] border-none p-0 text-sm shadow-none focus:ring-0 cursor-pointer">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
@@ -63,7 +63,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 cursor-pointer"
             disabled={currentPage === 1}
             onClick={() => onPageChange(currentPage - 1)}
           >
@@ -73,7 +73,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 cursor-pointer"
             disabled={currentPage === totalPages}
             onClick={() => onPageChange(currentPage + 1)}
           >
