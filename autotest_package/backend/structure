@@ -1,0 +1,99 @@
+Folder structure
+
+    backend/
+
+        app/
+
+            core/
+
+                config.py
+
+                security.py
+
+                deps.py
+
+            db/
+
+                base.py
+
+                session.py
+
+                seed.py
+
+            models/
+
+                role.py
+
+                user.py
+
+                site.py
+
+                site_alias.py
+
+                page.py
+
+                page_link.py
+
+                page_link_test_case.py
+
+                test_scenario.py
+
+                test_case.py
+
+                test_execution.py
+
+                test_suite.py
+
+                setting.py
+
+                init.py
+
+            schemas/
+
+                auth.py
+
+                role.py
+
+                user.py
+
+                site.py
+
+                site_alias.py
+
+                page.py
+
+                page_link.py
+
+                page_link_test_case.py
+
+                test_scenario.py
+
+                test_case.py
+
+                test_execution.py
+
+                test_suite.py
+
+                setting.py
+
+            api/
+
+                deps.py
+
+                v1/
+
+                    auth.py
+
+                    users.py
+
+                init.py
+
+            main.py
+
+            init.py
+
+        Dockerfile
+
+        requirements.txt
+
+        .env

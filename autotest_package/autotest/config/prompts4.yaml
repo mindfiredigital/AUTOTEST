@@ -91,7 +91,8 @@ llm_page_analysis:
     Focus on:
     - All forms and their fields, including types, requirements, and submission details
     - Forms should be categorized based on their purpose:
-      - **Login/Registration forms**: Place under `auth_requirements` if they involve authentication (e.g., username, password fields).
+      - **Login/Registration forms**: Place under `auth_requirements` if they involve authentication (e.g., username, password fields) only in the page provided.
+        - Do not consider already logged in user under this category
       - **Contact forms**: Place under `contact_form_fields` only if they are explicitly for contact purposes (e.g., name, email, message fields). Identify contact forms by:
         - Field names like 'name', 'email', 'message', 'subject', or similar
         - Form action URLs containing '/contact', '/support', '/inquiry', or similar/related endpoints
@@ -135,6 +136,7 @@ generate_tests:
           {{
               "name": "Test name",
               "type": "functional|auth-positive|auth-negative|ui-validation",
+              "test_case_type": "auto-generated",
               "steps": ["step1", "step2"],
               "selectors": {{
                   "element1": "css_selector_or_xpath",
@@ -244,8 +246,17 @@ generate_tests:
     4. For auth tests (if applicable), reference EXACT values from provided test data or default credentials if available
     5. Include both positive and negative cases
     6. Never specify the expected redirected path if it's not present in the page source, just check whether it gets redirected or not
-    7. Never consider advertisements/banners for test cases
-    8. Return test cases in specified valid JSON format with Selenium selectors
+    7. For fields requiring long text input (e.g., max length > 500 characters):
+        - In `test_data`: Use the placeholder `{{LONG_STRING:N}}` where N = required length (e.g., `{{LONG_STRING:4001}}`)
+          - Example: "ctl00$cphBody$txtNote": "{{LONG_STRING:4001}}"
+        - NEVER write out long repeated characters (e.g., "AAAA...") — this causes JSON truncation and parsing errors
+        - In `steps`: Clearly describe the input as "N 'A' characters" and reference placeholder expansion
+          - Example step: "Enter 4001 'A' characters into txtNote (value expanded from {{LONG_STRING:4001}} at runtime)"
+        - This placeholder will be automatically expanded by the test execution system into a string of N repeated 'A' characters during test execution
+        - This ensures valid JSON, avoids token exhaustion, and maintains test clarity
+    8. Exclude test cases with input characters exceeding the maximum character value defined for any input/text field 
+    9. Never consider advertisements/banners for test cases
+    10. Return test cases in specified valid JSON format with Selenium selectors
   prompt_suffix:
     test_data: |
       Available Test Data:
@@ -287,7 +298,7 @@ generate_script:
               - Uses `WebDriverWait` with a 5-second timeout to locate the element
               - Retries up to `retries` times with a `delay` between attempts if not found or stale
               - Logs each attempt and any exceptions
-            - Define a helper function `click_element(driver, element, max_attempts=2)` that:
+            - Define a helper function `click_element(driver, element, max_attempts=3)` that:
               - Waits for the element to be clickable using `WebDriverWait(driver, 5).until(EC.element_to_be_clickable(element))`
               - Attempts to click with retries:
                 - Tries `element.click()`
@@ -311,13 +322,54 @@ generate_script:
       ```
       from selenium import webdriver
       from selenium.webdriver.chrome.service import Service
+      from selenium.webdriver.chrome.options import Options
       from webdriver_manager.chrome import ChromeDriverManager
 
       service = Service(ChromeDriverManager().install())
-      driver = webdriver.Chrome(service=service)
+      options = Options()
+      options.add_argument("--no-sandbox")
+      options.add_argument("--disable-dev-shm-usage")
+      options.add_argument('--disable-gpu')
+      driver = webdriver.Chrome(service=service, options=options)
       ```
+
+      **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
+      - Use a robust method such as:
+          - Waiting for `document.readyState == 'complete'`
+          - Waiting for jQuery/AJAX activity to finish if present
+
+      **Login Required**: {login_instructions}
+        - If `Login Required` is "yes":
+          - **STRICT_RULE**
+             - Proceed with the login flow on the current page ,**completely ignoring the page source or metadata for login form presence.**
+          - Do not assume any login url just use the following credentials on the current page:
+              - Username: {username}
+              - Password: {password}
+          - Identify the login form selectors from the given json structure: 
+            {auth_data}
+          - Use `retry_find_element` to locate these elements and fill in the credentials.
+          - Use `click_element` to submit the login form.
+          - Wait for the page to load fully (e.g., `document.readyState == 'complete'`) after login.
+          - Verify login success by checking that the URL changes from the initial login page URL using:
+            ```
+            WebDriverWait(driver, 10).until(EC.url_changes(driver.current_url))
+            ```
+          - Log the URL change (e.g., logger.info("Login successful: URL changed to `driver.current_url`")).
+          - If the test case requires navigating to a specific page after login: 
+             - Use driver.get(target_url) to navigate to the specified URL.
+             - Validate the page load using: 
+             ```
+             WebDriverWait(driver, 10).until(EC.url_to_be(target_url))
+             ```
+             - Confirm the current URL matches the target URL with if driver.current_url == target_url.
+             - Log the navigation (e.g., logger.info("Navigated to target URL: `target_url`")).
+          - If the URL does not change after login or the target URL is not reached, log an error and raise an exception (e.g., AssertionError("Login failed: URL did not change.")).
+        - If `Login Required` is "no", just skip the above steps.
+
+
+      
       **The following code snippet should be included only for test cases where redirection/navigation to another page is required**
-      ```
+      
       At the top of the script, include:
       ```
       import sys
@@ -331,11 +383,6 @@ generate_script:
       from autotest import SessionLocal, init_db
       ```
       ** Call the init_db() function to initialize the database before invoking the main function**
-
-      **Before starting any test steps, wait for all JavaScript and AJAX on the page to finish loading.**
-      - Use a robust method such as:
-          - Waiting for `document.readyState == 'complete'`
-          - Waiting for jQuery/AJAX activity to finish if present
 
       ***Strict Rules to be followed:***
         For navigation test cases (where validation involves a redirect):
@@ -370,6 +417,47 @@ generate_script:
           - Consider both whether the user is new or existing as per page source
           - Analyse the page source for appropriate message/action taken post successful registration with test case pass/failed logged
           - Handle JavaScript alert messages (e.g., alert with success text) gracefully by accepting/dismissing them and logging their content
+
+        For text area or input field validation test cases:
+          - For input fields involved in the test case, particularly those with potential length constraints, check if they have a maxlength attribute before inputting test data.
+          - If the field has a maxlength attribute and the test data exceeds this limit, include steps to verify that the input is truncated to maxlength after attempting to input the test data.
+          - Ensure this check is performed before any form submission or further interactions that rely on the input data.
+          - After handling the maxlength check (or if no maxlength exists), proceed with inputting the test data (if not already done) and performing the validation steps below.
+          - After performing the action that could trigger a validation error (e.g., submitting a form with invalid input), handle potential JavaScript alerts and on-page error messages as follows:
+            - Use a try-except block to check for a JavaScript alert:
+              ```
+              try:
+                  WebDriverWait(driver, 5).until(EC.alert_is_present())
+                  alert = driver.switch_to.alert
+                  alert_text = alert.text
+                  logging.info(f"Alert present with text: `alert_text`")
+                  # Verify the alert text contains expected keywords derived from the test case
+                  expected_keywords = ["required", "invalid", "too long", "150 characters", "limit exceeded"]  # Adjust based on test case
+                  if any(keyword.lower() in alert_text.lower() for keyword in expected_keywords):
+                      logging.info("TEST PASSED: Expected alert found.")
+                  else:
+                      logging.error(f"TEST FAILED: Alert text `alert_text` does not contain expected message.")
+                      raise AssertionError("Alert text does not contain expected message.")
+                  # Accept the alert to close it
+                  alert.accept()
+              except TimeoutException:
+                  logging.info("No alert present. Checking for on-page error messages.")
+                  # Proceed to check for on-page error messages
+                  error_message_element = retry_find_element(driver, By.CSS_SELECTOR, "selector_for_error_message")
+                  error_message_text = error_message_element.text.strip()
+                  # Verify the error message text
+                  if any(keyword.lower() in error_message_text.lower() for keyword in expected_keywords):
+                      logging.info("TEST PASSED: Expected error message found.")
+                  else:
+                      logging.error(f"TEST FAILED: Expected error message not found. Got: 'error_message_text'")
+                      raise AssertionError("Expected error message not found.")
+              ```
+            - Replace `"selector_for_error_message"` with the appropriate selector identified from the page source.
+            - Adjust `expected_keywords` list based on the specific test case description or page metadata.
+            - If neither an alert nor an on-page error message is found in a negative test case, fail the test with an appropriate error log.
+          - Always include at least one validation step that confirms the expected outcome.
+          - Prioritize handling alerts first, as they block the WebDriver and must be dealt with to continue the test.
+          - Ensure that `wait_for_page_load` is called only after handling any alert, if necessary, to avoid interference from unhandled alerts.
         
         **Dynamic Handling of CAPTCHA, OTP, and File Upload Elements:**
           - IF CAPTCHA, OTP or FILE UPLOAD elements detected in Page Source:
@@ -717,3 +805,138 @@ auth_form_selectors:
         }}
     }}
     Current page HTML: {page_html}
+
+generate_manual_test:
+  system: |
+    You are a test case generator that creates specific test cases based on user descriptions and page context.
+    
+    Your task is to:
+    1. Analyze the user's test case description and intent
+    2. Create a detailed test case that matches the user's requirements
+    3. Ensure the test case is specific to the provided page context
+    4. Return the test case in the exact JSON schema format as specified
+    
+    Always return a single test case object in the following JSON format:
+    {{
+      "test_case": 
+        {{
+            "name": "descriptive_test_case_name",
+            "type": "functional|ui|integration|validation|navigation|form|auth-positive|auth-negative",
+            "test_case_type": "manual",
+            "priority": "high|medium|low",
+            "description": "detailed_description_of_what_the_test_validates",
+            "steps": [
+              "step 1 description",
+              "step 2 description",
+              "step N description"
+            ],
+            "selectors": {{
+                  "element1": "css_selector_or_xpath",
+                  "element2": "xpath"
+              }},
+            "validation": "what_should_be_validated_or_verified",
+            "test_data": {{
+              "field_name1": "specific_value1",
+              "field_name2": "specific_value2"
+            }},
+            "expected_outcome": "expected_result_after_test_execution"
+        }}
+    }}
+    
+    Guidelines:
+    - Focus specifically on the user's intent and requirements
+    - Use only elements and interactions that exist on the current page
+    - Make test steps clear, actionable, and sequential
+    - Include realistic test data if form interactions are required
+    - Ensure validation criteria are specific and measurable
+    - The test case should be executable on the current page context
+
+  user: |
+    Create a test case based on the following user description and page context:
+    
+    User Test Case Description: "{user_test_description}"
+    
+    Page Context:
+    - Title: {title}
+    - URL: {url}
+    - Page Metadata: {page_metadata}
+
+    {prompt_suffix}
+    
+    Page HTML Structure:
+    {page_source}
+
+    
+    Requirements:
+    1. Create a test case that specifically addresses the user's description: "{user_test_description}"
+    2. Ensure all test steps use actual elements present on this page
+    3. Include appropriate test data if the test involves form interactions
+    4. Make the validation criteria specific to the user's intent
+    5. Set the test_case_type to "manual"
+    6. Choose an appropriate test type (functional, ui, integration, validation, navigation, form, auth)
+    7. Set priority based on the apparent importance of the user's test scenario
+    8. Use only valid and actual elements and selectors in the test case as present on this page
+    
+    Return only the JSON response with the test case object.
+  prompt_suffix:
+    test_data: |
+      Available Test Data:
+      {test_data}
+
+      For authentication tests:
+      - Use EXACT values from 'valid' credentials for positive tests
+      - Use 'invalid' values for negative tests
+      - Follow field-specific validation rules
+      - Also test missing values or inputs in required fields for negative tests
+
+      Usage Rules for contact_form data (if applicable):
+      - For contact forms use EXACT values from 'contact_form.valid' for positive tests
+      - Use 'contact_form.invalid' for negative tests
+      - Follow field-specific validation rules
+      - Also test missing values or inputs in required fields for negative tests
+
+      Authentication Requirements:
+      {auth_requirements}
+
+    contact_form: |
+      When testing for negative cases on contact form fields, properly look for error messages which exist on the page for the respective fields.
+      Contact Form Fields:
+      {contact_form_fields}
+
+test_output_analysis:
+  system: |
+    You are a test execution analyzer. Your task is to analyze test script output and determine if the test passed or failed.
+    
+    You should consider:
+    - Explicit success/failure messages
+    - Error messages and exceptions
+    - Return codes (0 typically means success, non-zero means failure)
+    - Test assertions and validations
+    - Element not found errors
+    - Timeout issues
+    - Any other indicators of test success or failure
+    
+    Respond with a JSON object containing:
+    - "test_passed": boolean (true if test passed, false if failed)
+    - "reasoning": string explaining your decision
+    
+  user: |
+    Analyze the following test execution output and determine if the test passed or failed:
+    
+    Test Output:
+    {test_output}
+    
+    Return Code: {return_code}
+    
+    Please analyze this output and return a JSON response indicating whether the test passed (true) or failed (false), along with your reasoning.
+    
+    Expected JSON format:
+    {{
+      "test_passed": boolean,
+      "reasoning": "Brief explanation of why you determined the test passed or failed"
+    }}
+
+login_state_check:
+  system: "You are a classifier. Given HTML of a page after a login attempt, you must answer strictly with true if the user appears logged in (dashboard, welcome message, logout link, success message), or false if they are still on a login form or see an error. Do not explain, just output true or false."
+  user: |
+    HTML:\n{page_html}\n\nIs the user logged in? Answer only true or false.

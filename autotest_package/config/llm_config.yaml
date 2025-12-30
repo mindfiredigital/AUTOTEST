@@ -22,26 +22,31 @@
 # Provider configurations - all available
 providers:
   openai:
-    analysis_model: "gpt-4.1-2025-04-14"
+    analysis_model: "gpt-4.1-mini-2025-04-14"
     selenium_model: "gpt-4.1-2025-04-14"
+    result_analysis_model: "gpt-5-mini-2025-08-07"
     temperature: 0.2
   
   groq:
     analysis_model: "meta-llama/llama-4-scout-17b-16e-instruct"
     selenium_model: "meta-llama/llama-4-maverick-17b-128e-instruct"
+    result_analysis_model: "meta-llama/llama-4-scout-17b-16e-instruct"
     temperature: 0.2
   
   google-gemini:
     analysis_model: "gemini-2.5-flash"
     selenium_model: "gemini-2.5-flash"
+    result_analysis_model: "gemini-2.5-flash"
     temperature: 0.1
 
   anthropic:
     analysis_model: "claude-3-7-sonnet-latest"
     selenium_model: "claude-sonnet-4-20250514" 
+    result_analysis_model: "claude-3-7-sonnet-latest"
     temperature: 0.2
 
   ollama:
     analysis_model: "qwen2.5-coder:7b-instruct"
     selenium_model: "qwen2.5-coder:7b-instruct"
+    result_analysis_model: "qwen2.5-coder:7b-instruct"
     temperature: 0.2
