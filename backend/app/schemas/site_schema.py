@@ -20,6 +20,7 @@ class SiteUpdate(BaseModel):
 
 class SiteResponse(SiteBase):
     id: int
+    status: Optional[Literal["New", "Processing", "Pause", "Done", ""]] = None
     created_on: Optional[datetime]
 
     class Config:
