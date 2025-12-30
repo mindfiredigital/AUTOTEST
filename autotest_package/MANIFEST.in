@@ -1,5 +1,0 @@
-include README.md
-include requirements.txt
-include LICENSE
-recursive-include autotest/config *.yaml *.json
-recursive-include tests *.py

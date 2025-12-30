@@ -1,0 +1,123 @@
+services:
+  autotest_mysql:
+    restart: always
+    user: "1000:50"
+    image: mysql:8.0
+    container_name: autotest_mysql
+    env_file:
+      - .env
+    command: "mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --sql-mode=NO_ENGINE_SUBSTITUTION"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - ${MYSQL_PORT}
+    healthcheck:
+      # test: "exit 0"
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks: 
+      - autotest
+
+  autotest_rabbitmq:
+    restart: always
+    image: rabbitmq:3-management
+    container_name: autotest_rabbitmq
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
+    ports:
+      - ${RABBITMQ_PORT}          # AMQP port (5672:5672)
+      - ${RABBITMQ_MANAGEMENT_PORT} # Management UI port (15672:15672)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+    networks:
+      - autotest
+
+  autotest_phpmyadmin:
+    restart: always
+    image: phpmyadmin/phpmyadmin
+    container_name: autotest_phpmyadmin
+    env_file:
+      - .env
+    depends_on:
+      autotest_mysql:
+        condition: service_healthy
+    environment:
+      PMA_HOST: autotest_mysql
+      UPLOAD_LIMIT: 2048M
+      MAX_EXECUTION_TIME: 6000
+      MEMORY_LIMIT: 2048M
+    ports:
+      - ${PHP_MY_ADMIN_PORT}
+    networks: 
+      - autotest
+
+  autotest_fastapi_backend:
+    restart: always
+    container_name: autotest_fastapi_backend
+    env_file:
+      - .env
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: autotest_fastapi_backend
+    ports:
+      - ${BACKEND_PORT}
+    depends_on:
+      autotest_mysql:
+        condition: service_healthy
+      autotest_rabbitmq:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+    volumes:
+      - ./backend:/app
+    networks: 
+      - autotest
+
+  autotest_react_frontend:
+    restart: always
+    container_name: autotest_react_frontend
+    env_file:
+      - .env
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: autotest_react_frontend
+    ports:
+      - ${FRONTEND_PORT}
+    depends_on:
+      - autotest_fastapi_backend
+    volumes:
+      - ./frontend:/app
+    networks:
+      - autotest
+      
+networks:
+  autotest:
+    driver: bridge 
+    name: autotest
+
+volumes:
+  mysql_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  rabbitmq_logs:
+    driver: local

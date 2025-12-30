@@ -1,0 +1,6 @@
+.env
+myenv/
+venv/
+data/
+lib/
+lib64/
