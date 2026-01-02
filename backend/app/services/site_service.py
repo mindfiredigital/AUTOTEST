@@ -50,7 +50,11 @@ class SiteService:
             )
 
         # Sorting
-        if sort == "desc":
+        if sort == "created_desc":
+            query = query.order_by(desc(Site.created_on))
+        elif sort == "created_asc":
+            query = query.order_by(asc(Site.created_on))
+        elif sort == "title_desc":
             query = query.order_by(desc(Site.site_title))
         else:
             query = query.order_by(asc(Site.site_title))

@@ -16,7 +16,7 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error }) => {
           <CardTitle className="text-2xl font-bold text-center">Something went wrong:</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-2">
-          <pre className="text-[#ff0000] whitespace-pre-wrap break-words">{error.message}</pre>
+          <pre className="text-[#ff0000] whitespace-pre-wrap wrap-break-word">{error.message}</pre>
           <Button onClick={resetErrorBoundary}>Try again</Button>
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { siteApi } from '../apis/siteApi'
 import type { CreateSitePayload } from '../apis/siteApi'
+import type { SortType } from '@/types'
 
 export const useSitesQuery = ({
   page,
@@ -11,7 +12,7 @@ export const useSitesQuery = ({
   page: number
   limit: number
   search: string
-  sort?: 'asc' | 'desc'
+  sort?: SortType
 }) => {
   return useQuery({
     queryKey: ['sites', page, limit, search, sort],
