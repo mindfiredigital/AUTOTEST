@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { SiteTable } from '@/components/site/SiteTable'
 import { SearchBar } from '@/components/common/SearchBar'
 import { Pagination } from '@/components/common/Pagination'
-import { useSitesQuery } from '@/utils/queries/sitesQuery'
+import { useSitesQuery, useCreateSiteMutation } from '@/utils/queries/sitesQuery'
 import { AddSiteSheet } from '@/components/site/AddSiteDialog'
 
 const Dashboard: React.FC = React.memo(() => {
@@ -12,6 +12,7 @@ const Dashboard: React.FC = React.memo(() => {
 
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(10)
+  const createSiteMutation = useCreateSiteMutation()
 
   const { data, isLoading } = useSitesQuery({
     page,
@@ -20,7 +21,11 @@ const Dashboard: React.FC = React.memo(() => {
   })
 
   const handleAdd = (values: { title: string; url: string }) => {
-    console.log('values', values)
+    createSiteMutation.mutate({
+      site_title: values.title,
+      site_url: values.url,
+    })
+
     setOpenAdd(false)
   }
 

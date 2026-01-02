@@ -1,10 +1,11 @@
-import sites from '@/mock/sites.json'
+// import sites from '@/mock/sites.json'
+import api from '../axios'
 
 export type Site = {
+  created_on: string
   id: string
-  date: string
-  title: string
-  url: string
+  site_title: string
+  site_url: string
   status: 'New' | 'Processing' | 'Done'
 }
 
@@ -25,42 +26,27 @@ export interface GetSitesResponse {
   }
 }
 
+export interface CreateSitePayload {
+  site_title: string
+  site_url: string
+}
+
 export const siteApi = {
-  //   getSites: async (params: GetSitesParams): Promise<GetSitesResponse> => {
-  //     const { data } = await api.get('/sites', { params })
-  //     return data
-  //   },
-  //   getSitesInfo: async (params: GetSitesParams): Promise<GetSitesResponse> => {
-  //     const { data } = await api.get(`/api/sites/${id}`)
-  //     return data
-  //   },
   getSites: async (params: GetSitesParams): Promise<GetSitesResponse> => {
-    const { page, limit, search } = params
-
-    // simulate network delay (optional)
-    await new Promise((res) => setTimeout(res, 300))
-
-    let filtered: Site[] = sites.data as Site[]
-
-    // SEARCH (backend-like)
-    if (search) {
-      filtered = filtered.filter((site) => site.title.toLowerCase().includes(search.toLowerCase()))
-    }
-
-    const totalItems = filtered.length
-    const totalPages = Math.ceil(totalItems / limit)
-
-    const start = (page - 1) * limit
-    const end = start + limit
+    const { data } = await api.get('/sites', { params })
 
     return {
-      data: filtered.slice(start, end),
+      data: data.data,
       meta: {
-        page,
-        limit,
-        totalItems,
-        totalPages,
+        page: data.page,
+        limit: data.limit,
+        totalItems: data.total,
+        totalPages: Math.ceil(data.total / data.limit),
       },
     }
+  },
+  createSite: async (payload: CreateSitePayload) => {
+    const { data } = await api.post('/sites', payload)
+    return data
   },
 }

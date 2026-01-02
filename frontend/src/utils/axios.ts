@@ -7,7 +7,7 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((req) => {
-  console.log('➡️ API Request:', req.method, req.url)
+  console.log(' API Request:', req.method, req.url)
   return req
 })
 

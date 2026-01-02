@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { siteApi } from '../apis/siteApi'
+import type { CreateSitePayload } from '../apis/siteApi'
 
 export const useSitesQuery = ({
   page,
@@ -65,5 +66,17 @@ export const useSiteInfoQuery = (id: string) => {
       }
     },
     enabled: !!id,
+  })
+}
+
+export const useCreateSiteMutation = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: CreateSitePayload) => siteApi.createSite(payload),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sites'] })
+    },
   })
 }

@@ -16,12 +16,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
+import { formatDateDDMMYYYY } from '@/utils/helper'
 
 type Site = {
+  created_on: string
   id: string
-  date: string
-  title: string
-  url: string
+  site_title: string
+  site_url: string
   status: 'New' | 'Processing' | 'Done'
 }
 
@@ -31,6 +32,7 @@ type Props = {
 
 export function SiteTable({ data }: Props) {
   const navigate = useNavigate()
+  console.log(data)
 
   return (
     <div className="">
@@ -39,10 +41,10 @@ export function SiteTable({ data }: Props) {
           <TableRow>
             <TableHead className="w-[140px]">Date</TableHead>
             <TableHead>Title</TableHead>
-            <TableHead className="w-[240px]">URL</TableHead>
+            <TableHead className="w-60">URL</TableHead>
             <TableHead className="w-[140px]">Status</TableHead>
             <TableHead className="w-[120px] text-center">Analyze</TableHead>
-            <TableHead className="w-[80px] text-right">Action</TableHead>
+            <TableHead className="w-20 text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -53,18 +55,22 @@ export function SiteTable({ data }: Props) {
               className={'border-b last:border-b-0 hover:bg-gray-50 cursor-pointer'}
               onClick={() => navigate(`/site-info/${site.id}`)}
             >
-              <TableCell className="text-muted-foreground">{site.date}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {formatDateDDMMYYYY(site.created_on)}
+              </TableCell>
 
-              <TableCell className="max-w-[260px] truncate font-medium">{site.title}</TableCell>
+              <TableCell className="max-w-[260px] truncate font-medium">
+                {site.site_title}
+              </TableCell>
 
               <TableCell>
                 <a
-                  href={site.url}
+                  href={site.site_url}
                   target="_blank"
                   rel="noreferrer"
                   className="text-primary hover:underline"
                 >
-                  {site.url}
+                  {site.site_url}
                 </a>
               </TableCell>
 
