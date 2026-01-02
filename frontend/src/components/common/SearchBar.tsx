@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { Search, ArrowUpDown } from 'lucide-react'
-
+import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import sortArrow from '@/assets/icons/sort-arrow.svg'
+
 import {
   Select,
   SelectContent,
@@ -10,17 +11,26 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-
+import type { SortType } from '@/types'
 interface SearchBarProps {
   searchQuery: string
   onSearchChange: (query: string) => void
+  sort: SortType
+  onSortChange: (sort: SortType) => void
   children?: React.ReactNode
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, onSearchChange, children }) => {
+export const SearchBar: React.FC<SearchBarProps> = ({
+  searchQuery,
+  onSearchChange,
+  sort,
+  onSortChange,
+  children,
+}) => {
   return (
     <div className="flex items-center justify-between gap-4 pb-4">
       <div className="flex items-center gap-2">
+        {/* Search */}
         <div className="relative w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -31,25 +41,29 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchQuery, onSearchChang
           />
         </div>
 
-        {/* Created select */}
-        <Select>
-          <SelectTrigger className="w-[120px] cursor-pointer">
+        <Select
+          value={sort.startsWith('created') ? sort : undefined}
+          onValueChange={(value: SortType) => onSortChange(value)}
+        >
+          <SelectTrigger className="w-[100px] cursor-pointer">
             <SelectValue placeholder="Created" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="newest">Newest</SelectItem>
-            <SelectItem value="oldest">Oldest</SelectItem>
+            <SelectItem value="created_desc">Newest</SelectItem>
+            <SelectItem value="created_asc">Oldest</SelectItem>
           </SelectContent>
         </Select>
 
         {/* A–Z toggle */}
-        <Button variant="outline" className="flex items-center gap-2 font-normal cursor-pointer">
-          <ArrowUpDown className="h-4 w-4 cursor-pointer" />
-          A-Z
+        <Button
+          variant="outline"
+          className="flex items-center font-normal cursor-pointer"
+          onClick={() => onSortChange(sort === 'title_asc' ? 'title_desc' : 'title_asc')}
+        >
+          <img src={sortArrow} alt="Sort" className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* RIGHT SIDE (SLOT) */}
       <div className="flex items-center gap-2">{children}</div>
     </div>
   )

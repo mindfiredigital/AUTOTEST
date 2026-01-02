@@ -50,7 +50,7 @@ def get_sites(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=100, description="Number of items per page"),
     search: str | None = Query(None, description="Search sites by name"),
-    sort: str = Query("asc", enum=["asc", "desc"], description="Sort order"),
+    sort: str = Query("created_desc",enum=["created_desc", "created_asc", "title_asc", "title_desc"],description="Sort order"),
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):

@@ -18,7 +18,9 @@ const NetworkIssue = () => {
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-2">
           <div className="text-[#ff0000]">No Internet Connection.</div>
-          <Button onClick={handleReload}>Reload</Button>
+          <Button onClick={handleReload} className="cursor-pointer">
+            Reload
+          </Button>
         </CardContent>
       </Card>
     </div>
