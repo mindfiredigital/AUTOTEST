@@ -5,7 +5,7 @@ import { WS_CONFIG } from "@/config/websocket";
 import type { WSBaseMessage, WSMessageType } from "@/types/websocket";
 
 // const WS_URL = "ws://localhost:8000/api/v1/ws";
-const WS_URL = import.meta.env.VITE_API_URL;
+const WS_URL = import.meta.env.VITE_WS_URL;
 
 type WSContextType = {
   sendMessage: <T>(type: WSMessageType, payload: T) => void;

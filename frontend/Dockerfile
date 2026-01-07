@@ -1,6 +1,11 @@
 FROM node:18-alpine AS builder
 
 WORKDIR /app
+
+ARG VITE_WS_URL
+ENV VITE_WS_URL=$VITE_WS_URL
+
+
 COPY package*.json ./
 RUN npm install
 COPY . .

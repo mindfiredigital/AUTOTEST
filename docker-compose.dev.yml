@@ -116,6 +116,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_WS_URL: ${VITE_WS_URL}
     image: autotest_react_frontend
     ports:
       - ${FRONTEND_PORT}
