@@ -7,6 +7,7 @@ import { Pagination } from '@/components/common/Pagination'
 import { useSitesQuery, useCreateSiteMutation } from '@/utils/queries/sitesQuery'
 import { AddSiteSheet } from '@/components/site/AddSiteDialog'
 import type { SortType } from '@/types'
+import { useWebSocketContext } from '@/contexts/WebSocketProvider'
 
 const Dashboard: React.FC = React.memo(() => {
   const [search, setSearch] = React.useState('')
@@ -18,6 +19,14 @@ const Dashboard: React.FC = React.memo(() => {
   const [pageSize, setPageSize] = React.useState(10)
 
   const createSiteMutation = useCreateSiteMutation()
+  const {
+    sendMessage,
+    lastMessage,
+    isConnected,
+    connectionState,
+  } = useWebSocketContext();
+
+  console.log("sendMessagelastMessageisConnectedconnectionState", sendMessage,lastMessage,isConnected,connectionState)
 
   const { data, isLoading } = useSitesQuery({
     page,
@@ -52,7 +61,7 @@ const Dashboard: React.FC = React.memo(() => {
         sort={sort}
         onSortChange={(newSort) => {
           setSort(newSort)
-          setPage(1) // reset pagination on sort change
+          setPage(1)
         }}
       >
         <Button onClick={() => setOpenAdd(true)} className="cursor-pointer">

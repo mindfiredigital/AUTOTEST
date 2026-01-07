@@ -59,7 +59,7 @@ export function SiteTable({ data }: Props) {
                 {formatDateDDMMYYYY(site.created_on)}
               </TableCell>
 
-              <TableCell className="max-w-[260px] truncate font-medium">
+              <TableCell className="max-w-[200px] truncate font-medium">
                 {site.site_title}
               </TableCell>
 
@@ -68,7 +68,7 @@ export function SiteTable({ data }: Props) {
                   href={site.site_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-primary hover:underline"
+                  className="block max-w-[220px] truncate text-primary hover:underline"
                 >
                   {site.site_url}
                 </a>

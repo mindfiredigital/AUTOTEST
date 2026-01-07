@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import InlineLoader from '@/components/layout/InlineLoader'
+import { WebSocketProvider } from '@/contexts/WebSocketProvider'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,9 +18,11 @@ const RootProvider: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Suspense fallback={<InlineLoader />}>
-          <Outlet />
-        </Suspense>
+        <WebSocketProvider>
+          <Suspense fallback={<InlineLoader />}>
+            <Outlet />
+          </Suspense>
+        </WebSocketProvider>
       </AuthProvider>
     </QueryClientProvider>
   )
