@@ -5,6 +5,11 @@ from app.config.logger import logger
 from app.services.selenium_driver import get_driver
 from app.extractor.url_extractor import URLExtractor
 from app.config.setting import settings
+from app.services.page_analysis_service import PageAnalysisService
+from app.llm.llm_wrapper import LLMWrapper
+from app.llm.prompt_manager import PromptManager
+from app.config.setting import settings
+from app.messaging.rabbitmq_producer import rabbitmq_producer
 
 from shared_orm.models.site import Site
 from shared_orm.models.page import Page
