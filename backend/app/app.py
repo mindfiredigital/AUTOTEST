@@ -6,6 +6,7 @@ from sqlalchemy import text
 from app.config.setting import settings
 from app.routers.auth import router as auth_router
 from app.routers.site import router as site_router
+from app.routers.websocket import router as websocket_router
 from app.db.session import get_db
 from app.config.rabbitmq import rabbitmq_connection
 from app.config.logger import logger
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     # app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
     app.include_router(auth_router, prefix="/api/v1/auth")
     app.include_router(site_router, prefix="/api/v1")
+    app.include_router(websocket_router, prefix="/api/v1")
     
 
 
