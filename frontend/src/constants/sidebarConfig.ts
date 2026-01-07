@@ -69,4 +69,38 @@ export const SIDEBAR_CONFIGS: SidebarConfig[] = [
     backTo: '/',
     backLabel: 'Back to Menu',
   },
+
+  {
+    id: 'page-info',
+    pathPattern: /^\/page-info/,
+    items: [
+      {
+        id: 'page-info',
+        label: 'Page Info',
+        icon: FileText,
+        path: '/page-info/:id',
+      },
+      {
+        id: 'test-scenario',
+        label: 'Test Scenario',
+        icon: ListTree,
+        path: '/page-info/:id/test-scenario',
+      },
+      {
+        id: 'configuration',
+        label: 'Configuration',
+        icon: Settings,
+        path: '/page-info/:id/configuration',
+      },
+      {
+        id: 'schedule-test',
+        label: 'Schedule Test Case',
+        icon: CalendarClock,
+        path: '/page-info/:id/schedule',
+      },
+    ],
+    showBack: true,
+    backTo: '/page',
+    backLabel: 'Back to Pages',
+  },
 ]

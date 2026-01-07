@@ -18,19 +18,20 @@ export const NavItem: React.FC<NavItemProps> = ({ item, isCollapsed, onClick }) 
   const matches = useMatches()
   const Icon = item.icon
   // console.log("params",params)
-  const actualPath = item.path.includes(':id')
-    ? (() => {
-        let id = params.id
-        if (!id) {
-          const siteInfoMatch = matches.find((m) => {
-            const handle = m.handle as { sidebarId?: string } | undefined
-            return handle?.sidebarId == 'site-info' && m.params.id
-          })
-          id = siteInfoMatch?.params.id
-        }
-        return item.path.replace(':id', id || '')
-      })()
-    : item.path
+const actualPath = item.path.includes(':id')
+  ? (() => {
+      let id = params.id
+      if (!id) {
+        const matchWithId = matches.find((m) => {
+          const handle = m.handle as { sidebarId?: string }
+          return handle?.sidebarId === item.id && m.params.id
+        })
+        id = matchWithId?.params.id
+      }
+      return item.path.replace(':id', id || '')
+    })()
+  : item.path
+
   const isActive = matches.some((match) => {
     const handle = match.handle as { sidebarId?: string } | undefined
     // console.log("handle",handle)

@@ -1,9 +1,9 @@
 import React from 'react'
 import { useParams } from 'react-router-dom'
-import { FileText, List, Database, GitBranch, Layout, Calendar } from 'lucide-react'
+import { List, Database, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-interface SiteStats {
+interface PageStats {
   pages: number
   testScenario: number
   testCases: number
@@ -12,17 +12,17 @@ interface SiteStats {
   scheduleTestCase: number
 }
 
-interface SiteInfoData {
+interface PageInfoData {
   id: string
   title: string
   url: string
   createdAt: string
   updatedAt: string
-  stats: SiteStats
+  stats: PageStats
 }
 
 // Temporary mock data until API / query hooks are wired
-const getMockSiteInfo = (id: string): SiteInfoData => ({
+const getMockSiteInfo = (id: string): PageInfoData => ({
   id,
   title: 'Admin Dashboard Portal',
   url: 'https://dashboard.example.com',
@@ -38,22 +38,15 @@ const getMockSiteInfo = (id: string): SiteInfoData => ({
   },
 })
 
-const SiteInfoPage: React.FC = () => {
+const PageInfoPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
 
   // In a real app this would come from an API:
   const data = getMockSiteInfo(id || '1')
 
   const dashboardStats = [
-    { label: 'Pages', value: data.stats.pages, icon: <FileText className="w-5 h-5" /> },
     { label: 'Test Scenario', value: data.stats.testScenario, icon: <List className="w-5 h-5" /> },
     { label: 'Test Cases', value: data.stats.testCases, icon: <Database className="w-5 h-5" /> },
-    { label: 'Test Suite', value: data.stats.testSuite, icon: <GitBranch className="w-5 h-5" /> },
-    {
-      label: 'Test Environment',
-      value: data.stats.testEnvironment,
-      icon: <Layout className="w-5 h-5" />,
-    },
     {
       label: 'Schedule Test Case',
       value: data.stats.scheduleTestCase,
@@ -98,7 +91,7 @@ const SiteInfoPage: React.FC = () => {
         {/* Site Dashboard Card */}
         <div className="border border-[#E4D7D7] bg-white rounded-[6px] overflow-hidden shadow-none">
           <div className="bg-[#FFF8F8] border-b border-[#E4D7D7] py-3 px-4">
-            <h2 className="text-[15px] font-semibold text-[#322525]">Site Dashboard</h2>
+            <h2 className="text-[15px] font-semibold text-[#322525]">Page Dashboard</h2>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -124,7 +117,7 @@ const SiteInfoPage: React.FC = () => {
       {/* RIGHT COLUMN - Site Detail */}
       <div className="border border-[#E4D7D7] bg-white rounded-[6px] overflow-hidden h-fit">
         <div className="bg-[#FFF8F8] border-b border-[#E4D7D7] py-3 px-4">
-          <h2 className="text-[15px] font-semibold text-[#322525]">Site Detail</h2>
+          <h2 className="text-[15px] font-semibold text-[#322525]">Page Detail</h2>
         </div>
         <div className="p-6 space-y-6">
           <DetailItem
@@ -147,10 +140,10 @@ const SiteInfoPage: React.FC = () => {
               minute: '2-digit',
             })}
           />
-          <DetailItem label="Site Title" value={data.title} />
+          <DetailItem label="Page Title" value={data.title} />
           <div>
             <p className="text-[11px] font-semibold text-[#8B6E6E] uppercase tracking-[0.08em] mb-1.5">
-              Site URL
+              Page URL
             </p>
             <a
               href={data.url}
@@ -176,4 +169,4 @@ const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }
   </div>
 )
 
-export default SiteInfoPage
+export default PageInfoPage

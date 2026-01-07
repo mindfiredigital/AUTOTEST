@@ -17,7 +17,7 @@ type Props = {
   onSubmit: (values: FormValues) => void
 }
 
-export function AddSiteSheet({ open, onOpenChange, onSubmit }: Props) {
+export function AddPageSheet({ open, onOpenChange, onSubmit }: Props) {
   const {
     register,
     handleSubmit,
@@ -35,7 +35,7 @@ export function AddSiteSheet({ open, onOpenChange, onSubmit }: Props) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex h-full w-[420px] flex-col p-0">
         <SheetHeader className="relative border-b px-6 py-4">
-          <SheetTitle>Add New Site</SheetTitle>
+          <SheetTitle>Add New Page</SheetTitle>
 
           <button
             onClick={() => onOpenChange(false)}
@@ -48,18 +48,18 @@ export function AddSiteSheet({ open, onOpenChange, onSubmit }: Props) {
         <form onSubmit={handleSubmit(submitHandler)} className="flex h-full flex-col">
           <div className="flex-1 space-y-6 px-6 py-6">
             <div className="space-y-2">
-              <Label>Site Title</Label>
+              <Label>Page Title</Label>
               <Input
-                placeholder="Enter site title"
+                placeholder="Enter Page title"
                 {...register('title', { required: 'Title is required' })}
               />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label>Site URL</Label>
+              <Label>Page URL</Label>
               <Input
-                placeholder="Enter site URL"
+                placeholder="Enter page URL"
                 {...register('url', {
                   required: 'URL is required',
                   pattern: {

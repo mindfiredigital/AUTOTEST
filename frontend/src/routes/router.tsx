@@ -11,6 +11,9 @@ import TestScenario from '@/components/site/TestScenario'
 import TestSuite from '@/components/site/TestSuite'
 import Configration from '@/components/site/Configuration'
 import Scheduled from '@/components/site/Schedule'
+import PageInfoWrapper from '@/components/page/PageInfoWrapper'
+import PageInfoPage from '@/components/page/PageInfoPage'
+import SitePages from '@/components/site/SitePages'
 
 const Layout = lazy(() => import('@/components/layout/Layout'))
 const ProtectedRoute = lazy(() => import('./ProtectedRoute'))
@@ -66,56 +69,131 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <Dashboard />,
-            handle: { sidebarId: 'site' },
+            handle: {
+              sidebarId: 'site',
+              title: 'Sites',
+            },
           },
           {
             path: 'page',
             element: <Page />,
-            handle: { sidebarId: 'page' },
+            handle: {
+              sidebarId: 'page',
+              title: 'Pages',
+            },
           },
           {
             path: 'user',
             element: <User />,
-            handle: { sidebarId: 'user' },
+            handle: {
+              sidebarId: 'user',
+              title: 'Users',
+            },
           },
           {
             path: 'settings',
             element: <Setting />,
-            handle: { sidebarId: 'settings' },
+            handle: {
+              sidebarId: 'settings',
+              title: 'Settings',
+            },
           },
           {
             path: 'site-info/',
             element: <SiteInfoWrapper />,
+            handle: {
+              title: 'Site Info',
+            },
             children: [
               {
                 path: ':id',
                 element: <SiteInfoPage />,
-                handle: { sidebarId: 'site-info' },
+                handle: {
+                  sidebarId: 'site-info',
+                  title: 'Site Details',
+                },
               },
               {
                 path: ':id/site-page',
-                element: <Page />,
-                handle: { sidebarId: 'site-info-page' },
+                element: <SitePages />,
+                handle: {
+                  sidebarId: 'site-info-page',
+                  title: 'Site Pages',
+                },
               },
               {
                 path: ':id/test-scenario',
                 element: <TestScenario />,
-                handle: { sidebarId: 'test-scenario' },
+                handle: {
+                  sidebarId: 'test-scenario',
+                  title: 'Test Scenarios',
+                },
               },
               {
                 path: ':id/test-suite',
                 element: <TestSuite />,
-                handle: { sidebarId: 'test-suite' },
+                handle: {
+                  sidebarId: 'test-suite',
+                  title: 'Test Suites',
+                },
               },
               {
                 path: ':id/configuration',
                 element: <Configration />,
-                handle: { sidebarId: 'configuration' },
+                handle: {
+                  sidebarId: 'configuration',
+                  title: 'Configuration',
+                },
               },
               {
                 path: ':id/schedule',
                 element: <Scheduled />,
-                handle: { sidebarId: 'schedule-test' },
+                handle: {
+                  sidebarId: 'schedule-test',
+                  title: 'Schedule',
+                },
+              },
+            ],
+          },
+          {
+            path: 'page-info/',
+            element: <PageInfoWrapper />,
+            handle: {
+              sidebarId: 'page-info',
+              title: 'Page Info',
+            },
+            children: [
+              {
+                path: ':id',
+                element: <PageInfoPage />,
+                handle: {
+                  sidebarId: 'page-info',
+                  title: 'Page Details',
+                },
+              },
+              {
+                path: ':id/test-scenario',
+                element: <TestScenario />,
+                handle: {
+                  sidebarId: 'page-info',
+                  title: 'Test Scenarios',
+                },
+              },
+              {
+                path: ':id/configuration',
+                element: <Configration />,
+                handle: {
+                  sidebarId: 'page-info',
+                  title: 'Configuration',
+                },
+              },
+              {
+                path: ':id/schedule',
+                element: <Scheduled />,
+                handle: {
+                  sidebarId: 'page-info',
+                  title: 'Schedule',
+                },
               },
             ],
           },

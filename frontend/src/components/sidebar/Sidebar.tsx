@@ -36,9 +36,9 @@ export const Sidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate(backTo)}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border-b border-border transition-colors"
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border-b border-border transition-colors "
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-red-200 dark:border-red-800 shrink-0">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-red-200 dark:border-red-800 shrink-0 cursor-pointer">
               <ArrowLeft className="h-4 w-4 text-red-500" />
             </span>
             {!isCollapsed && (backLabel || 'Back to Menu')}
