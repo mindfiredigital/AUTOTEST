@@ -9,6 +9,7 @@ from app.schemas.site_schema import SiteCreate, SiteUpdate
 from shared_orm.models.user import User
 from app.messaging.rabbitmq_producer import rabbitmq_producer
 from app.config.setting import settings
+from app.config.logger import logger
 
 class SiteService:
 

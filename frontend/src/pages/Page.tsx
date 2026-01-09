@@ -5,29 +5,7 @@ import { Pagination } from '@/components/common/Pagination'
 import type { SortType } from '@/types'
 import { AddPageSheet } from '@/components/page/AddPageDialog'
 import { PageTable } from '@/components/page/PageTable'
-const STATIC_PAGES = [
-  {
-    id: '1',
-    site_title: 'Home Page',
-    site_url: 'https://example.com',
-    status: 'Done',
-    created_on: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    site_title: 'About Page',
-    site_url: 'https://example.com/about',
-    status: 'Processing',
-    created_on: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    site_title: 'Contact Page',
-    site_url: 'https://example.com/contact',
-    status: 'New',
-    created_on: new Date().toISOString(),
-  },
-] as const
+import { useUnlinkedPagesQuery } from '@/utils/queries/pageQueries'
 
 const Pages = () => {
   const [search, setSearch] = useState('')
@@ -36,11 +14,12 @@ const Pages = () => {
   const [pageSize, setPageSize] = useState(10)
   const [openAdd, setOpenAdd] = useState(false)
 
-  const filteredPages = STATIC_PAGES.filter(
-    (p) =>
-      p.site_title.toLowerCase().includes(search.toLowerCase()) ||
-      p.site_url.toLowerCase().includes(search.toLowerCase()),
-  )
+  const { data, isLoading } = useUnlinkedPagesQuery({
+    page,
+    limit: pageSize,
+    search,
+    sort,
+  })
 
   const handleAdd = (values: { title: string; url: string }) => {
     console.log('Add page:', values)
@@ -51,7 +30,10 @@ const Pages = () => {
     <div className="flex h-full flex-col">
       <SearchBar
         searchQuery={search}
-        onSearchChange={setSearch}
+        onSearchChange={(value) => {
+          setSearch(value)
+          setPage(1)
+        }}
         sort={sort}
         onSortChange={(newSort) => {
           setSort(newSort)
@@ -65,21 +47,27 @@ const Pages = () => {
         <AddPageSheet open={openAdd} onOpenChange={setOpenAdd} onSubmit={handleAdd} />
       </SearchBar>
 
-      <>
-        <PageTable data={filteredPages as any} />
+      {isLoading ? (
+        <div className="flex items-center justify-center h-full">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+        </div>
+      ) : (
+        <>
+          <PageTable data={data?.data ?? []} />
 
-        <Pagination
-          currentPage={page}
-          totalPages={1}
-          itemsPerPage={pageSize}
-          totalItems={filteredPages.length}
-          onPageChange={setPage}
-          onItemsPerPageChange={(size) => {
-            setPageSize(size)
-            setPage(1)
-          }}
-        />
-      </>
+          <Pagination
+            currentPage={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            itemsPerPage={pageSize}
+            totalItems={data?.meta.totalItems ?? 0}
+            onPageChange={setPage}
+            onItemsPerPageChange={(size) => {
+              setPageSize(size)
+              setPage(1)
+            }}
+          />
+        </>
+      )}
     </div>
   )
 }

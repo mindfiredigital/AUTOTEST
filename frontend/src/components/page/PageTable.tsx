@@ -18,17 +18,10 @@ import {
 import { cn } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { formatDateDDMMYYYY } from '@/utils/helper'
-
-type Site = {
-  created_on: string
-  id: string
-  site_title: string
-  site_url: string
-  status: 'New' | 'Processing' | 'Done'
-}
+import type { Page } from '@/utils/apis/pageApi'
 
 type Props = {
-  data: Site[]
+  data: Page[]
 }
 
 export function PageTable({ data }: Props) {
@@ -61,17 +54,17 @@ export function PageTable({ data }: Props) {
               </TableCell>
 
               <TableCell className="max-w-[260px] truncate font-medium">
-                {page.site_title}
+                {page.page_title}
               </TableCell>
 
               <TableCell>
                 <a
-                  href={page.site_url}
+                  href={page.page_url}
                   target="_blank"
                   rel="noreferrer"
                   className="text-primary hover:underline"
                 >
-                  {page.site_url}
+                  {page.page_url}
                 </a>
               </TableCell>
 
@@ -94,8 +87,8 @@ export function PageTable({ data }: Props) {
   )
 }
 
-function StatusPill({ status }: { status: Site['status'] }) {
-  const styles = {
+function StatusPill({ status }: { status: Page['status'] }) {
+  const styles: Record<Page['status'], string> = {
     New: 'bg-blue-100 text-blue-700',
     Processing: 'bg-amber-100 text-amber-700',
     Done: 'bg-emerald-100 text-emerald-700',
@@ -112,7 +105,7 @@ function StatusPill({ status }: { status: Site['status'] }) {
     </span>
   )
 }
-function AnalyzeButton({ status }: { status: Site['status'] }) {
+function AnalyzeButton({ status }: { status: Page['status'] }) {
   if (status === 'Processing') {
     return (
       <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />

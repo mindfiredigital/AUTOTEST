@@ -5,7 +5,7 @@ from sqlalchemy.dialects.mysql import JSON
 from shared_orm.db.base import Base
 
 # The XLSX shows a pipeline-like status. Use representative states as enum members.
-PageStatusEnum = Enum("new", "generating_metadata", "generating_test_scenarios", "generating_test_cases", "test_cases_generated", "generating_test_scripts", "done", name="page_status")
+PageStatusEnum = Enum("new", "generating_metadata", "generating_test_scenarios", "Generating_test_cases", "Test_cases_generated", "generating_test_scripts", "done", name="page_status")
 
 class Page(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

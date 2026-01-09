@@ -9,11 +9,15 @@ from app.schemas.site_schema import (
     PaginatedSiteResponse
 )
 from app.services.site_service import SiteService
+from app.services.page_service import PageService
 from app.middleware.auth_middleware import auth_required
+from app.schemas.page_schema import PaginatedPageResponse
 from shared_orm.models.user import User
 
 router = APIRouter(prefix="/sites", tags=["Sites"])
 site_service = SiteService()
+page_service  =PageService()
+
 
 
 @router.post(
@@ -129,22 +133,40 @@ def delete_site(
     """
     site_service.delete_site(site_id, db, current_user)
 
+    
+@router.get(
+    "/{site_id}/pages",
+    response_model=PaginatedPageResponse,
+    summary="Get pages for a site",
+    description="Retrieve pages linked to a specific site."
+)
+def get_pages_by_site(
+    site_id: int,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    search: str | None = Query(None),
+    sort: str = Query(
+        "created_desc",
+        enum=["created_desc", "created_asc", "title_asc", "title_desc"]
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth_required)
+):
+    total, pages = page_service.get_pages_by_site(
+        site_id=site_id,
+        db=db,
+        page=page,
+        limit=limit,
+        search=search,
+        sort=sort,
+        user=current_user
+    )
 
-# @router.post(
-#     "/analyse/{site_id}",
-#     status_code=status.HTTP_204_NO_CONTENT,
-#     summary="Analyse site",
-#     description="Trigger analysis for a site (background processing)."
-# )
-# async def analyse_site(
-#     site_id: int,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(auth_required),
-# ):
-#     """
-#     Starts analysis for the given site.
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "data": pages
+    }
 
-#     - **site_id**: ID of the site
-#     - Runs asynchronously
-#     """
-#     await site_service.analyse_site(site_id, db, current_user)
+

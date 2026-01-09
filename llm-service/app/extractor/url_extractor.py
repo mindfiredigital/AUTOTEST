@@ -22,7 +22,7 @@ class URLExtractor:
         self.driver = driver
         self.logger = logger 
         
-    def extract_urls(self, base_url, max_depth=2):
+    def extract_urls(self, base_url):
         """
         Recursively extract unique internal URLs with BFS up to max_depth
         
@@ -39,12 +39,12 @@ class URLExtractor:
             parsed_base = urlparse(base_url)
             base_domain = parsed_base.netloc
             visited = set()
-            to_visit = [(base_url, 0)]  
+            to_visit = [base_url]  
 
             while to_visit:
-                current_url, depth = to_visit.pop(0)
+                current_url = to_visit.pop(0)
                 
-                if current_url in visited or depth > max_depth:
+                if current_url in visited :
                     continue
                 
                 try:
@@ -55,7 +55,7 @@ class URLExtractor:
                         EC.presence_of_element_located((By.TAG_NAME, 'body'))
                     )
                     visited.add(current_url)
-                    self.logger.info(f"Processing depth {depth}: {current_url}")
+                    self.logger.info(f"Processing : {current_url}")
 
                     # Extract links from current page
                     links = self.driver.find_elements(By.TAG_NAME, 'a')
@@ -69,19 +69,15 @@ class URLExtractor:
                         full_url = urljoin(current_url, href)
                         parsed_url = urlparse(full_url)
                         
-                        if parsed_url.netloc == base_domain:
-                            # Normalize path and handle root URL
-                            path = parsed_url.path.rstrip('/') or '/'
-                            clean_url = f"{parsed_url.scheme}://{parsed_url.netloc}{path}"
-                            if clean_url not in visited:
-                                new_urls.add(clean_url)
+                        if parsed_url.netloc != base_domain:
+                            continue
 
-                    for url in new_urls:
-                        if url not in [u for u, _ in to_visit]:
-                            to_visit.append((url, depth + 1))
-                            
-                    self.logger.debug(f"Found {len(new_urls)} new URLs at depth {depth}")
+                        path = parsed_url.path.rstrip("/") or "/"
+                        clean_url = f"{parsed_url.scheme}://{parsed_url.netloc}{path}"
 
+                        if clean_url not in visited and clean_url not in to_visit:
+                            to_visit.append(clean_url)
+                         
                 except Exception as e:
                     self.logger.error(f"Failed to process {current_url}: {str(e)}")
 

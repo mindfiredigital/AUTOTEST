@@ -83,3 +83,33 @@ export const useCreateSiteMutation = () => {
     },
   })
 }
+
+
+export const useSitePagesQuery = ({
+  siteId,
+  page,
+  limit,
+  search,
+  sort,
+}: {
+  siteId: number
+  page: number
+  limit: number
+  search?: string
+  sort?: SortType
+}) => {
+  return useQuery({
+    queryKey: ['site-pages', siteId, page, limit, search, sort],
+
+    queryFn: () =>
+      siteApi.getPagesBySite({
+        siteId,
+        page,
+        limit,
+        search,
+        sort,
+      }),
+
+    enabled: !!siteId,
+  })
+}
