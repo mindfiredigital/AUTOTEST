@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.page_schema import PaginatedPageResponse
+from app.schemas.page_schema import PaginatedPageResponse,PageInfoResponse
 from app.services.page_service import PageService
 from app.middleware.auth_middleware import auth_required
 from shared_orm.models.user import User
@@ -45,6 +45,20 @@ def list_unlinked_pages(
         "limit": limit,
         "data": pages
     }
+
+@router.get("/info", response_model=PageInfoResponse)
+def get_page_info(
+    page_id: int,
+    site_id: int | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(auth_required)
+):
+    return page_service.get_page_info(
+        page_id=page_id,
+        site_id=site_id,
+        db=db,
+        user=user
+    )
 
 
 

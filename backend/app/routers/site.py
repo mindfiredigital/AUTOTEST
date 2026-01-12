@@ -6,7 +6,8 @@ from app.schemas.site_schema import (
     SiteCreate,
     SiteUpdate,
     SiteResponse,
-    PaginatedSiteResponse
+    PaginatedSiteResponse,
+    SiteInfoResponse
 )
 from app.services.site_service import SiteService
 from app.services.page_service import PageService
@@ -168,5 +169,13 @@ def get_pages_by_site(
         "limit": limit,
         "data": pages
     }
+
+@router.get("/{site_id}/info", response_model=SiteInfoResponse)
+def get_site_info(
+    site_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(auth_required)
+):
+    return site_service.get_site_info(site_id, db, user)
 
 

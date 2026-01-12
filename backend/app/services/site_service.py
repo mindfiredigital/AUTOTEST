@@ -3,13 +3,18 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc
 from fastapi import HTTPException, status
 from datetime import datetime
-
+from sqlalchemy import func
 from shared_orm.models.site import Site
-from app.schemas.site_schema import SiteCreate, SiteUpdate
+from app.schemas.site_schema import SiteCreate, SiteUpdate,SiteInfoResponse
 from shared_orm.models.user import User
 from app.messaging.rabbitmq_producer import rabbitmq_producer
 from app.config.setting import settings
 from app.config.logger import logger
+from shared_orm.models.test_scenario import TestScenario
+from shared_orm.models.test_case import TestCase
+from shared_orm.models.test_suite import TestSuite
+from shared_orm.models.page import Page
+
 
 class SiteService:
 
@@ -112,60 +117,45 @@ class SiteService:
         site = self.get_site_by_id(site_id, db)
         db.delete(site)
         db.commit()
+
+    def get_site_info(self, site_id: int, db: Session, user: User) -> SiteInfoResponse:
+        site = db.query(Site).filter(Site.id == site_id).first()
+        if not site:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Site not found"
+            )
+        page_count = db.query(func.count(Page.id)) \
+            .filter(Page.site_id == site_id) \
+            .scalar()
+
+        test_scenario_count = db.query(func.count(TestScenario.id)) \
+            .join(Page, TestScenario.page_id == Page.id) \
+            .filter(Page.site_id == site_id) \
+            .scalar()
+
+        test_case_count = db.query(func.count(TestCase.id)) \
+            .join(Page, TestCase.page_id == Page.id) \
+            .filter(Page.site_id == site_id) \
+            .scalar()
+
+        test_suite_count = db.query(func.count(TestSuite.id)) \
+            .filter(TestSuite.site_id == site_id) \
+            .scalar()
+
+        return SiteInfoResponse(
+            site_id=site.id,
+            site_title=site.site_title,
+            site_url=site.site_url,
+            status=site.status,
+            created_on=site.created_on,
+            updated_on=site.updated_on,
+            page_count=page_count or 0,
+            test_scenario_count=test_scenario_count or 0,
+            test_case_count=test_case_count or 0,
+            test_suite_count=test_suite_count or 0,
+            test_environment=None,          
+            scheduled_test_cases=None      
+        )
         
-    # async def analyse_site(
-    #     self,
-    #     site_id: int,
-    #     db: Session,
-    #     current_user: User,
-    # ) -> None:
-    #     """
-    #     Analyse a site:
-    #     - Validate site exists
-    #     - Update site status to Processing
-    #     - Publish analyse message to RabbitMQ
-    #     """
-
-    #     site = db.query(Site).filter(Site.id == site_id).first()
-
-    #     if not site:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND,
-    #             detail="Site not found"
-    #         )
-
-    #     # Optional: prevent duplicate analyse
-    #     if site.status == "Processing":
-    #         raise HTTPException(
-    #             status_code=status.HTTP_409_CONFLICT,
-    #             detail="Site is already being analysed"
-    #         )
-
-    #     # Message payload
-    #     message = {
-    #         "event": "SITE_ANALYSE",
-    #         "site_id": site.id,
-    #         "site_url": site.site_url,
-    #         "requested_by": current_user.id,
-    #         "timestamp": datetime.utcnow().isoformat(),
-    #     }
-
-    #     published = await rabbitmq_producer.publish_message(
-    #         queue_name="site_analyse_queue",
-    #         message=message,
-    #         priority=5,
-    #     )
-
-    #     if not published:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #             detail="Failed to queue site for analysis"
-    #         )
-    #     # Update site status
-    #     site.status = "Processing"
-    #     site.updated_on = datetime.utcnow()
-    #     site.updated_by = current_user.id
-
-    #     db.commit()
-        
-    #     return {site,published}
+    

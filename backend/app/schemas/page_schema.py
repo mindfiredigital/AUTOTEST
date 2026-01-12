@@ -26,3 +26,18 @@ class PaginatedPageResponse(BaseModel):
     page: int
     limit: int
     data: List[PageResponse]
+
+
+class PageInfoResponse(BaseModel):
+    page_id: int
+    page_title: str | None
+    page_url: str
+    status:str
+
+    created_on: datetime | None
+    updated_on: datetime | None
+
+    test_scenario_count: int
+    test_case_count: int
+    scheduled_test_case_count: int
+

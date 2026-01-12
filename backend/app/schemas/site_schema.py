@@ -32,3 +32,22 @@ class PaginatedSiteResponse(BaseModel):
     page: int
     limit: int
     data: List[SiteResponse]
+
+
+class SiteInfoResponse(BaseModel):
+    site_id: int
+    site_title: str
+    site_url: str
+    status: str
+
+    created_on: datetime | None
+    updated_on: datetime | None
+
+    page_count: int
+    test_scenario_count: int
+    test_case_count: int
+    test_suite_count: int
+
+    test_environment: int | None = None
+    scheduled_test_cases: int | None = None
+
