@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import datetime
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 from app.config.database import SessionLocal
 from shared_orm.models.page import Page
 
@@ -46,7 +46,7 @@ class PageAnalysisService:
 
             db.commit()
 
-    def extract_test_relevant_html(page_source):
+    def extract_test_relevant_html(self, page_source):
         soup = BeautifulSoup(page_source, "html.parser")
 
         # Remove non-interactive and unnecessary tags

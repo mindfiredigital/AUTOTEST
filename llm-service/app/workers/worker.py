@@ -168,6 +168,16 @@ class WorkerService:
         db = SessionLocal()
         driver = get_driver()
 
+        llm = LLMWrapper()
+        prompt_manager = PromptManager()
+
+        analyzer = PageAnalysisService(
+            driver=driver,
+            logger=logger,
+            llm=llm,
+            prompt_manager=prompt_manager
+        )
+        
         try:
             while True:
                 page = (
