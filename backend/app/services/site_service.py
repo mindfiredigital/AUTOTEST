@@ -158,4 +158,35 @@ class SiteService:
             scheduled_test_cases=None      
         )
         
+    async def generate_site(
+        self,
+        data: SiteCreate,
+        db: Session,
+        user: User
+    ) -> Site:
+        existing = db.query(Site).filter(Site.site_url == data.site_url).first()
+
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Site URL does not exist"
+            )
+
+        site = existing
+
+        message = {
+            "event": "PAGE_ANALYSE",
+            "site_id": site.id,
+            "requested_by": user.id,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        await rabbitmq_producer.publish_message(
+            queue_name=settings.PAGE_ANALYSE_QUEUE,
+            message=message,
+            priority=5,
+        )
+
+        return site
+
     

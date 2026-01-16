@@ -44,6 +44,26 @@ async def create_site(
     """
     return await site_service.create_site(data, db, current_user)
 
+@router.post(
+    "/generate-page-analysis",
+    response_model=SiteResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Generate page analysis",
+    description="Generate page analysis for the specified site."
+)
+async def generate_site(
+    data: SiteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth_required)
+):
+    """
+    Generate page analysis for given site.
+
+    - **url**: Site URL
+
+    Only authenticated users can generate page analysis.
+    """
+    return await site_service.generate_site(data, db, current_user)
 
 @router.get(
     "",

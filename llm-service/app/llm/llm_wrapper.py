@@ -26,7 +26,7 @@ class LLMWrapper:
         if config_path is None:
             # Get the package directory and default config path
             package_dir = os.path.dirname(os.path.dirname(__file__))
-            config_path = os.path.join(package_dir, '..', 'config', 'llm_config.yaml')
+            config_path = os.path.join(package_dir, 'config', 'llm_config.yaml')
             
         with open(config_path) as f:
             self.config = yaml.safe_load(f)

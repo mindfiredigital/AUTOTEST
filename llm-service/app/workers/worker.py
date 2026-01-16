@@ -18,24 +18,7 @@ from app.config.database import SessionLocal
 
 
 class WorkerService:
-
-    async def process_site_analyse(self, body: dict):
-        """
-        Handles SITE_ANALYSE_QUEUE
-        Currently just forwards to PAGE_EXTRACT flow
-        """
-        logger.info(f"[SITE_ANALYSE] Started | payload={body}")
-
-        site_id = body.get("site_id")
-        site_url = body.get("site_url")
-
-        if not site_id or not site_url:
-            raise ValueError("site_id or site_url missing")
-
-        # No DB update here
-        # Real work happens in PAGE_EXTRACT
-        logger.info(f"[SITE_ANALYSE] Queued site_id={site_id} for extraction")
-
+    
     async def process_page_extract(self, body: dict):
         """
         Handles PAGE_EXTRACT_QUEUE
@@ -116,18 +99,18 @@ class WorkerService:
                 logger.info(f"[PAGE_EXTRACT] Completed | site_id={site.id}")
 
                 # emiting the PAGE_ANALYSE event
-                message = {
-                    "event": "PAGE_ANALYSE",
-                    "site_id": site.id,
-                    "requested_by": requested_by,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
+                # message = {
+                #     "event": "PAGE_ANALYSE",
+                #     "site_id": site.id,
+                #     "requested_by": requested_by,
+                #     "timestamp": datetime.utcnow().isoformat(),
+                # }
 
-                await rabbitmq_producer.publish_message(
-                    queue_name=settings.PAGE_ANALYSE_QUEUE,
-                    message=message,
-                    priority=5,
-                )
+                # await rabbitmq_producer.publish_message(
+                #     queue_name=settings.PAGE_ANALYSE_QUEUE,
+                #     message=message,
+                #     priority=5,
+                # )
 
             finally:
                 driver.quit()
@@ -138,21 +121,6 @@ class WorkerService:
 
         finally:
             db.close()
-
-    async def process_llm_task(self, body: dict):
-        """
-        Handles LLM_QUEUE
-        (Future implementation)
-        """
-        logger.info(f"[LLM] Started | payload={body}")
-
-        task_id = body.get("task_id")
-        content = body.get("content")
-
-        if not task_id or not content:
-            raise ValueError("task_id or content missing")
-
-        logger.info(f"[LLM] Task received | task_id={task_id}")
 
     
     async def process_page_analyse(self, body: dict):
