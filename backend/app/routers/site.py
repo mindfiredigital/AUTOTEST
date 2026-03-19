@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status, Response
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.config.database import get_db
 from app.schemas.site_schema import (
     SiteCreate,
     SiteUpdate,

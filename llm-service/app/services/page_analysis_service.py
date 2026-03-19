@@ -126,52 +126,6 @@ class PageAnalysisService:
     def extract_test_relevant_html(self, page_source):
         soup = BeautifulSoup(page_source, "html.parser")
 
-        # Remove non-interactive and unnecessary tags
-        tags_to_remove = [
-            "script",       # JavaScript code
-            "meta",         # Metadata about the document
-            "link",         # External resources (CSS, favicon, etc.)
-            "style",        # CSS styling
-            "noscript",     # Content for when JavaScript is disabled
-            #"base",         # Base URL for relative links
-            #"head",         # Document head section (if you want to remove entirely)
-            "title",        # Page title (if not needed for testing)
-            "svg",          # SVG graphics (unless testing graphics)
-            "canvas",       # Canvas elements (unless testing graphics)
-            "audio",        # Audio elements (unless testing media)
-            "video",        # Video elements (unless testing media)
-            "source",       # Media source elements
-            "track",        # Text tracks for media elements
-            "embed",        # Embedded content
-            "object",       # Object elements
-            "param",        # Parameters for objects
-            "iframe",       # Inline frames (unless testing embedded content)
-            "frame",        # Frame elements (deprecated)
-            "frameset",     # Frameset elements (deprecated)
-            "noframes",     # No frames content (deprecated)
-            "applet",       # Java applets (deprecated)
-            "area",         # Image map areas (unless testing image maps)
-            "map",          # Image maps (unless testing image maps)
-            "wbr",          # Line break opportunities
-            "bdi",          # Bidirectional isolation (unless testing i18n)
-            "bdo",          # Bidirectional override (unless testing i18n)
-            "ruby",         # Ruby annotations (unless testing typography)
-            "rt",           # Ruby text
-            "rp",           # Ruby parentheses
-            "details",      # Disclosure widget (unless testing interactive elements)
-            "summary",      # Summary for details element
-            "dialog",       # Dialog boxes (unless testing modals)
-            "menu",         # Context menus (unless testing menus)
-            "menuitem",     # Menu items (deprecated)
-            "datalist",     # Data list options (unless testing form suggestions)
-            "progress",     # Progress indicators (unless testing progress)
-            "meter",        # Scalar measurements (unless testing measurements)
-            "template",     # Template elements
-            "slot",         # Web component slots
-            "output",       # Form output (unless testing form calculations)
-            "math",         # MathML content (unless testing math)
-            "annotation-xml" # MathML annotations
-        ]
 
         # Remove scripts, styles, meta, and comments
         for tag in soup(["script", "meta", "link", "style", "path", "noscript"]):

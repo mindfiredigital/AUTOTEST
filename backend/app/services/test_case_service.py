@@ -232,11 +232,11 @@ class TestCaseService:
             password_value = None
 
             if username_selector:
-                username_key = username_selector.replace("#", "")
+                username_key = username_selector.split("#")[-1]
                 username_value = test_data.get(username_key)
 
             if password_selector:
-                password_key = password_selector.replace("#", "")
+                password_key = password_selector.split("#")[-1]
                 password_value = test_data.get(password_key)
             
             # -----------------------------

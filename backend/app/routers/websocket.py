@@ -3,7 +3,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.config.database import get_db
 from app.websocket.ws_auth import authenticate_ws
 from app.websocket.manager import manager
 from app.websocket.handlers import handle_ws_message

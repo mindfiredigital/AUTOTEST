@@ -1,7 +1,13 @@
+"""Provider model routes.
+
+Endpoints to list provider models, fetch by ID, bulk update, and list
+models for a provider.
+"""
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.config.database import get_db
 from app.services.provider_service import ProviderService
 from app.middleware.auth_middleware import auth_required
 from app.schemas.provider_model_schema import ProviderModelResponse, ProviderModelUpdateRequest, ProviderModelUpdateResponse, ProviderModelsByProviderResponse
@@ -23,6 +29,8 @@ def get_all_provider_models(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Return a list of all provider models."""
+
     return provider_service.get_all_providers_models(db=db)
 
 #-------------------------------
@@ -39,6 +47,8 @@ def get_provider_model_by_id(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Get a provider model by its `model_id`."""
+
     return provider_service.get_provider_model_by_id(
         db=db,
         model_id=model_id
@@ -59,6 +69,11 @@ def update_provider_models(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required),
 ):
+    """Bulk update provider models for a provider.
+
+    Accepts a list of model update requests and returns updated items.
+    """
+
     return provider_service.update_provider_models(
         provider_id=provider_id,
         payload=payload,
@@ -78,6 +93,8 @@ def get_provider_models_by_provider_id(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required),
 ):
+    """Return model configurations for a given provider ID."""
+
     return provider_service.get_provider_models_by_provider_id(
         provider_id=provider_id,
         db=db

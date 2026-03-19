@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Path, status, Response
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.config.database import get_db
 from app.middleware.auth_middleware import auth_required
 from shared_orm.models.user import User
 from app.services.test_case_service import TestCaseService

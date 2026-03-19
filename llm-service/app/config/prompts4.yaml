@@ -374,14 +374,24 @@ generate_script:
             - Raises an exception if all attempts fail after `max_attempts`
           - Use `retry_find_element` to locate elements and `click_element` for clicking actions
     user: |
-      Generate {language} Selenium script for the following test cases:
-      {test_case}
+      Generate {language} Selenium script for the following scenario and its test_cases array.
+
+      Scenario:
+      {scenario}
+
+      Test cases:
+      {test_cases}
 
       Page Structure:
       {page_metadata}
 
       Current page HTML:
       {page_source}
+
+      IMPORTANT: Produce ONE single script that iterates over the provided `test_cases` array.
+      For each `case` in `test_cases` use `case["data"]["test_data"]` to populate fields and execute the
+      steps in `case["data"]["steps"]`. Do NOT generate separate scripts per test case — generate one
+      script that loops over `test_cases` and runs each case in turn. Include clear logging per-case.
 
       Use reliable selectors from page structure.
 
@@ -483,22 +493,18 @@ generate_script:
                 if existing_link:
                     logger.info("Redirect already exists in PageLink table")
 
-                else:
-                    new_link = PageLink(
-                        page_id_source=source_page.id,
-                        page_id_target=target_page.id,
-                        test_scenario_id_source=test_scenario_id,
-                        event_selector=selector_used,
-                        event_description="Navigation action description"
-                    )
-                    db.add(new_link)
-                    db.commit()
-                    db.refresh(new_link)
-                    logger.info("Stored new navigation in PageLink table")
-            except Exception as e:
-                db.rollback()
-                logger.error(f"Database error during navigation recording: {e}")
-                raise
+            else:
+                new_link = PageLink(
+                    page_id_source=source_page.id,
+                    page_id_target=target_page.id,
+                    test_scenario_id_source=0,
+                    event_selector=selector_used,
+                    event_description="Navigation action description"
+                )
+                db.add(new_link)
+                db.commit()
+                db.refresh(new_link)
+                logger.info("Stored new navigation in PageLink table")
         ```
 
       - Do NOT use any redirects table

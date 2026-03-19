@@ -1,7 +1,12 @@
+"""Page management routes.
+
+Endpoints for listing, creating, updating, and deleting pages.
+"""
+
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.config.database import get_db
 from app.schemas.page_schema import PaginatedPageResponse,PageInfoResponse, PageUpdateTitleRequest, PageCreateRequest
 from app.services.page_service import PageService
 from app.middleware.auth_middleware import auth_required
@@ -32,6 +37,8 @@ def list_unlinked_pages(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Return paginated pages that are not linked to a site."""
+
     total, pages = page_service.list_unlinked_pages(
         db=db,
         page=page,
@@ -55,6 +62,8 @@ def get_page_info(
     db: Session = Depends(get_db),
     user: User = Depends(auth_required)
 ):
+    """Return detailed information for a page (optionally scoped to a site)."""
+
     return page_service.get_page_info(
         page_id=page_id,
         site_id=site_id,
@@ -73,6 +82,8 @@ def delete_page(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Permanently delete a page and any linked test data."""
+
     page_service.delete_page(
         page_id=page_id,
         db=db,
@@ -91,6 +102,8 @@ def update_page_title(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Update the title of an existing page."""
+
     return page_service.update_page_title(
         page_id=page_id,
         new_title=payload.page_title,
@@ -108,6 +121,8 @@ async def create_page(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Create a new unlinked page and return its representation."""
+
     return await page_service.create_page(
         page_title=payload.page_title,
         page_url=payload.page_url,
@@ -124,6 +139,8 @@ async def auth_credential_update(           # ← must be async def
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required),
 ):
+    """Process an auth credential update for pages and refresh state."""
+
     result = await page_service.auth_credential_update(   # ← await
         page_id=page_id,
         db=db,

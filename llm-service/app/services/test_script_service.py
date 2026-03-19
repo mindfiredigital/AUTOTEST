@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from app.config.database import SessionLocal
 from shared_orm.models.test_scenario import TestScenario
+from shared_orm.models.test_case import TestCase
 
 
 class TestScriptService:
@@ -99,8 +100,25 @@ class TestScriptService:
                         "requires_auth": scenario.requires_auth,
                     }
 
+                    # Gather all TestCase rows for this scenario and pass them
+                    tc_rows = db.query(TestCase).filter(
+                        TestCase.test_scenario_id == scenario.id
+                    ).all()
+
+                    test_cases_list = []
+                    for tc in tc_rows:
+                        test_cases_list.append({
+                            "name": tc.title,
+                            "data": tc.data or {},
+                            "is_valid": tc.is_valid,
+                            "is_valid_default": tc.is_valid_default,
+                            "expected_outcome": tc.expected_outcome,
+                            "validation": tc.validation,
+                        })
+
                     code, filename, script_path = self.generate_script_for_test_case(
-                        test_case=scenario_dict,
+                        scenario=scenario_dict,
+                        test_cases=test_cases_list,
                         page_metadata=page_metadata,
                         minimized_html=minimized_html,
                         require_login=require_login,
@@ -144,7 +162,8 @@ class TestScriptService:
 
     def generate_script_for_test_case(
         self,
-        test_case: dict,
+        scenario: dict,
+        test_cases: list,
         page_metadata: dict,
         minimized_html: str,
         require_login: bool,
@@ -175,7 +194,8 @@ class TestScriptService:
             ).format(
                 language=self.language,
                 selenium_version=self.selenium_version,
-                test_case=json.dumps(test_case, indent=2),
+                scenario=json.dumps(scenario, indent=2),
+                test_cases=json.dumps(test_cases, indent=2),
                 page_metadata=json.dumps(page_metadata, indent=2),
                 page_source=minimized_html,
                 captcha_wait_time=captcha_wait_time,
@@ -210,7 +230,7 @@ class TestScriptService:
 
             timestamp      = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            sanitized_name = re.sub(r"[^a-zA-Z0-9\-_]", "_", test_case["name"])
+            sanitized_name = re.sub(r"[^a-zA-Z0-9\-_]", "_", scenario["name"])
             sanitized_name = re.sub(r"_+", "_", sanitized_name).strip("_")
 
             ext = ".py" if "```python" in script_content else ".java"

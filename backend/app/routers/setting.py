@@ -1,7 +1,13 @@
+"""Settings management routes.
+
+Endpoints to list categories, retrieve settings, and update actual
+values individually or in bulk.
+"""
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.config.database import get_db
 from app.services.setting_service import SettingService
 from app.middleware.auth_middleware import auth_required
 from app.schemas.setting_schema import BulkSettingUpdateRequest, SettingResponse, SettingUpdateActualValue
@@ -22,6 +28,8 @@ def get_all_setting_categories(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Return all available setting categories."""
+
     return setting_service.get_all_setting_categories(db=db)
 
 # -------------------------------
@@ -37,6 +45,8 @@ def get_setting_category_by_id(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Retrieve a setting category by its ID."""
+
     return setting_service.get_setting_category_by_id(
         setting_category_id=category_id,
         db=db
@@ -54,6 +64,8 @@ def get_all_settings(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Return all settings across categories."""
+
     return setting_service.get_all_settings(db=db)
 
 # -------------------------------
@@ -69,6 +81,8 @@ def get_setting_by_id(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Retrieve a specific setting by its ID."""
+
     return setting_service.get_setting_by_id(
         setting_id=setting_id,
         db=db
@@ -87,6 +101,8 @@ def get_settings_by_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Return settings belonging to a given category ID."""
+
     return setting_service.get_setting_by_category(
         setting_category_id=setting_category_id,
         db=db
@@ -100,6 +116,8 @@ def update_setting_actual_value(
     payload: SettingUpdateActualValue,
     db: Session = Depends(get_db),
 ):
+    """Update the actual value for a single setting."""
+
     return setting_service.update_actual_value(
         setting_id=setting_id,
         actual_value=payload.actual_value,
@@ -117,6 +135,8 @@ def update_settings_by_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(auth_required)
 ):
+    """Bulk update actual values for all settings in a category."""
+
     return setting_service.update_actual_values_by_category(
         setting_category_id=setting_category_id,
         updates=request.settings,

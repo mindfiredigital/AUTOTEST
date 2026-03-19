@@ -1,3 +1,8 @@
+"""Lightweight RabbitMQ connection helper using aio_pika pools.
+
+Provides `RabbitMQConnection` and a module-level `rabbitmq_connection`.
+"""
+
 import asyncio
 import aio_pika
 from aio_pika.pool import Pool
@@ -6,15 +11,27 @@ from app.config.logger import logger
 
 
 class RabbitMQConnection:
+    """Manage a robust connection and pooled channels.
+
+    Creates connection and channel pools on demand. `connect()` is
+    idempotent and safe to call multiple times.
+    """
+
     def __init__(self):
         self.connection_pool = None
         self.channel_pool = None
         self._lock = asyncio.Lock()
 
     async def connect(self):
+        """Initialize connection and channel pools; retry until ready.
+
+        This method is protected by a lock and returns immediately if
+        pools are already present.
+        """
+
         async with self._lock:
             if self.channel_pool:
-                return  # already connected
+                return
 
             while True:
                 try:
@@ -45,6 +62,8 @@ class RabbitMQConnection:
                     await asyncio.sleep(5)
 
     async def close(self):
+        """Close pools and clear internal state."""
+
         if self.channel_pool:
             await self.channel_pool.close()
         if self.connection_pool:
@@ -56,4 +75,5 @@ class RabbitMQConnection:
         logger.info("RabbitMQ connection closed")
 
 
+# Module-level singleton for convenient import elsewhere in the app.
 rabbitmq_connection = RabbitMQConnection()

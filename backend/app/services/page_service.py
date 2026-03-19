@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc
-from app.db.session import SessionLocal
 from shared_orm.models.page import Page
 from shared_orm.models.site import Site
 from shared_orm.models.user import User

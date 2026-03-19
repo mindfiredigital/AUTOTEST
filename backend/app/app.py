@@ -1,3 +1,10 @@
+"""Application factory and lifecycle for the FastAPI app.
+
+Defines the `lifespan` asynccontextmanager used to initialize and
+shutdown background resources (RabbitMQ consumer), and the
+`create_app()` factory that registers routers and middleware.
+"""
+
 import asyncio
 from contextlib import asynccontextmanager
 
@@ -8,7 +15,7 @@ from sqlalchemy import text
 
 from app.config.setting import settings
 from app.config.logger import logger
-from app.db.session import get_db
+from app.config.database import get_db
 from app.config.rabbitmq import rabbitmq_connection
 
 from app.messaging.rabbitmq_consumer import RabbitMQConsumer
@@ -30,6 +37,13 @@ from app.routers.test_execution import router as test_execution_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifespan: start background workers and close them.
+
+    On startup this connects to RabbitMQ, registers queue handlers and
+    starts a background consumer task. On shutdown it stops the
+    consumer and closes the RabbitMQ connection.
+    """
+
     logger.info("Starting FastAPI application...")
 
     consumer_task = None
@@ -37,20 +51,20 @@ async def lifespan(app: FastAPI):
 
     # -------------------- STARTUP --------------------
     try:
-        # Connect RabbitMQ
+        # Connect to RabbitMQ (robust connection with retries)
         await rabbitmq_connection.connect()
         logger.info("RabbitMQ connected successfully")
 
-        # Initialize consumer
+        # Create consumer using the shared channel pool
         consumer = RabbitMQConsumer(rabbitmq_connection.channel_pool)
 
-        # Register all queue handlers
+        # Register handlers defined in QUEUE_HANDLER_MAP
         for queue_name, handler in QUEUE_HANDLER_MAP.items():
             consumer.register_handler(queue_name, handler)
 
-        # Start consuming in background
+        # Start consuming messages in a background task
         consumer_task = asyncio.create_task(consumer.consume_all())
-        logger.info(" RabbitMQ consumer started")
+        logger.info("RabbitMQ consumer started")
 
     except Exception as e:
         logger.error(f"Failed to initialize RabbitMQ: {e}")
@@ -58,20 +72,23 @@ async def lifespan(app: FastAPI):
     yield
 
     # -------------------- SHUTDOWN --------------------
-    logger.info(" Shutting down FastAPI application...")
+    logger.info("Shutting down FastAPI application...")
 
     try:
+        # Stop consumer gracefully
         if consumer:
             await consumer.stop()
-            logger.info(" Consumer stopped")
+            logger.info("Consumer stopped")
 
+        # Cancel background task if running
         if consumer_task:
             consumer_task.cancel()
             try:
                 await consumer_task
             except asyncio.CancelledError:
-                logger.info(" Consumer task cancelled")
+                logger.info("Consumer task cancelled")
 
+        # Close RabbitMQ connection/pools
         await rabbitmq_connection.close()
         logger.info("RabbitMQ connection closed")
 
@@ -80,6 +97,8 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application instance."""
+
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
@@ -100,11 +119,15 @@ def create_app() -> FastAPI:
     # Root endpoint
     @app.get("/")
     def root():
+        """Health / root endpoint returning a simple running message."""
+
         return {"message": f"{settings.PROJECT_NAME} is running successfully!"}
 
     # Healthcheck
     @app.get("/api/v1/healthcheck")
     def health_check(db: Session = Depends(get_db)):
+        """Simple health check endpoint that verifies DB connectivity."""
+
         try:
             db.execute(text("SELECT 1"))
             return {

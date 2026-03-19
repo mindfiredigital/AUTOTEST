@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query,Path, status, Response, BackgroundTasks
 from sqlalchemy.orm import Session
-from app.db.session import get_db
+from app.config.database import get_db
 from app.middleware.auth_middleware import auth_required
 from shared_orm.models.user import User
 from app.services.test_scenario_service import ScenarioService

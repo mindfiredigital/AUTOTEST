@@ -25,10 +25,10 @@ class ScenarioService:
         sort: str | None = None,
     ):
         """
-    Retrieve paginated list of test scenarios with optional
-    filtering (site, page, search) and sorting.
-    Returns total count and scenario list.
-    """
+        Retrieve paginated list of test scenarios with optional
+        filtering (site, page, search) and sorting.
+        Returns total count and scenario list.
+        """
         logger.info(
             f"[LIST_SCENARIOS_REQUEST] "
             f"User={user.id} SiteID={site_id} PageID={page_id} Search={search} Sort={sort}"
@@ -117,10 +117,10 @@ class ScenarioService:
 
     def get_scenario_details(self, db: Session, scenario_id: int):
         """
-    Fetch detailed information of a test scenario
-    including its associated test cases.
-    Raises 404 if not found.
-    """
+        Fetch detailed information of a test scenario
+        including its associated test cases.
+        Raises 404 if not found.
+        """
         scenario = (
             db.query(TestScenario)
             .options(joinedload(TestScenario.test_cases))
@@ -162,10 +162,10 @@ class ScenarioService:
     
     def delete_scenario(self, db: Session, scenario_id: int):
         """
-    Permanently delete a test scenario and its
-    associated test cases.
-    Raises 404 if not found.
-    """
+        Permanently delete a test scenario and its
+        associated test cases.
+        Raises 404 if not found.
+        """
         logger.info(f"[DELETE_SCENARIO_REQUEST] ScenarioID={scenario_id}")
         try:
 
@@ -210,10 +210,10 @@ class ScenarioService:
         user: User
     ):
         """
-    Partially update allowed fields (title, category,
-    type, data) of a test scenario and update audit fields.
-    Raises 404 if not found.
-    """
+        Partially update allowed fields (title, category,
+        type, data) of a test scenario and update audit fields.
+        Raises 404 if not found.
+        """
         logger.info(
             f"[UPDATE_SCENARIO_REQUEST] "
             f"ScenarioID={scenario_id} UpdatedBy={user.id}"

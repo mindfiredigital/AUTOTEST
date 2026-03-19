@@ -134,37 +134,125 @@ class TestExecutionService:
             f"[EXEC] Running | scenario_id={scenario.id} title='{scenario.title}'"
         )
 
-        result = self.execute_test_script(scenario.script)
+        # Execute once per test case, injecting the test case data into the
+        # script so tests can access runtime inputs for validation.
+        test_cases = db.query(TestCase).filter(
+            TestCase.test_scenario_id == scenario.id,
+            TestCase.page_id == page_id,
+        ).all()
 
-        # Build the full log string from stdout + stderr
-        log_parts = []
-        if result.get("output"):
-            log_parts.append(result["output"])
-        if result.get("error"):
-            log_parts.append(result["error"])
-        logs = "\n".join(log_parts).strip() or "(no output)"
+        # If there are no test cases, keep legacy behaviour: run once and
+        # persist a single execution row with test_case_id=None
+        if not test_cases:
+            result = self.execute_test_script(scenario.script)
 
-        if result.get("success") is None:
-            # Execution itself errored (timeout, import error, etc.)
-            status = "error"
-        elif result["success"]:
-            status = "passed"
-        else:
-            status = "failed"
+            # Build the full log string from stdout + stderr
+            log_parts = []
+            if result.get("output"):
+                log_parts.append(result["output"])
+            if result.get("error"):
+                log_parts.append(result["error"])
+            logs = "\n".join(log_parts).strip() or "(no output)"
 
-        self.logger.info(
-            f"[EXEC] Result | scenario_id={scenario.id} status={status}"
-        )
+            if result.get("success") is None:
+                status = "error"
+            elif result["success"]:
+                status = "passed"
+            else:
+                status = "failed"
 
-        self._persist_results(
-            db=db,
-            scenario=scenario,
-            page_id=page_id,
-            test_suite_id=test_suite_id,
-            requested_by=requested_by,
-            status=status,
-            logs=logs,
-        )
+            self.logger.info(
+                f"[EXEC] Result | scenario_id={scenario.id} status={status}"
+            )
+
+            self._persist_results(
+                db=db,
+                scenario=scenario,
+                page_id=page_id,
+                test_suite_id=test_suite_id,
+                requested_by=requested_by,
+                status=status,
+                logs=logs,
+            )
+            return
+
+        # Iterate per test case and run the script with injected test-case data.
+        for tc in test_cases:
+            try:
+                self.logger.info(
+                    f"[EXEC] Running tc_id={tc.id} | scenario_id={scenario.id} title='{tc.title}'"
+                )
+
+                # Ensure test case data is JSON-serializable
+                tc_data = tc.data or {}
+                if isinstance(tc_data, str):
+                    try:
+                        tc_data = json.loads(tc_data)
+                    except Exception:
+                        # leave as string if not JSON
+                        tc_data = {"value": tc_data}
+
+                # Execute script with a small header that provides `__TEST_CASE__`
+                # variable to the script runtime.
+                header = f"import json\n__TEST_CASE__ = {json.dumps(tc_data)}\n"
+                script_with_context = header + (scenario.script or "")
+
+                result = self.execute_test_script(script_with_context)
+
+                # Build the full log string from stdout + stderr
+                log_parts = []
+                if result.get("output"):
+                    log_parts.append(result["output"])
+                if result.get("error"):
+                    log_parts.append(result["error"])
+                logs = "\n".join(log_parts).strip() or "(no output)"
+
+                if result.get("success") is None:
+                    status = "error"
+                elif result["success"]:
+                    status = "passed"
+                else:
+                    status = "failed"
+
+                self.logger.info(
+                    f"[EXEC] TC Result | scenario_id={scenario.id} tc_id={tc.id} status={status}"
+                )
+
+                executed_on = datetime.utcnow()
+
+                # Upsert the execution row for this specific test case
+                self._upsert_execution(
+                    db=db,
+                    page_id=page_id,
+                    scenario=scenario,
+                    test_case=tc,
+                    test_suite_id=test_suite_id,
+                    requested_by=requested_by,
+                    status=status,
+                    logs=logs,
+                    executed_on=executed_on,
+                )
+
+            except Exception as e:
+                self.logger.error(
+                    f"[EXEC] Execution failed for tc_id={getattr(tc, 'id', None)}: {e}"
+                )
+                # On per-test-case failure, write an error row for that tc
+                try:
+                    self._upsert_execution(
+                        db=db,
+                        page_id=page_id,
+                        scenario=scenario,
+                        test_case=tc,
+                        test_suite_id=test_suite_id,
+                        requested_by=requested_by,
+                        status="error",
+                        logs=str(e),
+                        executed_on=datetime.utcnow(),
+                    )
+                except Exception:
+                    # swallow to avoid blocking remaining TCs
+                    pass
 
     # -----------------------------------------------------------------------
     # PERSIST — upsert one TestExecution row per TestCase
