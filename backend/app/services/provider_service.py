@@ -10,6 +10,7 @@ from app.schemas.provider_model_schema import ProviderModelResponse, ProviderMod
 from typing import List
 from app.schemas.provider_schema import ProviderBulkUpdate, ProviderResponse
 from app.schemas.provider_model_schema import ProviderModelResponse
+from shared_orm.utils.encryption import encrypt_value, decrypt_value
 
 class ProviderService:
     #-------------------------------
@@ -54,7 +55,7 @@ class ProviderService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Provider not found."
             )
-        provider.key = key
+        provider.key = encrypt_value(key)
         provider.is_active = is_active
         db.commit()
         db.refresh(provider)
@@ -188,6 +189,7 @@ class ProviderService:
         providers = (
             db.query(Provider)
             .filter(Provider.id.in_(provider_ids))
+            .with_for_update()
             .all()
         )
 
@@ -206,7 +208,7 @@ class ProviderService:
 
             # Update key only if provided
             if item.key is not None:
-                provider.key = item.key
+                provider.key = encrypt_value(item.key)
             
             provider.updated_by = current_user.id
             provider.updated_on = now

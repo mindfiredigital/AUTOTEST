@@ -177,6 +177,7 @@ class WorkerService:
             "site_id": page.site_id,
             "page_title": page.page_title,
             "status": page.status,
+            "requested_by": requested_by,
             "test_scenario_count": scenario_count,
             "test_case_count": test_case_count,
             "updated_on": (
@@ -458,7 +459,8 @@ class WorkerService:
                         self._run_page_pipeline,
                         driver,
                         p,
-                        requested_by
+                        requested_by,
+                        loop,
                     )
                 )
             
@@ -491,7 +493,7 @@ class WorkerService:
             site.updated_on = datetime.utcnow()
             site.updated_by = requested_by
             db.commit()
-            await self._notify_site_ws(site.id)
+            await self._notify_site_ws(site.id, requested_by=requested_by)
 
 
             loop   = asyncio.get_running_loop()
@@ -886,7 +888,7 @@ class WorkerService:
                     site.updated_on = datetime.utcnow()
                     site.updated_by = requested_by
                     db.commit()
-                    await self._notify_site_ws(page.site_id)
+                    await self._notify_site_ws(page.site_id, requested_by=requested_by)
                     logger.info(
                         f"[SITE_COMPLETE] Site processing completed | site_id={site.id}"
                     )
@@ -1379,7 +1381,20 @@ class WorkerService:
         finally:
             db.close()
     
-    def _run_page_pipeline(self, driver, page: Page, requested_by: int):
+    def _run_page_pipeline(self, driver, page: Page, requested_by: int, loop):
+        """
+        Synchronous pipeline executed inside a thread-pool (run_in_executor).
+        ``loop`` is the main event loop and is required to schedule coroutines
+        safely from this thread via asyncio.run_coroutine_threadsafe().
+        """
+        def _notify(pg):
+            future = asyncio.run_coroutine_threadsafe(
+                self._notify_ws(pg, requested_by), loop
+            )
+            try:
+                future.result(timeout=10)
+            except Exception as exc:
+                logger.warning(f"[PIPELINE] WS notify failed | page_id={pg.id} | {exc}")
 
         logger.info(f"[PIPELINE] Running pipeline | page_id={page.id}")
         db = SessionLocal()
@@ -1393,13 +1408,11 @@ class WorkerService:
             prompt_manager=prompt_manager
         )
 
-        
-
         try:
             # STEP 1 — ANALYZE PAGE
             page.status = PageStatus.GENERATING_METADATA
             db.commit()
-            asyncio.run(self._notify_ws(page, requested_by))
+            _notify(page)
 
             analyzer.analyze_page(
                 page_id=page.id,
@@ -1410,8 +1423,7 @@ class WorkerService:
             # STEP 2 — GENERATE SCENARIOS
             page.status = PageStatus.GENERATING_TEST_SCENARIOS
             db.commit()
-
-            asyncio.run(self._notify_ws(page, requested_by))
+            _notify(page)
 
             TestScenarioService(
                 llm=llm,
@@ -1422,8 +1434,7 @@ class WorkerService:
             # STEP 3 — GENERATE TEST CASES
             page.status = PageStatus.GENERATING_TEST_CASES
             db.commit()
-
-            asyncio.run(self._notify_ws(page, requested_by))
+            _notify(page)
 
             TestCaseService(
                 llm=llm,
@@ -1434,8 +1445,7 @@ class WorkerService:
             # STEP 4 — GENERATE TEST SCRIPTS
             page.status = PageStatus.GENERATING_TEST_SCRIPTS
             db.commit()
-
-            asyncio.run(self._notify_ws(page, requested_by))
+            _notify(page)
 
             TestScriptService(
                 llm=llm,
@@ -1456,20 +1466,19 @@ class WorkerService:
             ).execute_page(
                 page,
                 requested_by,
-                None,  
-                None   
+                None,
+                None
             )
 
             page.status = PageStatus.DONE
             db.commit()
+            _notify(page)
 
-            asyncio.run(self._notify_ws(page, requested_by))
-        
         finally:
             db.close()
         logger.info(f"[PIPELINE] Completed pipeline | page_id={page.id}")
 
-    async def _notify_site_ws(self, site_id: int):
+    async def _notify_site_ws(self, site_id: int, requested_by: int = None):
         """
         Publish SITE_STATUS_UPDATE event for WebSocket broadcasting.
         """
@@ -1499,6 +1508,7 @@ class WorkerService:
             payload = {
                 "site_id": site_id,
                 "site_status": site.status if site else None,
+                "requested_by": requested_by,
                 "page_count": page_count,
                 "test_scenario_count": scenario_count,
                 "test_case_count": test_case_count,

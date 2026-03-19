@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc
@@ -32,6 +33,20 @@ class PageService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Page URL is required"
+            )
+
+        # Validate URL scheme and structure to prevent SSRF
+        try:
+            parsed = urlparse(page_url.strip())
+            if parsed.scheme not in ("http", "https"):
+                raise ValueError("scheme")
+            if not parsed.netloc:
+                raise ValueError("netloc")
+        except Exception:
+            logger.warning(f"[CREATE_PAGE_FAILED] Invalid URL: {page_url}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Page URL must be a valid http or https URL"
             )
         new_page = Page(
             page_title=page_title.strip() if page_title else None,
@@ -123,7 +138,10 @@ class PageService:
         sort: str,
         user: User
     ):
-        site = db.query(Site).filter(Site.id == site_id).first()
+        site = db.query(Site).filter(
+            Site.id == site_id,
+            Site.created_by == user.id
+        ).first()
         if not site:
             logger.warning(
                 f"[GET_PAGES_BY_SITE_FAILED] Site not found | SiteID={site_id}"
@@ -174,7 +192,10 @@ class PageService:
                 detail="page_id is required"
             )
 
-        page = db.query(Page).filter(Page.id == page_id).first()
+        page = db.query(Page).filter(
+            Page.id == page_id,
+            Page.created_by == user.id
+        ).first()
         if not page:
             logger.warning(
                 f"[GET_PAGE_INFO_FAILED] Page not found | PageID={page_id}"
@@ -220,7 +241,10 @@ class PageService:
     def delete_page(self, page_id: int, db: Session, user: User):
         logger.info(f"[DELETE_PAGE_REQUEST] User={user.id} PageID={page_id}")
 
-        page = db.query(Page).filter(Page.id == page_id).first()
+        page = db.query(Page).filter(
+            Page.id == page_id,
+            Page.created_by == user.id
+        ).first()
         if not page:
             logger.warning(
                 f"[DELETE_PAGE_FAILED] Page not found | PageID={page_id}"

@@ -39,7 +39,15 @@ class PageAnalysisService:
         page_source = self.driver.page_source
         self.logger.debug(f"[PAGE_ANALYSE] Page title: {self.driver.title}")
         self.logger.debug(f"[PAGE_ANALYSE] Page HTML length: {len(page_source)}")
-        minimized_html = self.extract_test_relevant_html(page_source) # fetch page source
+        minimized_html = self.extract_test_relevant_html(page_source)
+
+        # Cap stored page_source at 500 KB to prevent unbounded DB growth
+        _MAX_SOURCE_BYTES = 500 * 1024
+        if len(minimized_html.encode("utf-8")) > _MAX_SOURCE_BYTES:
+            minimized_html = minimized_html.encode("utf-8")[:_MAX_SOURCE_BYTES].decode("utf-8", errors="ignore")
+            self.logger.warning(
+                f"[PAGE_ANALYSE] page_source truncated to 500 KB | page_id={page_id}"
+            )
 
         static_metadata = {
             "title": self.driver.title,
@@ -80,6 +88,9 @@ class PageAnalysisService:
             )
             
     def _save_page_links(self, db, source_page: Page, html: str, requested_by: int):
+        if not source_page:
+            self.logger.warning("[PAGE_LINKS] source_page is None — skipping link extraction")
+            return
         extractor = NavigationExtractor(source_page.page_url)
         events = extractor.extract(html)
         DEFAULT_TEST_SCENARIO_ID = 0

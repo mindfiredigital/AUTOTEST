@@ -80,17 +80,12 @@ class AuthService:
         logger.info(f"Login attempt for email={data.email}")
         user = db.query(User).filter(User.email == data.email).first()
 
-        if not user:
-            logger.warning(f"Login failed: user not found ({data.email})")
+        # Use a single 401 for both "not found" and "wrong password"
+        # to prevent email enumeration via different status codes.
+        if not user or not security_service.verify_password(data.password, user.password):
+            logger.warning(f"Login failed: invalid credentials for email={data.email}")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Invalid email or password"
-            )
-
-        if not security_service.verify_password(data.password, user.password):
-            logger.warning(f"Login failed: Incorrect password for email={data.email}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
 
@@ -105,21 +100,22 @@ class AuthService:
             role_id=user.role_id
         )
         role = db.query(Role).filter(Role.id == user.role_id).first()
+        _secure = not settings.DEBUG
         response.set_cookie(
                 key="access_token",
                 value=access_token,
                 httponly=True,
-                secure=False,
-                samesite="lax",
+                secure=_secure,
+                samesite="strict",
                 max_age=60 * settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         )
         response.set_cookie(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=False,
-            samesite="lax",
-            max_age=7 * 24 * 60 * 60,
+            secure=_secure,
+            samesite="strict",
+            max_age=60 * settings.REFRESH_TOKEN_EXPIRE_MINUTES,
         )
         logger.info(f"Login successful: user_id={user.id}, email={user.email}")
         return LoginResponse(
@@ -160,17 +156,31 @@ class AuthService:
             user_id=payload["user_id"],
             role_id=payload["role_id"]
         )
+        # Rotate the refresh token on every use — old token expires naturally
+        new_refresh_token = security_service.create_refresh_token(
+            subject=payload["sub"],
+            user_id=payload["user_id"],
+            role_id=payload["role_id"]
+        )
 
+        _secure = not settings.DEBUG
         response.set_cookie(
             key="access_token",
             value=new_access_token,
             httponly=True,
-            secure=False,
-            samesite="lax",
+            secure=_secure,
+            samesite="strict",
             max_age=60 * settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         )
-        logger.info(f"Access token refreshed for user_id={payload['user_id']}")
-
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh_token,
+            httponly=True,
+            secure=_secure,
+            samesite="strict",
+            max_age=60 * settings.REFRESH_TOKEN_EXPIRE_MINUTES,
+        )
+        logger.info(f"Tokens rotated for user_id={payload['user_id']}")
 
         return {"message": "Access token refreshed"}
 

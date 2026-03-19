@@ -65,7 +65,7 @@ class SiteService:
         sort: str,
         user: User
     ):
-        query = db.query(Site)
+        query = db.query(Site).filter(Site.created_by == user.id)
 
         if search:
             query = query.filter(
@@ -97,7 +97,10 @@ class SiteService:
         return total, sites
 
     def get_site_by_id(self, site_id: int, db: Session, user: User) -> Site:
-        site = db.query(Site).filter(Site.id == site_id).first()
+        site = db.query(Site).filter(
+            Site.id == site_id,
+            Site.created_by == user.id
+        ).first()
         if not site:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -106,7 +109,7 @@ class SiteService:
         return site
 
     def update_site(self, site_id: int, data: SiteUpdate, db: Session, user: User) -> Site:
-        site = self.get_site_by_id(site_id, db)
+        site = self.get_site_by_id(site_id, db, user)
 
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(site, field, value)
@@ -144,7 +147,10 @@ class SiteService:
         db.commit()
 
     def get_site_info(self, site_id: int, db: Session, user: User) -> SiteInfoResponse:
-        site = db.query(Site).filter(Site.id == site_id).first()
+        site = db.query(Site).filter(
+            Site.id == site_id,
+            Site.created_by == user.id
+        ).first()
         if not site:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

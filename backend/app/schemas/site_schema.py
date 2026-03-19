@@ -1,9 +1,11 @@
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, ConfigDict, HttpUrl
 from typing import Optional, List, Literal
 
 
 class SiteBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     site_title: str
     site_url: HttpUrl
 
@@ -13,6 +15,8 @@ class SiteCreate(SiteBase):
 
 
 class SiteUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     site_title: Optional[str] = None
     site_url: Optional[HttpUrl] = None
     status: Optional[Literal["New", "Processing", "Pause", "Done"]] = None

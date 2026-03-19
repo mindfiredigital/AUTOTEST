@@ -36,6 +36,7 @@ Dependencies
   page ORM object and requested_by. Does NOT import worker_service.
 """
 
+import ast
 import json
 import os
 import subprocess
@@ -371,9 +372,90 @@ class TestExecutionService:
     # SCRIPT EXECUTION  (from existing execute_test_script logic)
     # -----------------------------------------------------------------------
 
+    # -----------------------------------------------------------------------
+    # SAFETY VALIDATION — block dangerous patterns before execution
+    # -----------------------------------------------------------------------
+
+    # Modules that have no legitimate use in a Selenium test script
+    _BLOCKED_IMPORTS = {
+        "subprocess", "socket", "multiprocessing", "ctypes",
+        "pty", "telnetlib", "ftplib", "smtplib", "imaplib",
+        "xmlrpc", "http", "socketserver", "shutil",
+        "pickle", "marshal", "shelve", "runpy",
+    }
+
+    # Dangerous built-in / attribute calls (blocklist on top of import blocking)
+    _BLOCKED_CALLS = {
+        "eval", "exec", "compile", "__import__",
+        "os.system", "os.popen", "os.execve", "os.execvp", "os.execle",
+        "os.execl", "os.execlp", "os.spawnl", "os.spawnle",
+        "os.fork", "os.kill", "os.killpg",
+        "os.remove", "os.unlink", "os.rmdir", "os.removedirs",
+        "os.chmod", "os.chown", "os.rename", "os.replace",
+        "os.makedirs", "os.mkdir", "os.symlink", "os.link",
+        "os.truncate", "os.write",
+        "shutil.rmtree", "shutil.move", "shutil.copy", "shutil.copytree",
+        "open",   # block direct file I/O; Selenium scripts don't need it
+    }
+
+    def _validate_script_safety(self, script: str) -> None:
+        """
+        Parse the script with the AST module and raise ValueError if any
+        blocked import or dangerous call is detected.
+
+        Raises:
+            ValueError — with a description of the offending pattern.
+        """
+        try:
+            tree = ast.parse(script)
+        except SyntaxError as e:
+            raise ValueError(f"Script has a syntax error: {e}")
+
+        for node in ast.walk(tree):
+            # Check import statements: import subprocess / from subprocess import ...
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                module = ""
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        module = alias.name.split(".")[0]
+                        if module in self._BLOCKED_IMPORTS:
+                            raise ValueError(
+                                f"Blocked import detected: 'import {alias.name}'. "
+                                f"Module '{module}' is not permitted in test scripts."
+                            )
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    module = node.module.split(".")[0]
+                    if module in self._BLOCKED_IMPORTS:
+                        raise ValueError(
+                            f"Blocked import detected: 'from {node.module} import ...'. "
+                            f"Module '{module}' is not permitted in test scripts."
+                        )
+
+            # Check function calls: eval(...), exec(...), os.system(...), etc.
+            if isinstance(node, ast.Call):
+                call_name = ""
+                if isinstance(node.func, ast.Name):
+                    call_name = node.func.id
+                elif isinstance(node.func, ast.Attribute):
+                    # Build dotted name like "os.system"
+                    parts = []
+                    cur = node.func
+                    while isinstance(cur, ast.Attribute):
+                        parts.append(cur.attr)
+                        cur = cur.value
+                    if isinstance(cur, ast.Name):
+                        parts.append(cur.id)
+                    call_name = ".".join(reversed(parts))
+
+                if call_name in self._BLOCKED_CALLS:
+                    raise ValueError(
+                        f"Blocked call detected: '{call_name}(...)'. "
+                        "This function is not permitted in test scripts."
+                    )
+
     def execute_test_script(self, script: str) -> dict:
         """
-        Write the script to a temp file and run it in a subprocess.
+        Validate and then run the script in a subprocess.
 
         Returns:
             dict with keys:
@@ -385,6 +467,13 @@ class TestExecutionService:
         try:
             if not script.strip():
                 return {"success": None, "output": "", "error": "Empty test script"}
+
+            # Safety gate — block dangerous patterns before execution
+            try:
+                self._validate_script_safety(script)
+            except ValueError as safety_err:
+                self.logger.error(f"[EXEC] Script safety validation failed: {safety_err}")
+                return {"success": None, "output": "", "error": str(safety_err)}
 
             with tempfile.NamedTemporaryFile(
                 mode="w", delete=False, suffix=".py"

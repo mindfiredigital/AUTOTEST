@@ -3,9 +3,20 @@
 Provides concise request and response models used by the test case router.
 """
 
-from pydantic import BaseModel, Field
+import json
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, Dict
 from datetime import datetime
+
+_MAX_JSON_BYTES = 64 * 1024  # 64 KB per JSON field
+
+
+def _check_json_size(value: Optional[Dict]) -> Optional[Dict]:
+    if value is None:
+        return value
+    if len(json.dumps(value)) > _MAX_JSON_BYTES:
+        raise ValueError("JSON payload exceeds the 64 KB size limit")
+    return value
 
 
 class TestCaseDetailResponse(BaseModel):
@@ -28,6 +39,7 @@ class TestCaseDetailResponse(BaseModel):
 
 class UpdateTestCaseRequest(BaseModel):
     """Fields accepted when updating a test case (all optional)."""
+    model_config = ConfigDict(extra="forbid")
 
     title: Optional[str] = Field(None, description="New title")
     type: Optional[str] = Field(None, description="New type")
@@ -37,9 +49,15 @@ class UpdateTestCaseRequest(BaseModel):
     is_valid: Optional[bool] = Field(None, description="Updated validity")
     is_valid_default: Optional[bool] = Field(None, description="Updated default validity")
 
+    @field_validator("data", "expected_outcome", "validation", mode="before")
+    @classmethod
+    def limit_json_size(cls, v):
+        return _check_json_size(v)
+
 
 class TestCaseBase(BaseModel):
     """Base fields for creating a test case."""
+    model_config = ConfigDict(extra="forbid")
 
     title: str = Field(..., max_length=200, description="Test case title")
     type: Optional[str] = Field("auto-generated", description="Type of test case")
@@ -48,6 +66,11 @@ class TestCaseBase(BaseModel):
     validation: Optional[Dict] = Field(None, description="Validation rules")
     is_valid: Optional[bool] = Field(True, description="Whether the case is valid")
     is_valid_default: Optional[bool] = Field(False, description="Default validity flag")
+
+    @field_validator("data", "expected_outcome", "validation", mode="before")
+    @classmethod
+    def limit_json_size(cls, v):
+        return _check_json_size(v)
 
 
 class CreateTestCaseRequest(TestCaseBase):

@@ -3,6 +3,7 @@ LLM Wrapper module for handling different language model providers
 """
 import os
 import yaml
+from shared_orm.utils.encryption import decrypt_value
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -15,27 +16,27 @@ from shared_orm.models.provider import Provider
 class LLMWrapper:
     """Wrapper class for handling different LLM providers"""
     
-    def __init__(self, db,config_path=None):
+    def __init__(self, db, config_path=None):
         """
-        Initialize LLM wrapper with configuration
-        
+        Initialize LLM wrapper with configuration.
+
         Args:
+            db: SQLAlchemy session used only during __init__ to fetch the active
+                provider. The reference is NOT retained after initialization.
             config_path (str, optional): Path to configuration file
-            llm_provider_choice (int): Provider choice (1=OpenAI, 2=Groq, 3=Google-Gemini, 4=Anthropic, 5=Ollama)
         """
-        self.db = db
         if config_path is None:
             # Get the package directory and default config path
             package_dir = os.path.dirname(os.path.dirname(__file__))
             config_path = os.path.join(package_dir, 'config', 'llm_config.yaml')
-            
+
         with open(config_path) as f:
             self.config = yaml.safe_load(f)
-        
-        provider_data = self._get_active_provider_from_db()
+
+        provider_data = self._get_active_provider_from_db(db)
 
         self.provider = self._map_provider_name(provider_data.title)
-        self.api_key = provider_data.key
+        self.api_key = decrypt_value(provider_data.key)
 
         if not self.provider:
             raise ValueError(f"Unsupported provider: {provider_data.title}")
@@ -45,15 +46,14 @@ class LLMWrapper:
         self.models = self._initialize_models()
 
     
-    def _get_active_provider_from_db(self):
-
-        provider = (self.db.query(Provider)
+    def _get_active_provider_from_db(self, db):
+        provider = (
+            db.query(Provider)
             .filter(Provider.is_active == True)
             .first()
         )
         if not provider:
             raise ValueError("No active LLM provider found in DB")
-        
         return provider
     
     def _map_provider_name(self, db_name):

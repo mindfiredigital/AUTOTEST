@@ -3,12 +3,16 @@ URL Extractor module for recursive URL discovery (Depth Controlled BFS)
 """
 
 import time
+import urllib.robotparser
 from urllib.parse import urlparse, urljoin
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from app.config.setting import settings
 from app.constants.constants import BLOCKED_EXTENSIONS,BLOCKED_PATH_KEYWORDS
+
+_CRAWLER_USER_AGENT = "AutotestBot"
+
 
 class URLExtractor:
     """Recursive URL extractor with depth control using BFS"""
@@ -18,9 +22,25 @@ class URLExtractor:
         self.driver = driver
         self.logger = logger
         if settings.PAGE_CRAWL_UNLIMITED:
-            self.max_depth = float("inf") 
+            self.max_depth = float("inf")
         else:
-            self.max_depth = settings.PAGE_CRAWL_MAX_DEPTH  
+            self.max_depth = settings.PAGE_CRAWL_MAX_DEPTH
+
+    # ---------------------------------------------------------
+    # robots.txt helper
+    # ---------------------------------------------------------
+    def _build_robots_parser(self, base_url: str) -> urllib.robotparser.RobotFileParser:
+        """Fetch and parse robots.txt for the given base URL."""
+        parsed = urlparse(base_url)
+        robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+        rp = urllib.robotparser.RobotFileParser()
+        rp.set_url(robots_url)
+        try:
+            rp.read()
+        except Exception:
+            # If robots.txt can't be fetched, allow all (fail open)
+            pass
+        return rp
 
     # ---------------------------------------------------------
     # Public Method
@@ -40,6 +60,10 @@ class URLExtractor:
             parsed_base = urlparse(base_url)
             base_domain = parsed_base.netloc
 
+            robots = self._build_robots_parser(base_url)
+            if self.logger:
+                self.logger.info(f"[ROBOTS] Loaded robots.txt for {base_domain}")
+
             visited = set()
             to_visit = [(self.normalize_url(base_url), 0)]  # (url, depth)
 
@@ -51,6 +75,13 @@ class URLExtractor:
                     continue
 
                 if current_depth > self.max_depth:
+                    continue
+
+                # Respect robots.txt directives
+                if not robots.can_fetch(_CRAWLER_USER_AGENT, current_url):
+                    if self.logger:
+                        self.logger.info(f"[ROBOTS] Disallowed by robots.txt: {current_url}")
+                    visited.add(current_url)  # mark as visited so we don't retry
                     continue
 
                 try:

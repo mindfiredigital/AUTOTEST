@@ -46,6 +46,7 @@ class WorkerService:
             page_id = payload.get("page_id")
             status = payload.get("status")
             page_title = payload.get("page_title")
+            requested_by = payload.get("requested_by")
 
             logger.info(
                 f"[WS_CONSUMER] PAGE_STATUS_UPDATE received | "
@@ -61,12 +62,18 @@ class WorkerService:
                 "payload": payload,
             }
 
-            await manager.broadcast(ws_message)
-
-            logger.info(
-                f"[WS_CONSUMER] Broadcast complete | "
-                f"active_users={len(manager.connections)}"
-            )
+            if requested_by is not None:
+                # Send only to the user who owns this page
+                await manager.send(requested_by, ws_message)
+                logger.info(
+                    f"[WS_CONSUMER] Sent PAGE_STATUS_UPDATE to user_id={requested_by}"
+                )
+            else:
+                # Fallback: broadcast if user context is missing
+                await manager.broadcast(ws_message)
+                logger.warning(
+                    "[WS_CONSUMER] No requested_by in payload — broadcast used as fallback"
+                )
 
         except json.JSONDecodeError:
             logger.exception("[WS_CONSUMER] Invalid JSON message received")
@@ -105,6 +112,7 @@ class WorkerService:
                 return
             site_id = payload.get("site_id")
             site_status = payload.get("site_status")
+            requested_by = payload.get("requested_by")
             logger.info(
                 f"[WS_CONSUMER] SITE_STATUS_UPDATE received | "
                 f"site_id={site_id} | status={site_status}"
@@ -117,11 +125,16 @@ class WorkerService:
                 "payload": payload,
             }
 
-            await manager.broadcast(ws_message)
-            logger.info(
-                f"[WS_CONSUMER] Broadcast complete | "
-                f"active_users={len(manager.connections)}"
-            )
+            if requested_by is not None:
+                await manager.send(requested_by, ws_message)
+                logger.info(
+                    f"[WS_CONSUMER] Sent SITE_STATUS_UPDATE to user_id={requested_by}"
+                )
+            else:
+                await manager.broadcast(ws_message)
+                logger.warning(
+                    "[WS_CONSUMER] No requested_by in payload — broadcast used as fallback"
+                )
         except json.JSONDecodeError:
             logger.exception("[WS_CONSUMER] Invalid JSON message received")
         except Exception as e:

@@ -4,9 +4,12 @@ Contains lightweight response and request models used by the
 test-scenarios endpoints. Docstrings are intentionally short.
 """
 
-from pydantic import BaseModel, Field
+import json
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+
+_MAX_JSON_BYTES = 64 * 1024  # 64 KB
 
 
 class ScenarioListItem(BaseModel):
@@ -52,8 +55,16 @@ class ScenarioDetailResponse(BaseModel):
 
 class UpdateScenarioRequest(BaseModel):
     """Request model for partial scenario updates."""
+    model_config = ConfigDict(extra="forbid")
 
     title: Optional[str] = Field(None, description="New scenario title")
     category: Optional[str] = Field(None, description="Scenario category")
     type: Optional[str] = Field(None, description="Scenario type")
     data: Optional[Dict] = Field(None, description="Arbitrary scenario data")
+
+    @field_validator("data", mode="before")
+    @classmethod
+    def limit_json_size(cls, v):
+        if v is not None and len(json.dumps(v)) > _MAX_JSON_BYTES:
+            raise ValueError("JSON payload exceeds the 64 KB size limit")
+        return v

@@ -4,8 +4,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shared_orm.db.base import Base
 from datetime import datetime
 
-is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
 TestCaseTypeEnum = Enum("auto-generated", "manual")
 
 class TestCase(Base):

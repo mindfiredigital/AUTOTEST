@@ -5,11 +5,12 @@ Defines request and response models used by the pages router.
 
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, ConfigDict, HttpUrl, Field
 
 
 class PageCreate(BaseModel):
     """Request model to create a page (URL required)."""
+    model_config = ConfigDict(extra="forbid")
 
     page_url: HttpUrl = Field(..., description="Canonical URL of the page")
     page_title: Optional[str] = Field(None, description="Optional page title")
@@ -57,12 +58,14 @@ class PageInfoResponse(BaseModel):
 
 class PageUpdateTitleRequest(BaseModel):
     """Request to update a page's title."""
+    model_config = ConfigDict(extra="forbid")
 
     page_title: str = Field(..., min_length=1, max_length=255, description="New page title")
-    
+
 
 class PageCreateRequest(BaseModel):
     """Alternate create request used by some endpoints (URL required)."""
+    model_config = ConfigDict(extra="forbid")
 
     page_title: Optional[str] = Field(None, description="Optional page title")
     page_url: str = Field(..., description="Page URL")
