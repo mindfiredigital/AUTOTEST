@@ -388,14 +388,14 @@ generate_script:
       IMPORTANT - Use EXACTLY this WebDriver setup for Selenium {selenium_version}:
       Use the following logic:
       ```
-      if 'driver' not in globals():
+      if driver is None:
           from app.services.selenium_driver import get_driver
           driver = get_driver()
       ```
       Rules:
       - Do NOT initialize webdriver.Chrome() manually
       - Do NOT use webdriver_manager
-      - Use get_driver() ONLY if driver is not already available
+      - Use get_driver() ONLY if driver is None (not already available)
       - If driver is already provided (shared execution), reuse it and DO NOT create a new one
 
       IMPORTANT:
@@ -458,42 +458,53 @@ generate_script:
       - Use database logic:
         ```
         with SessionLocal() as db:
+            try:
+                source_page = db.query(Page).filter(Page.page_url == starting_url).first()
 
-            source_page = db.query(Page).filter(Page.page_url == starting_url).first()
+                if not source_page:
+                    source_page = Page(page_url=starting_url)
+                    db.add(source_page)
+                    db.commit()
+                    db.refresh(source_page)
 
-            target_page = db.query(Page).filter(Page.page_url == redirected_url).first()
+                target_page = db.query(Page).filter(Page.page_url == redirected_url).first()
 
-            if not target_page:
-                target_page = Page(page_url=redirected_url)
-                db.add(target_page)
-                db.commit()
-                db.refresh(target_page)
+                if not target_page:
+                    target_page = Page(page_url=redirected_url)
+                    db.add(target_page)
+                    db.commit()
+                    db.refresh(target_page)
 
-            existing_link = db.query(PageLink).filter(
-                PageLink.page_id_source == source_page.id,
-                PageLink.page_id_target == target_page.id
-            ).first()
+                existing_link = db.query(PageLink).filter(
+                    PageLink.page_id_source == source_page.id,
+                    PageLink.page_id_target == target_page.id
+                ).first()
 
-            if existing_link:
-                logger.info("Redirect already exists in PageLink table")
+                if existing_link:
+                    logger.info("Redirect already exists in PageLink table")
 
-            else:
-                new_link = PageLink(
-                    page_id_source=source_page.id,
-                    page_id_target=target_page.id,
-                    test_scenario_id_source=0
-                    event_selector=selector_used,
-                    event_description="Navigation action description"
-                )
-                db.add(new_link)
-                db.commit()
-                db.refresh(new_link)
-                logger.info("Stored new navigation in PageLink table")
+                else:
+                    new_link = PageLink(
+                        page_id_source=source_page.id,
+                        page_id_target=target_page.id,
+                        test_scenario_id_source=test_scenario_id,
+                        event_selector=selector_used,
+                        event_description="Navigation action description"
+                    )
+                    db.add(new_link)
+                    db.commit()
+                    db.refresh(new_link)
+                    logger.info("Stored new navigation in PageLink table")
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Database error during navigation recording: {e}")
+                raise
         ```
 
       - Do NOT use any redirects table
       - Do NOT use init_db()
       - Do NOT use autotest module
+      - Use the actual test scenario ID for `test_scenario_id_source` (not hardcoded 0)
 
       - This database interaction should ONLY be used for navigation test cases
 
