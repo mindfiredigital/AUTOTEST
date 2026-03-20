@@ -1,0 +1,1121 @@
+================================================================================
+  TEST SUITE — FEATURE DESIGN DOCUMENT
+  Project: AUTOTEST v2
+  Date: 2026-03-20
+================================================================================
+
+Context:
+  A Test Suite is a multi-page, chained workflow. It is NOT a flat collection
+  of test cases. It represents a real user journey across multiple pages of an
+  application — e.g., Login → Goal Sheet → Add 5 Goals → Submit.
+  The workflow is visualized as a flowchart with branching paths based on
+  test data (user roles, account types, outcome conditions, etc.).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — CONCEPTUAL MODEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  TestSuite
+  └── has a flow_definition (directed graph: nodes + edges)
+      ├── Node = one "step" in the workflow
+      │   ├── Linked to: Site → Page → Scenario → TestCases
+      │   └── Has position in the canvas (x, y)
+      └── Edge = transition between two steps
+          └── Has an optional branch_condition
+              (e.g., role == "lead", outcome == "passed", data.account_type == "corporate")
+
+  Example flowchart:
+
+    [START]
+      │
+      ▼
+    [Login Page — Auth Scenario]
+      │
+      ├─── (role = "HR") ──────────▶ [HR Dashboard — View Payroll Scenario]
+      │                                      │
+      │                                      ▼
+      │                              [Submit Report Scenario]
+      │                                      │
+      │                                      ▼
+      │                                   [END]
+      │
+      └─── (role = "Lead") ────────▶ [Goal Sheet — Add Goals Scenario]
+                                             │
+                                             ▼
+                                     [Goal Sheet — Submit Scenario]
+                                             │
+                                             ▼
+                                          [END]
+
+  Each node maps to ONE TestScenario from an already-analysed Page.
+  The engine walks the graph, executes each scenario in order, evaluates
+  branch conditions, and follows the correct path.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — DATABASE / ORM CHANGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Existing model: shared_orm/models/test_suite.py  (already has id, site_id,
+  title, scenario_count, test_case_count, created_on, created_by)
+
+  ────────────────────────────────────────────────────────────────────────────
+  2.1  EXTEND  test_suite  TABLE
+  ────────────────────────────────────────────────────────────────────────────
+
+  New columns to add via Alembic migration:
+
+    description    VARCHAR(500)   nullable    — human-readable purpose
+    status         ENUM           not null    — "draft" | "ready" | "running" | "done" | "failed"
+                   default = "draft"
+    flow_definition JSON          nullable    — the serialized nodes + edges
+                                               (React Flow format, see Section 4)
+    updated_on     DATETIME       nullable
+    updated_by     INT            FK → user.id  nullable
+
+  Migration file: backend/alembic/versions/XXXX_extend_test_suite_table.py
+
+  ────────────────────────────────────────────────────────────────────────────
+  2.2  NEW TABLE  test_suite_step
+  ────────────────────────────────────────────────────────────────────────────
+
+  Stores each node in the flowchart with its DB-level linkage.
+  The flow_definition JSON stores visual/positional data; this table stores
+  the relational truth about what each node points to.
+
+  File: shared_orm/models/test_suite_step.py
+
+  Columns:
+    id               INT  PK  autoincrement
+    test_suite_id    INT  FK → test_suite.id  CASCADE DELETE  indexed
+    node_id          VARCHAR(100)  not null   — matches the node.id in flow_definition
+    label            VARCHAR(200)  nullable   — display label in canvas
+    page_id          INT  FK → page.id  nullable  indexed
+    scenario_id      INT  FK → test_scenario.id  nullable  indexed
+    step_order       INT  not null  default=0  — topological sort order for execution
+    created_on       DATETIME  nullable
+    created_by       INT  FK → user.id  nullable
+
+  Migration file: backend/alembic/versions/XXXX_create_test_suite_step_table.py
+
+  ────────────────────────────────────────────────────────────────────────────
+  2.3  NEW TABLE  test_suite_run
+  ────────────────────────────────────────────────────────────────────────────
+
+  Tracks a single execution run of a test suite.
+
+  File: shared_orm/models/test_suite_run.py
+
+  Columns:
+    id               INT  PK  autoincrement
+    test_suite_id    INT  FK → test_suite.id  CASCADE DELETE  indexed
+    status           ENUM  "pending" | "running" | "passed" | "partially_passed"
+                           | "failed" | "error"  nullable
+    started_on       DATETIME  nullable
+    completed_on     DATETIME  nullable
+    execution_summary JSON  nullable  — {total, passed, failed, skipped} counts
+    executed_by      INT  FK → user.id  nullable
+
+  Migration file: backend/alembic/versions/XXXX_create_test_suite_run_table.py
+
+  NOTE: Individual test case results continue to use the existing TestExecution
+  table (it already has a test_suite_id column). Link them to the run by also
+  storing test_suite_run_id in TestExecution (one more column to add there).
+
+  ────────────────────────────────────────────────────────────────────────────
+  2.4  EXTEND  test_execution  TABLE
+  ────────────────────────────────────────────────────────────────────────────
+
+  Add one column:
+
+    test_suite_run_id  INT  FK → test_suite_run.id  SET NULL on delete  nullable
+
+  This links individual test case results back to the specific run that
+  produced them, not just the suite.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — BACKEND IMPLEMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ────────────────────────────────────────────────────────────────────────────
+  3.1  SCHEMAS  (backend/app/schemas/test_suite_schema.py)
+  ────────────────────────────────────────────────────────────────────────────
+
+  # ── Node and Edge types for the flowchart ──────────────────────────────
+
+  class FlowNodeData(BaseModel):
+      model_config = ConfigDict(extra="forbid")
+      label: str
+      page_id: int | None = None
+      scenario_id: int | None = None
+      node_type: Literal["start", "end", "step", "branch"] = "step"
+
+  class FlowNode(BaseModel):
+      model_config = ConfigDict(extra="forbid")
+      id: str                      # e.g. "node-1", "node-2"
+      type: str = "custom"
+      position: dict               # {"x": float, "y": float}
+      data: FlowNodeData
+
+  class FlowEdge(BaseModel):
+      model_config = ConfigDict(extra="forbid")
+      id: str                      # e.g. "edge-1-2"
+      source: str                  # node id
+      target: str                  # node id
+      label: str | None = None     # branch condition label e.g. "role=lead"
+      condition: dict | None = None # {"field": "role", "op": "eq", "value": "lead"}
+
+  class FlowDefinition(BaseModel):
+      model_config = ConfigDict(extra="forbid")
+      nodes: list[FlowNode]
+      edges: list[FlowEdge]
+
+  # ── Suite CRUD payloads ─────────────────────────────────────────────────
+
+  class TestSuiteCreateRequest(BaseModel):
+      model_config = ConfigDict(extra="forbid")
+      title: str = Field(..., min_length=1, max_length=200)
+      description: str | None = Field(None, max_length=500)
+      flow_definition: FlowDefinition | None = None
+
+  class TestSuiteUpdateRequest(BaseModel):
+      model_config = ConfigDict(extra="forbid")
+      title: str | None = Field(None, min_length=1, max_length=200)
+      description: str | None = Field(None, max_length=500)
+      flow_definition: FlowDefinition | None = None
+      status: Literal["draft", "ready"] | None = None
+
+  class TestSuiteResponse(BaseModel):
+      id: int
+      site_id: int
+      title: str
+      description: str | None
+      status: str
+      scenario_count: int | None
+      test_case_count: int | None
+      flow_definition: dict | None
+      created_on: datetime | None
+      created_by: int | None
+      updated_on: datetime | None
+
+  # ── Run payloads ────────────────────────────────────────────────────────
+
+  class TestSuiteRunRequest(BaseModel):
+      model_config = ConfigDict(extra="forbid")
+      test_data: dict | None = None  # runtime variable overrides e.g. {"role": "lead"}
+
+  class TestSuiteRunResponse(BaseModel):
+      run_id: int
+      test_suite_id: int
+      status: str
+      started_on: datetime | None
+
+  ────────────────────────────────────────────────────────────────────────────
+  3.2  SERVICE  (backend/app/services/test_suite_service.py)
+  ────────────────────────────────────────────────────────────────────────────
+
+  class TestSuiteService:
+
+    create_test_suite(site_id, payload, current_user, db)
+      - Validate site ownership (created_by == user.id)
+      - Create TestSuite row
+      - If flow_definition provided, upsert TestSuiteStep rows
+        (delete old steps first, re-insert from nodes)
+      - Return TestSuiteResponse
+
+    get_test_suite(suite_id, current_user, db)
+      - Ownership check via site.created_by
+      - Return full suite with flow_definition
+
+    list_test_suites(site_id, page, page_size, current_user, db)
+      - Ownership check
+      - Paginated list, ordered by created_on desc
+
+    update_test_suite(suite_id, payload, current_user, db)
+      - Ownership check
+      - Update fields, re-sync TestSuiteStep rows if flow_definition changed
+      - Recompute scenario_count, test_case_count from steps
+
+    delete_test_suite(suite_id, current_user, db)
+      - Ownership check
+      - CASCADE deletes steps + runs via DB constraint
+
+    trigger_run(suite_id, test_data, current_user, db, rabbitmq_producer)
+      - Validate suite.status == "ready"
+      - Create TestSuiteRun row with status="pending"
+      - Publish message to TEST_SUITE_QUEUE:
+          {
+            "event": "TEST_SUITE_RUN",
+            "test_suite_id": suite_id,
+            "run_id": run.id,
+            "test_data": test_data,
+            "requested_by": current_user.id
+          }
+      - Return TestSuiteRunResponse
+
+    get_run_status(run_id, current_user, db)
+      - Return TestSuiteRun with summary stats
+
+    list_runs(suite_id, current_user, db)
+      - Paginated list of runs for a suite
+
+  ────────────────────────────────────────────────────────────────────────────
+  3.3  ROUTER  (backend/app/routers/test_suite_router.py)
+  ────────────────────────────────────────────────────────────────────────────
+
+  prefix = "/api/v1"
+  tags   = ["Test Suite"]
+
+  POST   /sites/{site_id}/test-suites            → create_test_suite
+  GET    /sites/{site_id}/test-suites            → list_test_suites
+  GET    /test-suites/{suite_id}                 → get_test_suite
+  PATCH  /test-suites/{suite_id}                 → update_test_suite
+  DELETE /test-suites/{suite_id}                 → delete_test_suite
+
+  POST   /test-suites/{suite_id}/run             → trigger_run
+  GET    /test-suites/{suite_id}/runs            → list_runs
+  GET    /test-suite-runs/{run_id}               → get_run_status
+
+  All endpoints: auth_required dependency.
+  Mutating endpoints: rate-limited via @limiter.limit("30/minute").
+
+  Register in app.py:
+    app.include_router(test_suite_router)
+
+  ────────────────────────────────────────────────────────────────────────────
+  3.4  RABBITMQ QUEUE  (llm-service)
+  ────────────────────────────────────────────────────────────────────────────
+
+  Add to settings (both backend and llm-service):
+    TEST_SUITE_QUEUE: str        — triggers a full suite run
+    TEST_SUITE_STATUS_QUEUE: str — backend WS consumer receives run updates
+
+  In llm-service/app/workers/worker.py, add handler:
+
+    async def process_test_suite_run(self, body: dict):
+      suite_id    = body["test_suite_id"]
+      run_id      = body["run_id"]
+      test_data   = body.get("test_data", {})
+      requested_by = body["requested_by"]
+
+      # 1. Load suite + steps in topological order
+      # 2. Walk the graph: for each step node, call
+      #      TestExecutionService.execute_scenario(
+      #          scenario_id, requested_by, test_suite_run_id=run_id)
+      # 3. After each step, evaluate outgoing edge conditions against
+      #    test_data + previous step outcome → pick which edge to follow
+      # 4. On completion, update TestSuiteRun.status + execution_summary
+      # 5. Publish to TEST_SUITE_STATUS_QUEUE for WebSocket broadcast
+
+  Add to queue_router.py:
+    settings.TEST_SUITE_QUEUE: worker_service.process_test_suite_run
+
+  ────────────────────────────────────────────────────────────────────────────
+  3.5  GRAPH WALKER LOGIC (inside process_test_suite_run)
+  ────────────────────────────────────────────────────────────────────────────
+
+  def _evaluate_condition(condition: dict, test_data: dict, last_result: str) -> bool:
+      """
+      Evaluates a branch condition.
+      condition = {"field": "role", "op": "eq", "value": "lead"}
+              OR  {"field": "_outcome", "op": "eq", "value": "passed"}
+      """
+      field = condition.get("field")
+      op    = condition.get("op")
+      value = condition.get("value")
+
+      if field == "_outcome":
+          actual = last_result   # "passed" | "failed" | "error"
+      else:
+          actual = test_data.get(field)
+
+      ops = {
+          "eq":  lambda a, b: a == b,
+          "neq": lambda a, b: a != b,
+          "in":  lambda a, b: a in b.split(","),
+      }
+      return ops.get(op, lambda a, b: False)(actual, value)
+
+
+  def _walk_graph(nodes, edges, test_data, execution_results):
+      """
+      Topological walk of the flowchart.
+      Returns an ordered list of node IDs to execute.
+      """
+      # Build adjacency map
+      adj = defaultdict(list)   # source_node_id → [(target_node_id, condition)]
+      for edge in edges:
+          adj[edge["source"]].append((edge["target"], edge.get("condition")))
+
+      # Find start node
+      target_ids = {e["target"] for e in edges}
+      start_nodes = [n for n in nodes if n["id"] not in target_ids]
+
+      execution_order = []
+      visited = set()
+      queue = deque(start_nodes)
+
+      while queue:
+          node = queue.popleft()
+          if node["id"] in visited:
+              continue
+          visited.add(node["id"])
+          if node["data"]["node_type"] not in ("start", "end"):
+              execution_order.append(node["id"])
+
+          last_result = execution_results.get(node["id"], "passed")
+          candidates = adj[node["id"]]
+
+          if not candidates:
+              continue
+          # Filter edges that have no condition — always follow
+          unconditional = [(t, c) for t, c in candidates if c is None]
+          conditional   = [(t, c) for t, c in candidates if c is not None]
+
+          followed = False
+          for target, cond in conditional:
+              if _evaluate_condition(cond, test_data, last_result):
+                  queue.append(_node_by_id(nodes, target))
+                  followed = True
+                  break
+
+          if not followed:
+              for target, _ in unconditional:
+                  queue.append(_node_by_id(nodes, target))
+
+      return execution_order
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — FRONTEND IMPLEMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.1  FLOWCHART LIBRARY CHOICE — React Flow (reactflow)
+  ────────────────────────────────────────────────────────────────────────────
+
+  Recommended: @xyflow/react (React Flow v12)
+  Package:     npm install @xyflow/react
+
+  Why React Flow over draw2d:
+    - draw2d is a jQuery-era library (last release 2020). No React support.
+    - React Flow is the modern standard, React-native, TypeScript-first,
+      actively maintained, and purpose-built for node-edge diagrams.
+    - Supports custom nodes, custom edges, and programmatic layout.
+    - Has built-in minimap, controls, and background components.
+    - Works with React 19.
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.2  NEW FILES TO CREATE
+  ────────────────────────────────────────────────────────────────────────────
+
+  frontend/src/
+  ├── types/
+  │   └── testSuite.ts               ← TypeScript types
+  ├── utils/apis/
+  │   └── testSuiteApi.ts            ← API calls
+  └── components/site/TestSuite/
+      ├── index.tsx                  ← Main export (replaces empty TestSuite.tsx)
+      ├── TestSuiteList.tsx          ← List of suites with create button
+      ├── TestSuiteBuilder.tsx       ← Flowchart builder (main canvas page)
+      ├── TestSuiteRunPanel.tsx      ← Run history + trigger run panel
+      ├── nodes/
+      │   ├── StepNode.tsx           ← Custom flowchart node: shows page+scenario
+      │   ├── StartNode.tsx          ← Green start circle
+      │   └── EndNode.tsx            ← Red end circle
+      ├── edges/
+      │   └── ConditionEdge.tsx      ← Custom edge with condition label
+      ├── dialogs/
+      │   ├── CreateSuiteDialog.tsx  ← Title + description form
+      │   ├── EditStepDialog.tsx     ← Link a node to page + scenario
+      │   └── EditEdgeDialog.tsx     ← Set branch condition on an edge
+      └── panels/
+          └── SuiteToolbar.tsx       ← Save / Run / Back toolbar
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.3  TypeScript TYPES  (frontend/src/types/testSuite.ts)
+  ────────────────────────────────────────────────────────────────────────────
+
+  export type FlowNodeType = "start" | "end" | "step" | "branch"
+
+  export interface FlowNodeData {
+    label: string
+    node_type: FlowNodeType
+    page_id?: number
+    scenario_id?: number
+    page_title?: string
+    scenario_title?: string
+  }
+
+  export interface FlowEdgeCondition {
+    field: string     // e.g. "role" or "_outcome"
+    op: "eq" | "neq" | "in"
+    value: string
+  }
+
+  export interface TestSuiteFlowEdge {
+    id: string
+    source: string
+    target: string
+    label?: string
+    condition?: FlowEdgeCondition
+  }
+
+  export interface TestSuiteFlowDefinition {
+    nodes: Node<FlowNodeData>[]    // React Flow Node type
+    edges: TestSuiteFlowEdge[]
+  }
+
+  export interface TestSuite {
+    id: number
+    site_id: number
+    title: string
+    description?: string
+    status: "draft" | "ready" | "running" | "done" | "failed"
+    scenario_count?: number
+    test_case_count?: number
+    flow_definition?: TestSuiteFlowDefinition
+    created_on?: string
+    created_by?: number
+    updated_on?: string
+  }
+
+  export interface TestSuiteRun {
+    id: number
+    test_suite_id: number
+    status: "pending" | "running" | "passed" | "partially_passed" | "failed" | "error"
+    started_on?: string
+    completed_on?: string
+    execution_summary?: {
+      total: number
+      passed: number
+      failed: number
+      skipped: number
+    }
+    executed_by?: number
+  }
+
+  export interface CreateSuitePayload {
+    title: string
+    description?: string
+  }
+
+  export interface UpdateSuitePayload {
+    title?: string
+    description?: string
+    flow_definition?: TestSuiteFlowDefinition
+    status?: "draft" | "ready"
+  }
+
+  export interface TriggerRunPayload {
+    test_data?: Record<string, string>
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.4  API LAYER  (frontend/src/utils/apis/testSuiteApi.ts)
+  ────────────────────────────────────────────────────────────────────────────
+
+  const BASE = "/api/v1"
+
+  export const testSuiteApi = {
+    list:        (siteId: number) =>
+                   axios.get(`${BASE}/sites/${siteId}/test-suites`),
+    get:         (suiteId: number) =>
+                   axios.get(`${BASE}/test-suites/${suiteId}`),
+    create:      (siteId: number, payload: CreateSuitePayload) =>
+                   axios.post(`${BASE}/sites/${siteId}/test-suites`, payload),
+    update:      (suiteId: number, payload: UpdateSuitePayload) =>
+                   axios.patch(`${BASE}/test-suites/${suiteId}`, payload),
+    delete:      (suiteId: number) =>
+                   axios.delete(`${BASE}/test-suites/${suiteId}`),
+    triggerRun:  (suiteId: number, payload: TriggerRunPayload) =>
+                   axios.post(`${BASE}/test-suites/${suiteId}/run`, payload),
+    listRuns:    (suiteId: number) =>
+                   axios.get(`${BASE}/test-suites/${suiteId}/runs`),
+    getRun:      (runId: number) =>
+                   axios.get(`${BASE}/test-suite-runs/${runId}`),
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.5  TestSuiteList.tsx — SUITE LIST PAGE
+  ────────────────────────────────────────────────────────────────────────────
+
+  Purpose: Shows all suites for a site. Entry point at /site-info/:id/test-suite
+
+  UI layout:
+    ┌────────────────────────────────────────────────────────────┐
+    │  Test Suites                           [+ Create Suite]    │
+    ├────────────────────────────────────────────────────────────┤
+    │  Title          Status    Scenarios  Cases  Created        │
+    │  ───────────    ────────  ─────────  ─────  ───────────    │
+    │  Login Flow     ready     4          12     2026-03-15     │
+    │  HR Workflow    draft     2           6     2026-03-18     │
+    └────────────────────────────────────────────────────────────┘
+
+  Clicking a row navigates to:
+    /site-info/:siteId/test-suite/:suiteId  (builder canvas)
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.6  TestSuiteBuilder.tsx — FLOWCHART CANVAS
+  ────────────────────────────────────────────────────────────────────────────
+
+  This is the core component. It renders the React Flow canvas.
+
+  State:
+    nodes: Node<FlowNodeData>[]   — from suite.flow_definition.nodes
+    edges: Edge[]                 — from suite.flow_definition.edges
+    isDirty: boolean              — unsaved changes
+    selectedNode: string | null
+    selectedEdge: string | null
+
+  On load:
+    Fetch suite by ID → initialise nodes + edges from flow_definition.
+    If flow_definition is null → initialise with [START node] + [END node].
+
+  Node types registered with React Flow:
+    "start"  → StartNode  (green circle, no delete button, not connectable as target)
+    "end"    → EndNode    (red circle, no delete button, not connectable as source)
+    "step"   → StepNode   (card showing page title + scenario title + status badge)
+
+  Edge types registered with React Flow:
+    "condition" → ConditionEdge  (shows label if condition set, edit button on hover)
+
+  Toolbar actions (SuiteToolbar):
+    [+ Add Step]   → adds a new blank StepNode at the centre of the canvas
+    [Save]         → calls api.update with current nodes/edges as flow_definition
+                     + re-syncs TestSuiteStep rows on backend
+    [Mark Ready]   → sets suite.status = "ready" (validates all nodes have scenario)
+    [Run]          → opens TestSuiteRunPanel / trigger run dialog
+    [← Back]       → navigates back to list (warns if isDirty)
+
+  Node interactions:
+    Double-click node  → opens EditStepDialog to set page + scenario
+    Click delete on node → removes node + its connected edges
+    Drag node          → React Flow built-in, updates position in state
+
+  Edge interactions:
+    Double-click edge  → opens EditEdgeDialog to set branch condition
+    Click delete on edge → removes edge
+
+  Validation before "Mark Ready":
+    - All step nodes must have page_id + scenario_id set
+    - Graph must be connected (no orphaned nodes)
+    - Graph must have exactly one START and one END node
+    - No cycles (topological sort must succeed)
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.7  StepNode.tsx — CUSTOM NODE COMPONENT
+  ────────────────────────────────────────────────────────────────────────────
+
+  Visual design:
+
+    ┌──────────────────────────────────────┐
+    │ ● Login Page                [✕]      │
+    │ ─────────────────────────────────    │
+    │ Scenario: Auth Positive Flow         │
+    │                                      │
+    │ Category: auth-positive              │
+    └──────────────────────────────────────┘
+    (handles on top/bottom for connect)
+
+  Props (from data field):
+    label, page_id, scenario_id, page_title, scenario_title, node_type
+
+  Color coding by category:
+    auth-positive     → green border
+    auth-negative     → red border
+    functional        → blue border
+    navigation        → purple border
+    form              → orange border
+    ui-validation     → yellow border
+    (unlinked)        → grey border + dashed
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.8  EditStepDialog.tsx — LINK NODE TO PAGE + SCENARIO
+  ────────────────────────────────────────────────────────────────────────────
+
+  Form fields:
+    Step Label      [text input]
+    Page            [dropdown — lists all pages of the site, shows page_title]
+    Scenario        [dropdown — filtered by selected page, shows title + category]
+
+  On page change: re-fetch scenarios for that page.
+  On save: update node.data in React Flow state + set isDirty = true.
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.9  EditEdgeDialog.tsx — BRANCH CONDITION EDITOR
+  ────────────────────────────────────────────────────────────────────────────
+
+  Form fields:
+    Edge Label          [text input]  — shown on the edge
+    Condition Type      [select]
+      - Always (no condition)
+      - Based on test data field
+      - Based on previous step outcome
+
+    If "test data field":
+      Field name   [text input]       e.g. "role", "account_type"
+      Operator     [select: equals / not equals / is one of]
+      Value        [text input]       e.g. "lead", "HR"
+
+    If "previous step outcome":
+      Operator     [select: equals / not equals]
+      Value        [select: passed / failed / error]
+
+  On save: update edge in React Flow state + set isDirty = true.
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.10  TestSuiteRunPanel.tsx — RUN HISTORY + TRIGGER
+  ────────────────────────────────────────────────────────────────────────────
+
+  Trigger Run dialog:
+    Test Data Overrides   [JSON editor or key-value pairs]
+      e.g. {"role": "lead", "account_type": "corporate"}
+    [Run Suite] button → calls triggerRun API
+
+  Run History table:
+    Run #   Status        Started         Duration   Cases P/F/S
+    ──────  ────────────  ──────────────  ─────────  ───────────
+    #3      passed        2026-03-19      2m 14s     12 / 0 / 0
+    #2      partially     2026-03-18      1m 48s      9 / 3 / 0
+    #1      failed        2026-03-17      0m 43s      4 / 8 / 0
+
+  Clicking a run row expands it showing per-step execution details
+  pulled from TestExecution table (grouped by test_suite_run_id).
+
+  Real-time updates:
+    WebSocket messages with event "TEST_SUITE_STATUS_UPDATE" update the
+    run status in place without page refresh.
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.11  ROUTING UPDATE  (frontend/src/routes/router.tsx)
+  ────────────────────────────────────────────────────────────────────────────
+
+  Current route (empty component):
+    { path: ":id/test-suite", element: <TestSuite /> }
+
+  Replace with nested routes:
+    {
+      path: ":id/test-suite",
+      children: [
+        { index: true,         element: <TestSuiteList /> },
+        { path: ":suiteId",    element: <TestSuiteBuilder /> },
+      ]
+    }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — EXECUTION ENGINE (llm-service)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  File: llm-service/app/services/test_suite_execution_service.py
+
+  class TestSuiteExecutionService:
+
+    def run(self, suite_id, run_id, test_data, requested_by):
+      db = SessionLocal()
+      try:
+        run = db.query(TestSuiteRun).filter_by(id=run_id).first()
+        run.status = "running"
+        run.started_on = datetime.utcnow()
+        db.commit()
+
+        suite = db.query(TestSuite).filter_by(id=suite_id).first()
+        flow  = suite.flow_definition  # dict with nodes + edges
+
+        # Walk the graph → ordered list of node_ids to execute
+        execution_order = _walk_graph(flow["nodes"], flow["edges"],
+                                       test_data, {})
+
+        results = {}    # node_id → "passed" | "failed" | "error"
+        summary = {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
+
+        for node_id in execution_order:
+          node = _node_by_id(flow["nodes"], node_id)
+          scenario_id = node["data"].get("scenario_id")
+          if not scenario_id:
+            results[node_id] = "skipped"
+            summary["skipped"] += 1
+            continue
+
+          # Retrieve scenario + page
+          step_result = TestExecutionService(
+              llm=LLMWrapper(db=db),
+              prompt_manager=PromptManager(),
+              logger=logger,
+          ).execute_scenario(
+              scenario_id=scenario_id,
+              requested_by=requested_by,
+              test_suite_id=suite_id,
+              test_suite_run_id=run_id,
+          )
+
+          outcome = "passed" if step_result["passed"] else "failed"
+          results[node_id] = outcome
+          summary["total"]  += step_result["total"]
+          summary["passed"] += step_result["passed_count"]
+          summary["failed"] += step_result["failed_count"]
+
+          # Re-evaluate graph with updated results for branching
+          execution_order = _walk_graph(flow["nodes"], flow["edges"],
+                                         test_data, results)
+
+          # Notify WebSocket after each step
+          self._notify_suite_ws(run_id, suite_id, outcome, summary, requested_by)
+
+        # Determine final status
+        if summary["failed"] == 0:
+            final = "passed"
+        elif summary["passed"] > 0:
+            final = "partially_passed"
+        else:
+            final = "failed"
+
+        run.status = final
+        run.completed_on = datetime.utcnow()
+        run.execution_summary = summary
+        db.commit()
+
+      finally:
+        db.close()
+
+  NOTE: execute_scenario() is a new method to add to TestExecutionService
+  that runs all test cases for a single scenario and returns aggregate counts.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — TEST CASES (Valid / Invalid Coverage)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Each API endpoint + each frontend interaction needs valid and invalid test
+  coverage. The following are all test cases to implement or verify.
+
+  ────────────────────────────────────────────────────────────────────────────
+  6.1  BACKEND API TEST CASES
+  ────────────────────────────────────────────────────────────────────────────
+
+  POST /sites/{site_id}/test-suites
+
+    VALID:
+    TC-01  Create suite with title only → 201, suite returned with status="draft"
+    TC-02  Create suite with title + description + flow_definition → 201, full object
+
+    INVALID:
+    TC-03  site_id does not exist → 404
+    TC-04  site_id belongs to another user → 403
+    TC-05  title is empty string → 422
+    TC-06  title exceeds 200 chars → 422
+    TC-07  description exceeds 500 chars → 422
+    TC-08  flow_definition has extra/unknown fields → 422 (extra="forbid")
+    TC-09  flow_definition.nodes contains node with invalid node_type → 422
+    TC-10  Unauthenticated request → 401
+
+
+  GET /test-suites/{suite_id}
+
+    VALID:
+    TC-11  Get own suite → 200, full flow_definition returned
+
+    INVALID:
+    TC-12  suite_id does not exist → 404
+    TC-13  suite belongs to another user's site → 403
+    TC-14  Unauthenticated → 401
+
+
+  PATCH /test-suites/{suite_id}
+
+    VALID:
+    TC-15  Update title only → 200, other fields unchanged
+    TC-16  Update flow_definition with valid nodes/edges → 200,
+           TestSuiteStep rows re-synced in DB
+    TC-17  Set status="ready" with all nodes linked → 200
+
+    INVALID:
+    TC-18  Set status="ready" when a step node has no scenario_id → 422
+    TC-19  title = null → 422 (if title is required on update)
+    TC-20  Set status to "running" via API (not allowed directly) → 422
+    TC-21  flow_definition with cyclic edges → 422
+           (backend should validate no cycles)
+    TC-22  flow_definition with no START node → 422
+    TC-23  flow_definition with no END node → 422
+    TC-24  Another user's suite → 403
+
+
+  DELETE /test-suites/{suite_id}
+
+    VALID:
+    TC-25  Delete own draft suite → 204
+    TC-26  Delete own ready suite → 204, all steps + runs cascade deleted
+
+    INVALID:
+    TC-27  Delete suite with status="running" → 409 Conflict
+    TC-28  Another user's suite → 403
+    TC-29  Non-existent suite → 404
+
+
+  POST /test-suites/{suite_id}/run
+
+    VALID:
+    TC-30  Trigger run on ready suite, no test_data → 202, run_id returned
+    TC-31  Trigger run with test_data {"role": "lead"} → 202, run queued
+
+    INVALID:
+    TC-32  Suite is in "draft" status (not ready) → 409
+    TC-33  Suite is already "running" → 409 (prevent concurrent runs)
+    TC-34  test_data value is not a string → 422
+    TC-35  Suite has no steps → 409
+    TC-36  Another user's suite → 403
+
+
+  GET /test-suite-runs/{run_id}
+
+    VALID:
+    TC-37  Get own run in "running" state → 200, status="running"
+    TC-38  Get own completed run → 200, summary stats present
+
+    INVALID:
+    TC-39  run_id not found → 404
+    TC-40  Run belongs to another user's suite → 403
+
+
+  ────────────────────────────────────────────────────────────────────────────
+  6.2  GRAPH WALKER UNIT TEST CASES
+  ────────────────────────────────────────────────────────────────────────────
+
+  Linear flow (A → B → C):
+    TC-41  All steps pass → execution_order = [A, B, C]
+    TC-42  Step B fails → C still executes (no condition on edge)
+
+  Branching flow (A → (role=lead) B, (role=HR) C):
+    TC-43  test_data={"role": "lead"} → executes [A, B], skips C
+    TC-44  test_data={"role": "HR"} → executes [A, C], skips B
+    TC-45  test_data={} (no role) → no conditional edge matches,
+           falls through to unconditional edge if present, else stops
+
+  Outcome-based branching (A → (_outcome=passed) B, (_outcome=failed) C):
+    TC-46  A passes → executes B
+    TC-47  A fails → executes C
+
+  Edge cases:
+    TC-48  Cycle in graph → _walk_graph returns without infinite loop
+           (visited set prevents revisiting)
+    TC-49  Disconnected node (no edges) → skipped (not reachable from start)
+    TC-50  Multiple START nodes → picks first one found (warn in log)
+    TC-51  Node with scenario_id=None → result="skipped", continues
+
+
+  ────────────────────────────────────────────────────────────────────────────
+  6.3  FRONTEND / UI TEST CASES
+  ────────────────────────────────────────────────────────────────────────────
+
+  TestSuiteList:
+    TC-52  Page loads with 0 suites → empty state shown, Create button visible
+    TC-53  Creating a suite with valid title → suite appears in list
+    TC-54  Creating a suite with empty title → inline validation error shown
+    TC-55  Clicking a suite row → navigates to builder canvas
+
+  TestSuiteBuilder — canvas:
+    TC-56  Loading suite with flow_definition → nodes render in correct positions
+    TC-57  Loading suite with null flow_definition → default START + END nodes
+    TC-58  Adding a step node → new blank grey StepNode appears in canvas
+    TC-59  Connecting two nodes → edge created
+    TC-60  Deleting a node → node + all its edges removed
+    TC-61  Deleting a node with no edges → node removed cleanly
+    TC-62  Clicking Save → PATCH request sent, success toast shown, isDirty=false
+    TC-63  Navigating away with unsaved changes → warn dialog appears
+
+  EditStepDialog:
+    TC-64  Opening dialog on unlinked node → page dropdown populated from site
+    TC-65  Selecting a page → scenario dropdown populates with that page's scenarios
+    TC-66  Saving → node updates in canvas (colour border changes to category colour)
+    TC-67  Clearing page selection → scenario dropdown resets
+    TC-68  Saving without selecting scenario → validation error shown
+
+  EditEdgeDialog:
+    TC-69  Setting condition (field=role, op=eq, value=lead) → edge label shows "role=lead"
+    TC-70  Changing condition type to "Always" → condition cleared from edge
+    TC-71  Leaving value empty → validation error
+
+  Mark Ready:
+    TC-72  All nodes linked → status set to "ready", Run button enabled
+    TC-73  Any node unlinked → validation error toast, status stays "draft"
+    TC-74  Graph has no edges → validation error (disconnected)
+
+  Run Panel:
+    TC-75  Triggering run → run appears in history with "pending" status
+    TC-76  WebSocket update received → run status updates in real-time
+    TC-77  Run completes "passed" → green badge shown in history
+    TC-78  Run with test_data={"role":"lead"} → triggers correctly
+
+  TestSuiteRunPanel — edge cases:
+    TC-79  Run while another run is "running" → error toast (409 from API)
+    TC-80  Suite in "draft" status → Run button disabled with tooltip
+
+
+  ────────────────────────────────────────────────────────────────────────────
+  6.4  EXECUTION ENGINE TEST CASES  (llm-service)
+  ────────────────────────────────────────────────────────────────────────────
+
+  TC-81  Full suite run: 3 steps, all scripts exist → all 3 execute in order
+  TC-82  Step has no script → step skipped, next step still executes
+  TC-83  Step 1 fails, no condition on edge → step 2 still runs
+  TC-84  Step 1 fails, edge condition (_outcome=passed) → step 2 skipped
+  TC-85  test_data branch: role=lead takes left path, role=HR takes right
+  TC-86  DB session closed properly after run (no leaked connections)
+  TC-87  TestSuiteRun.status set to "failed" when all steps fail
+  TC-88  TestSuiteRun.status set to "partially_passed" when some fail
+  TC-89  TestSuiteRun.status set to "passed" when all steps pass
+  TC-90  WebSocket notification published after each step completes
+  TC-91  WebSocket final notification published on suite completion
+  TC-92  Exception in step → error logged, run.status set to "error",
+         does not crash the consumer process
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — IMPLEMENTATION STEPS (IN ORDER)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PHASE 1 — Data layer
+
+    Step 1.  Write Alembic migration: extend test_suite table
+               (add description, status, flow_definition, updated_on, updated_by)
+
+    Step 2.  Write Alembic migration: create test_suite_step table
+
+    Step 3.  Write Alembic migration: create test_suite_run table
+
+    Step 4.  Write Alembic migration: add test_suite_run_id to test_execution
+
+    Step 5.  Update shared_orm/models/test_suite.py with new columns
+    Step 6.  Create shared_orm/models/test_suite_step.py
+    Step 7.  Create shared_orm/models/test_suite_run.py
+    Step 8.  Update shared_orm/models/test_execution.py (add test_suite_run_id)
+    Step 9.  Update shared_orm/__init__.py to export new models
+
+    Step 10. Run alembic upgrade head, verify migrations pass
+
+
+  PHASE 2 — Backend API
+
+    Step 11. Create backend/app/schemas/test_suite_schema.py
+    Step 12. Create backend/app/services/test_suite_service.py
+    Step 13. Create backend/app/routers/test_suite_router.py
+    Step 14. Register router in backend/app/app.py
+    Step 15. Add TEST_SUITE_QUEUE + TEST_SUITE_STATUS_QUEUE to settings + .env
+    Step 16. Add queue to backend RabbitMQ consumer map
+
+
+  PHASE 3 — LLM Service execution engine
+
+    Step 17. Add execute_scenario() method to
+               llm-service/app/services/test_execution_service.py
+
+    Step 18. Create
+               llm-service/app/services/test_suite_execution_service.py
+
+    Step 19. Add process_test_suite_run() handler to
+               llm-service/app/workers/worker.py
+
+    Step 20. Register TEST_SUITE_QUEUE in
+               llm-service/app/workers/queue_router.py
+
+    Step 21. Add TEST_SUITE_STATUS_QUEUE processing in
+               backend/app/workers/worker.py (WS consumer)
+
+
+  PHASE 4 — Frontend
+
+    Step 22. Install: npm install @xyflow/react
+
+    Step 23. Create frontend/src/types/testSuite.ts
+
+    Step 24. Create frontend/src/utils/apis/testSuiteApi.ts
+
+    Step 25. Create components/site/TestSuite/nodes/ (StepNode, StartNode, EndNode)
+
+    Step 26. Create components/site/TestSuite/edges/ (ConditionEdge)
+
+    Step 27. Create components/site/TestSuite/dialogs/
+               (CreateSuiteDialog, EditStepDialog, EditEdgeDialog)
+
+    Step 28. Create components/site/TestSuite/TestSuiteList.tsx
+
+    Step 29. Create components/site/TestSuite/TestSuiteBuilder.tsx
+
+    Step 30. Create components/site/TestSuite/TestSuiteRunPanel.tsx
+
+    Step 31. Create components/site/TestSuite/index.tsx (exports list page)
+
+    Step 32. Update router.tsx to add nested routes under :id/test-suite
+
+    Step 33. Add "TEST_SUITE_STATUS_UPDATE" message type to
+               WebSocketProvider.tsx for real-time run status updates
+
+
+  PHASE 5 — Integration testing
+
+    Step 34. Create a 2-page test site: Login page + Dashboard page
+    Step 35. Build suite: Login → Dashboard with "role=admin" condition
+    Step 36. Trigger run with test_data={"role":"admin"} → verify full chain
+    Step 37. Trigger run with test_data={"role":"user"} → verify correct branch
+    Step 38. Run all TC-01 through TC-92 above
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 — FILE REFERENCE SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  NEW FILES TO CREATE:
+  ─────────────────────────────────────────────────────────────────────────
+  shared/shared_orm/models/test_suite_step.py
+  shared/shared_orm/models/test_suite_run.py
+
+  backend/alembic/versions/XXXX_extend_test_suite_table.py
+  backend/alembic/versions/XXXX_create_test_suite_step_table.py
+  backend/alembic/versions/XXXX_create_test_suite_run_table.py
+  backend/alembic/versions/XXXX_add_suite_run_id_to_test_execution.py
+  backend/app/schemas/test_suite_schema.py
+  backend/app/services/test_suite_service.py
+  backend/app/routers/test_suite_router.py
+
+  llm-service/app/services/test_suite_execution_service.py
+
+  frontend/src/types/testSuite.ts
+  frontend/src/utils/apis/testSuiteApi.ts
+  frontend/src/components/site/TestSuite/index.tsx
+  frontend/src/components/site/TestSuite/TestSuiteList.tsx
+  frontend/src/components/site/TestSuite/TestSuiteBuilder.tsx
+  frontend/src/components/site/TestSuite/TestSuiteRunPanel.tsx
+  frontend/src/components/site/TestSuite/panels/SuiteToolbar.tsx
+  frontend/src/components/site/TestSuite/nodes/StartNode.tsx
+  frontend/src/components/site/TestSuite/nodes/EndNode.tsx
+  frontend/src/components/site/TestSuite/nodes/StepNode.tsx
+  frontend/src/components/site/TestSuite/edges/ConditionEdge.tsx
+  frontend/src/components/site/TestSuite/dialogs/CreateSuiteDialog.tsx
+  frontend/src/components/site/TestSuite/dialogs/EditStepDialog.tsx
+  frontend/src/components/site/TestSuite/dialogs/EditEdgeDialog.tsx
+
+  FILES TO MODIFY:
+  ─────────────────────────────────────────────────────────────────────────
+  shared/shared_orm/models/test_suite.py          ← add new columns
+  shared/shared_orm/models/test_execution.py      ← add test_suite_run_id
+  shared/shared_orm/__init__.py                   ← export new models
+
+  backend/app/app.py                              ← register test_suite_router
+  backend/app/config/setting.py                   ← add queue names
+  backend/app/workers/worker.py                   ← handle TEST_SUITE_STATUS_UPDATE
+
+  llm-service/app/services/test_execution_service.py  ← add execute_scenario()
+  llm-service/app/workers/worker.py               ← add process_test_suite_run()
+  llm-service/app/workers/queue_router.py         ← register TEST_SUITE_QUEUE
+  llm-service/app/config/setting.py               ← add queue names
+
+  frontend/src/routes/router.tsx                  ← add nested suite routes
+  frontend/src/contexts/WebSocketProvider.tsx     ← handle suite status events
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================

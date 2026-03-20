@@ -1,0 +1,1776 @@
+================================================================================
+  TEST SUITE — REAL-TIME EXAMPLE WITH EXACT CODEBASE DATA FORMATS
+  Project: AUTOTEST v2
+  Application Under Test: HR Performance Management System
+  Site URL: https://hrms.example.com
+  Date: 2026-03-20
+================================================================================
+
+  This document uses the EXACT data structures from the codebase:
+  - page.page_metadata        → format from prompts4.yaml llm_page_analysis output
+  - test_scenario.data        → format from prompts4.yaml test_scenario output
+  - test_case.data            → format from test_case_service.py persistence structure
+  - test_case.expected_outcome → format from prompts4.yaml test_cases output
+  - test_case.validation      → format from test_case_service.py persistence structure
+  - flow_definition           → format from test_suite_design.txt
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 0 — THE TEST SUITE WE ARE BUILDING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Suite Name:    "Goal Setting Workflow — Multi-Role Suite"
+  Feature:       Full goal-setting journey for 2 roles (Employee vs Lead)
+  Site:          https://hrms.example.com
+
+  Journey overview:
+    All roles:  Login → HR Dashboard
+    Employee:   HR Dashboard → Goal Sheet → Add 5 Goals → Submit Goals
+    Lead:       HR Dashboard → Goal Sheet → Review Goals → Approve Goals
+
+  Pages involved:
+    Page 1 (id=1):  Login Page           https://hrms.example.com/login
+    Page 2 (id=2):  HR Dashboard         https://hrms.example.com/dashboard
+    Page 3 (id=3):  Goal Sheet           https://hrms.example.com/goals
+    Page 4 (id=4):  Approve Goals Panel  https://hrms.example.com/goals/approve
+
+  Scenarios used in the suite:
+    Scenario 10 (page 1): Valid Employee Login          → auth-positive
+    Scenario 11 (page 1): Invalid Login — Wrong Pass    → auth-negative
+    Scenario 20 (page 2): View Dashboard Stats          → functional
+    Scenario 30 (page 3): Add 5 New Goals               → functional
+    Scenario 31 (page 3): Submit Goals for Review       → functional
+    Scenario 32 (page 3): View Existing Goals (as Lead) → functional
+    Scenario 40 (page 4): Approve All Goals             → functional
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — SITE RECORD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Table: site
+  Model:  shared_orm/models/site.py
+
+  {
+    "id":         1,
+    "site_title": "HRMS Performance Portal",
+    "site_url":   "https://hrms.example.com",
+    "status":     "Done",
+    "created_on": "2026-03-01T09:00:00",
+    "created_by": 1,
+    "updated_on": "2026-03-10T14:30:00",
+    "updated_by": 1
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — PAGE RECORDS (with exact page_metadata format)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Table: page
+  Model:  shared_orm/models/page.py
+  page_metadata format: prompts4.yaml → llm_page_analysis output schema
+
+  ────────────────────────────────────────────────────────────────────────────
+  PAGE 1 — Login Page
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":               1,
+    "site_id":          1,
+    "page_url":         "https://hrms.example.com/login",
+    "page_title":       "Login — HRMS",
+    "status":           "done",
+    "is_auth_detected": true,
+    "created_on":       "2026-03-01T09:05:00",
+    "created_by":       1,
+    "updated_on":       "2026-03-01T09:12:00",
+    "updated_by":       1,
+
+    "page_metadata": {
+      "auth_requirements": {
+        "auth_required": true,
+        "auth_type": "login",
+        "auth_fields": [
+          {
+            "name": "email",
+            "type": "email",
+            "required": true,
+            "selector": "#email",
+            "validation_indicators": [
+              {
+                "type": "class",
+                "value": "is-invalid",
+                "description": "Red border appears on invalid email"
+              },
+              {
+                "type": "element",
+                "value": ".invalid-feedback",
+                "description": "Error message shown below field"
+              }
+            ],
+            "default_value": null
+          },
+          {
+            "name": "password",
+            "type": "password",
+            "required": true,
+            "selector": "#password",
+            "validation_indicators": [
+              {
+                "type": "class",
+                "value": "is-invalid",
+                "description": "Red border on incorrect password"
+              }
+            ],
+            "default_value": null
+          }
+        ],
+        "credentials_hint": null
+      },
+      "contact_form_fields": [
+        {
+          "id": "loginForm",
+          "action": "/auth/login",
+          "method": "post",
+          "fields": [
+            {
+              "name": "email",
+              "type": "email",
+              "required": true,
+              "selector": "#email",
+              "validation_indicators": [
+                {
+                  "type": "element",
+                  "value": ".invalid-feedback",
+                  "description": "Inline error message"
+                }
+              ]
+            },
+            {
+              "name": "password",
+              "type": "password",
+              "required": true,
+              "selector": "#password",
+              "validation_indicators": []
+            }
+          ],
+          "submit_button": {
+            "text": "Sign In",
+            "selector": "button[type='submit']"
+          }
+        }
+      ],
+      "interactive_elements": [
+        {
+          "type": "link",
+          "text": "Forgot Password?",
+          "selector": "a.forgot-password",
+          "action": "click",
+          "expected_outcome": "redirects to /forgot-password",
+          "sub_elements": []
+        }
+      ],
+      "ui_validation_indicators": [
+        {
+          "element_selector": "#password",
+          "validation_type": "masking",
+          "validation_value": "masked",
+          "description": "Password characters are masked by default"
+        }
+      ],
+      "main_content": "Login form with email and password fields",
+      "key_actions": ["Login with credentials", "Navigate to forgot password"],
+      "content_hierarchy": {
+        "primary_sections": ["Login Form"],
+        "subsections": ["Email Field", "Password Field", "Submit Button"]
+      },
+      "security_indicators": ["https", "csrf_token"]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  PAGE 2 — HR Dashboard
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":               2,
+    "site_id":          1,
+    "page_url":         "https://hrms.example.com/dashboard",
+    "page_title":       "Dashboard — HRMS",
+    "status":           "done",
+    "is_auth_detected": false,
+    "created_on":       "2026-03-01T09:13:00",
+    "created_by":       1,
+    "updated_on":       "2026-03-01T09:20:00",
+    "updated_by":       1,
+
+    "page_metadata": {
+      "auth_requirements": {
+        "auth_required": false,
+        "auth_type": "none",
+        "auth_fields": [],
+        "credentials_hint": null
+      },
+      "contact_form_fields": [],
+      "interactive_elements": [
+        {
+          "type": "menu",
+          "text": "Goals",
+          "selector": "nav a[href='/goals']",
+          "action": "click",
+          "expected_outcome": "redirects to /goals",
+          "sub_elements": []
+        },
+        {
+          "type": "button",
+          "text": "Logout",
+          "selector": "button#logout-btn",
+          "action": "click",
+          "expected_outcome": "redirects to /login",
+          "sub_elements": []
+        }
+      ],
+      "ui_validation_indicators": [],
+      "main_content": "Dashboard with stats cards for total goals, pending approvals, and team performance",
+      "key_actions": ["View performance statistics", "Navigate to Goal Sheet", "Logout"],
+      "content_hierarchy": {
+        "primary_sections": ["Stats Overview", "Navigation Menu", "Recent Activity"],
+        "subsections": ["Total Goals Card", "Pending Approvals Card", "Team Score Card"]
+      },
+      "security_indicators": ["https"]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  PAGE 3 — Goal Sheet
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":               3,
+    "site_id":          1,
+    "page_url":         "https://hrms.example.com/goals",
+    "page_title":       "Goal Sheet — HRMS",
+    "status":           "done",
+    "is_auth_detected": false,
+    "created_on":       "2026-03-01T09:21:00",
+    "created_by":       1,
+    "updated_on":       "2026-03-01T09:30:00",
+    "updated_by":       1,
+
+    "page_metadata": {
+      "auth_requirements": {
+        "auth_required": false,
+        "auth_type": "none",
+        "auth_fields": [],
+        "credentials_hint": null
+      },
+      "contact_form_fields": [
+        {
+          "id": "addGoalForm",
+          "action": "/goals/add",
+          "method": "post",
+          "fields": [
+            {
+              "name": "goal_title",
+              "type": "text",
+              "required": true,
+              "selector": "input#goal-title",
+              "validation_indicators": [
+                {
+                  "type": "class",
+                  "value": "error",
+                  "description": "Red border on empty submit"
+                }
+              ]
+            },
+            {
+              "name": "goal_description",
+              "type": "text",
+              "required": false,
+              "selector": "textarea#goal-description",
+              "validation_indicators": []
+            },
+            {
+              "name": "target_date",
+              "type": "text",
+              "required": true,
+              "selector": "input#target-date",
+              "validation_indicators": [
+                {
+                  "type": "attribute",
+                  "value": "pattern",
+                  "description": "Date format validation via pattern attribute"
+                }
+              ]
+            },
+            {
+              "name": "category",
+              "type": "select",
+              "required": true,
+              "selector": "select#goal-category",
+              "validation_indicators": []
+            }
+          ],
+          "submit_button": {
+            "text": "Add Goal",
+            "selector": "button#add-goal-btn"
+          }
+        }
+      ],
+      "interactive_elements": [
+        {
+          "type": "button",
+          "text": "Add Goal",
+          "selector": "button#add-goal-btn",
+          "action": "click",
+          "expected_outcome": "Submits the goal form, adds goal to list",
+          "sub_elements": []
+        },
+        {
+          "type": "button",
+          "text": "Submit All Goals",
+          "selector": "button#submit-goals-btn",
+          "action": "click",
+          "expected_outcome": "Submits all draft goals for review, shows success toast",
+          "sub_elements": []
+        },
+        {
+          "type": "button",
+          "text": "Delete",
+          "selector": ".goal-row button.delete-goal",
+          "action": "click",
+          "expected_outcome": "Removes goal from list with confirmation",
+          "sub_elements": []
+        }
+      ],
+      "ui_validation_indicators": [
+        {
+          "element_selector": "input#target-date",
+          "validation_type": "attribute",
+          "validation_value": "pattern",
+          "description": "Date must match YYYY-MM-DD pattern"
+        }
+      ],
+      "main_content": "Goal management page with a form to add goals and a table listing existing goals",
+      "key_actions": ["Add new goal", "Delete goal", "Submit all goals for review"],
+      "content_hierarchy": {
+        "primary_sections": ["Add Goal Form", "Goals List Table", "Submit Section"],
+        "subsections": ["Goal Title", "Description", "Target Date", "Category", "Goal Rows"]
+      },
+      "security_indicators": ["https", "csrf_token"]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  PAGE 4 — Approve Goals Panel
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":               4,
+    "site_id":          1,
+    "page_url":         "https://hrms.example.com/goals/approve",
+    "page_title":       "Approve Goals — HRMS",
+    "status":           "done",
+    "is_auth_detected": false,
+    "created_on":       "2026-03-01T09:31:00",
+    "created_by":       1,
+    "updated_on":       "2026-03-01T09:38:00",
+    "updated_by":       1,
+
+    "page_metadata": {
+      "auth_requirements": {
+        "auth_required": false,
+        "auth_type": "none",
+        "auth_fields": [],
+        "credentials_hint": null
+      },
+      "contact_form_fields": [],
+      "interactive_elements": [
+        {
+          "type": "button",
+          "text": "Approve",
+          "selector": ".goal-review-row button.approve-btn",
+          "action": "click",
+          "expected_outcome": "Marks goal as approved, updates row status",
+          "sub_elements": []
+        },
+        {
+          "type": "button",
+          "text": "Reject",
+          "selector": ".goal-review-row button.reject-btn",
+          "action": "click",
+          "expected_outcome": "Opens rejection reason modal",
+          "sub_elements": []
+        },
+        {
+          "type": "button",
+          "text": "Approve All",
+          "selector": "button#approve-all-btn",
+          "action": "click",
+          "expected_outcome": "Approves all pending goals, shows success toast",
+          "sub_elements": []
+        }
+      ],
+      "ui_validation_indicators": [],
+      "main_content": "Table of goals pending approval, each row showing employee name, goal title, and action buttons",
+      "key_actions": ["Approve individual goal", "Reject individual goal", "Approve all goals"],
+      "content_hierarchy": {
+        "primary_sections": ["Pending Goals Table", "Bulk Actions"],
+        "subsections": ["Employee Name", "Goal Title", "Target Date", "Approve/Reject Buttons"]
+      },
+      "security_indicators": ["https"]
+    }
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — TEST SCENARIO RECORDS (exact test_scenario.data format)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Table: test_scenario
+  Model:  shared_orm/models/test_scenario.py
+  data field format: prompts4.yaml → test_scenario generation output schema
+                     (the full scenario object from LLM is stored as-is)
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 10 — Valid Employee Login  (Page 1, auth-positive)
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":            10,
+    "page_id":       1,
+    "title":         "Valid Employee Login",
+    "type":          "auto-generated",
+    "category":      "auth-positive",
+    "requires_auth": false,
+    "created_on":    "2026-03-01T09:12:00",
+    "created_by":    1,
+
+    "data": {
+      "title":           "Valid Employee Login",
+      "category":        "auth-positive",
+      "flow_type":       "authentication",
+      "entry_point":     "https://hrms.example.com/login",
+      "exit_condition":  "User is redirected to /dashboard after successful login",
+      "flow_structure": {
+        "type":            "authentication",
+        "form_selector":   "#loginForm",
+        "fields": [
+          { "name": "email",    "selector": "#email",    "type": "email"    },
+          { "name": "password", "selector": "#password", "type": "password" }
+        ],
+        "submit_selector": "button[type='submit']"
+      },
+      "steps": [
+        { "action": "navigate", "target": "https://hrms.example.com/login" },
+        { "action": "fill_form", "target": "#email",    "value": "{{VALID_EMAIL}}" },
+        { "action": "fill_form", "target": "#password", "value": "{{VALID_PASSWORD}}" },
+        { "action": "submit_form", "target": "button[type='submit']" },
+        { "action": "wait", "target": "/dashboard" }
+      ]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 11 — Invalid Login — Wrong Password  (Page 1, auth-negative)
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":            11,
+    "page_id":       1,
+    "title":         "Invalid Login — Wrong Password",
+    "type":          "auto-generated",
+    "category":      "auth-negative",
+    "requires_auth": false,
+    "created_on":    "2026-03-01T09:12:00",
+    "created_by":    1,
+
+    "data": {
+      "title":           "Invalid Login — Wrong Password",
+      "category":        "auth-negative",
+      "flow_type":       "authentication",
+      "entry_point":     "https://hrms.example.com/login",
+      "exit_condition":  "Error message is shown, user remains on login page",
+      "flow_structure": {
+        "type":            "authentication",
+        "form_selector":   "#loginForm",
+        "fields": [
+          { "name": "email",    "selector": "#email",    "type": "email"    },
+          { "name": "password", "selector": "#password", "type": "password" }
+        ],
+        "submit_selector": "button[type='submit']"
+      },
+      "steps": [
+        { "action": "navigate",    "target": "https://hrms.example.com/login" },
+        { "action": "fill_form",   "target": "#email",             "value": "{{VALID_EMAIL}}" },
+        { "action": "fill_form",   "target": "#password",          "value": "{{INVALID_PASSWORD}}" },
+        { "action": "submit_form", "target": "button[type='submit']" },
+        { "action": "wait",        "target": ".invalid-feedback" }
+      ]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 20 — View Dashboard Stats  (Page 2, functional)
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":            20,
+    "page_id":       2,
+    "title":         "View Dashboard Stats",
+    "type":          "auto-generated",
+    "category":      "functional",
+    "requires_auth": true,
+    "created_on":    "2026-03-01T09:20:00",
+    "created_by":    1,
+
+    "data": {
+      "title":           "View Dashboard Stats",
+      "category":        "functional",
+      "flow_type":       "navigation",
+      "entry_point":     "https://hrms.example.com/dashboard",
+      "exit_condition":  "Dashboard loads with stats visible",
+      "flow_structure": {
+        "type":            "navigation",
+        "click_selector":  null,
+        "expected_url_contains": "/dashboard"
+      },
+      "steps": [
+        { "action": "navigate", "target": "https://hrms.example.com/dashboard" },
+        { "action": "wait",     "target": ".stats-card" }
+      ]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 30 — Add 5 New Goals  (Page 3, functional)
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":            30,
+    "page_id":       3,
+    "title":         "Add 5 New Goals",
+    "type":          "auto-generated",
+    "category":      "functional",
+    "requires_auth": true,
+    "created_on":    "2026-03-01T09:30:00",
+    "created_by":    1,
+
+    "data": {
+      "title":           "Add 5 New Goals",
+      "category":        "functional",
+      "flow_type":       "form",
+      "entry_point":     "https://hrms.example.com/goals",
+      "exit_condition":  "5 goals added to the goals list table",
+      "flow_structure": {
+        "type":            "form",
+        "form_selector":   "#addGoalForm",
+        "fields": [
+          { "name": "goal_title",       "selector": "input#goal-title",        "type": "text"   },
+          { "name": "goal_description", "selector": "textarea#goal-description","type": "text"   },
+          { "name": "target_date",      "selector": "input#target-date",        "type": "text"   },
+          { "name": "category",         "selector": "select#goal-category",     "type": "select" }
+        ],
+        "submit_selector": "button#add-goal-btn"
+      },
+      "steps": [
+        { "action": "navigate",    "target": "https://hrms.example.com/goals" },
+        { "action": "fill_form",   "target": "input#goal-title",         "value": "{{VALID_GOAL_TITLE}}" },
+        { "action": "fill_form",   "target": "textarea#goal-description", "value": "{{VALID_GOAL_DESCRIPTION}}" },
+        { "action": "fill_form",   "target": "input#target-date",         "value": "{{VALID_TARGET_DATE}}" },
+        { "action": "fill_form",   "target": "select#goal-category",      "value": "Performance" },
+        { "action": "click",       "target": "button#add-goal-btn" },
+        { "action": "wait",        "target": ".goal-row" }
+      ]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 31 — Submit Goals for Review  (Page 3, functional)
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":            31,
+    "page_id":       3,
+    "title":         "Submit Goals for Review",
+    "type":          "auto-generated",
+    "category":      "functional",
+    "requires_auth": true,
+    "created_on":    "2026-03-01T09:30:00",
+    "created_by":    1,
+
+    "data": {
+      "title":          "Submit Goals for Review",
+      "category":       "functional",
+      "flow_type":      "interaction",
+      "entry_point":    "https://hrms.example.com/goals",
+      "exit_condition": "Success toast shown confirming goals submitted",
+      "flow_structure": {
+        "type":           "interaction",
+        "click_selector": "button#submit-goals-btn",
+        "expected_url_contains": null
+      },
+      "steps": [
+        { "action": "navigate", "target": "https://hrms.example.com/goals" },
+        { "action": "click",    "target": "button#submit-goals-btn" },
+        { "action": "wait",     "target": ".toast-success" }
+      ]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 32 — View Existing Goals (as Lead)  (Page 3, functional)
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":            32,
+    "page_id":       3,
+    "title":         "View Team Goals as Lead",
+    "type":          "auto-generated",
+    "category":      "functional",
+    "requires_auth": true,
+    "created_on":    "2026-03-01T09:30:00",
+    "created_by":    1,
+
+    "data": {
+      "title":          "View Team Goals as Lead",
+      "category":       "functional",
+      "flow_type":      "navigation",
+      "entry_point":    "https://hrms.example.com/goals",
+      "exit_condition": "Goal list table loads with team members' goals visible",
+      "flow_structure": {
+        "type":                  "navigation",
+        "expected_url_contains": "/goals"
+      },
+      "steps": [
+        { "action": "navigate", "target": "https://hrms.example.com/goals" },
+        { "action": "wait",     "target": ".goal-row" }
+      ]
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 40 — Approve All Goals  (Page 4, functional)
+  ────────────────────────────────────────────────────────────────────────────
+
+  {
+    "id":            40,
+    "page_id":       4,
+    "title":         "Approve All Pending Goals",
+    "type":          "auto-generated",
+    "category":      "functional",
+    "requires_auth": true,
+    "created_on":    "2026-03-01T09:38:00",
+    "created_by":    1,
+
+    "data": {
+      "title":          "Approve All Pending Goals",
+      "category":       "functional",
+      "flow_type":      "interaction",
+      "entry_point":    "https://hrms.example.com/goals/approve",
+      "exit_condition": "All goals marked as approved, success toast shown",
+      "flow_structure": {
+        "type":           "interaction",
+        "click_selector": "button#approve-all-btn"
+      },
+      "steps": [
+        { "action": "navigate", "target": "https://hrms.example.com/goals/approve" },
+        { "action": "wait",     "target": ".goal-review-row" },
+        { "action": "click",    "target": "button#approve-all-btn" },
+        { "action": "wait",     "target": ".toast-success" }
+      ]
+    }
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — TEST CASE RECORDS (exact data/expected_outcome/validation format)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Table: test_case
+  Model:  shared_orm/models/test_case.py
+
+  data field structure (from test_case_service.py persistence):
+    {
+      "steps":     list[str],         ← human-readable step descriptions
+      "selectors": dict,              ← CSS selectors keyed by name
+      "test_data": dict               ← placeholder values
+    }
+
+  expected_outcome field (from prompts4.yaml test_cases output):
+    {
+      "type":     str,                ← "url_contains" | "element_visible" |
+                                         "text_present" | "attribute_equals" |
+                                         "state_change" | "redirect" | "none"
+      "selector": str | null,         ← CSS selector (if element check)
+      "value":    str | null,         ← exact value to match
+      "contains": str | null          ← partial text to match
+    }
+
+  validation field (from test_case_service.py persistence):
+    {
+      "description": str              ← human-readable expected result
+    }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 10 TEST CASES — Valid Employee Login
+  ────────────────────────────────────────────────────────────────────────────
+
+  TC-101  Valid Credentials — Successful Login
+  {
+    "id":               101,
+    "page_id":          1,
+    "test_scenario_id": 10,
+    "title":            "Login with valid employee email and correct password",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": true,
+    "created_on":       "2026-03-01T09:12:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/login",
+        "Enter valid employee email in #email field",
+        "Enter correct password in #password field",
+        "Click the Sign In button",
+        "Wait for redirect to /dashboard"
+      ],
+      "selectors": {
+        "email_field":    "#email",
+        "password_field": "#password",
+        "submit_button":  "button[type='submit']",
+        "dashboard_check":".stats-card"
+      },
+      "test_data": {
+        "email":    "{{VALID_EMAIL}}",
+        "password": "{{VALID_PASSWORD}}"
+      }
+    },
+    "expected_outcome": {
+      "type":     "url_contains",
+      "selector": null,
+      "value":    "/dashboard",
+      "contains": null
+    },
+    "validation": {
+      "description": "After login, URL must contain /dashboard and dashboard stats card must be visible"
+    }
+  }
+
+  TC-102  Correct Email + Correct Password — Dashboard Stats Visible
+  {
+    "id":               102,
+    "page_id":          1,
+    "test_scenario_id": 10,
+    "title":            "Verify dashboard stats card visible after successful login",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": false,
+    "created_on":       "2026-03-01T09:12:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/login",
+        "Enter valid email in #email",
+        "Enter valid password in #password",
+        "Click Sign In",
+        "Assert .stats-card element is visible on /dashboard"
+      ],
+      "selectors": {
+        "email_field":    "#email",
+        "password_field": "#password",
+        "submit_button":  "button[type='submit']",
+        "stats_card":     ".stats-card"
+      },
+      "test_data": {
+        "email":    "{{VALID_EMAIL}}",
+        "password": "{{VALID_PASSWORD}}"
+      }
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": ".stats-card",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "After login, the stats card must be visible on the dashboard"
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 11 TEST CASES — Invalid Login
+  ────────────────────────────────────────────────────────────────────────────
+
+  TC-111  Wrong Password — Error Message Shown
+  {
+    "id":               111,
+    "page_id":          1,
+    "test_scenario_id": 11,
+    "title":            "Login with correct email but wrong password shows error",
+    "type":             "auto-generated",
+    "is_valid":         false,
+    "is_valid_default": true,
+    "created_on":       "2026-03-01T09:12:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/login",
+        "Enter valid email in #email field",
+        "Enter an incorrect password in #password field",
+        "Click Sign In button",
+        "Assert .invalid-feedback error message is visible"
+      ],
+      "selectors": {
+        "email_field":      "#email",
+        "password_field":   "#password",
+        "submit_button":    "button[type='submit']",
+        "error_message":    ".invalid-feedback"
+      },
+      "test_data": {
+        "email":    "{{VALID_EMAIL}}",
+        "password": "{{INVALID_PASSWORD}}"
+      }
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": ".invalid-feedback",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "Error message must be visible, user must remain on /login page"
+    }
+  }
+
+  TC-112  Wrong Password — URL Remains /login
+  {
+    "id":               112,
+    "page_id":          1,
+    "test_scenario_id": 11,
+    "title":            "URL stays at /login when wrong password entered",
+    "type":             "auto-generated",
+    "is_valid":         false,
+    "is_valid_default": false,
+    "created_on":       "2026-03-01T09:12:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/login",
+        "Enter valid email in #email",
+        "Enter invalid password in #password",
+        "Click Sign In",
+        "Assert current URL still contains /login"
+      ],
+      "selectors": {
+        "email_field":    "#email",
+        "password_field": "#password",
+        "submit_button":  "button[type='submit']"
+      },
+      "test_data": {
+        "email":    "{{VALID_EMAIL}}",
+        "password": "{{INVALID_PASSWORD}}"
+      }
+    },
+    "expected_outcome": {
+      "type":     "url_contains",
+      "selector": null,
+      "value":    "/login",
+      "contains": null
+    },
+    "validation": {
+      "description": "After failed login, user must stay on /login — no redirect to /dashboard"
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 20 TEST CASES — View Dashboard Stats
+  ────────────────────────────────────────────────────────────────────────────
+
+  TC-201  Dashboard Loads with Stats Cards
+  {
+    "id":               201,
+    "page_id":          2,
+    "test_scenario_id": 20,
+    "title":            "Dashboard page loads and shows stats cards",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": true,
+    "created_on":       "2026-03-01T09:20:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/dashboard",
+        "Wait for .stats-card elements to be visible",
+        "Assert at least one .stats-card is present"
+      ],
+      "selectors": {
+        "stats_card":    ".stats-card",
+        "goals_nav_link":"nav a[href='/goals']"
+      },
+      "test_data": {}
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": ".stats-card",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "At least one stats card must be visible on the dashboard"
+    }
+  }
+
+  TC-202  Dashboard Goals Navigation Link is Present
+  {
+    "id":               202,
+    "page_id":          2,
+    "test_scenario_id": 20,
+    "title":            "Goals navigation link is visible on dashboard",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": false,
+    "created_on":       "2026-03-01T09:20:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/dashboard",
+        "Assert nav link to /goals is visible"
+      ],
+      "selectors": {
+        "goals_nav_link": "nav a[href='/goals']"
+      },
+      "test_data": {}
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": "nav a[href='/goals']",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "The Goals navigation link must be visible in the nav bar"
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 30 TEST CASES — Add 5 New Goals
+  ────────────────────────────────────────────────────────────────────────────
+
+  TC-301  Add Goal with Valid Data — Goal Appears in List
+  {
+    "id":               301,
+    "page_id":          3,
+    "test_scenario_id": 30,
+    "title":            "Add a single goal with valid data and verify it appears in list",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": true,
+    "created_on":       "2026-03-01T09:30:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/goals",
+        "Enter goal title in input#goal-title",
+        "Enter goal description in textarea#goal-description",
+        "Enter target date in input#target-date (format YYYY-MM-DD)",
+        "Select 'Performance' from select#goal-category",
+        "Click button#add-goal-btn",
+        "Assert .goal-row appears in the goals table"
+      ],
+      "selectors": {
+        "goal_title_field":  "input#goal-title",
+        "goal_desc_field":   "textarea#goal-description",
+        "target_date_field": "input#target-date",
+        "category_select":   "select#goal-category",
+        "add_goal_btn":      "button#add-goal-btn",
+        "goal_row":          ".goal-row"
+      },
+      "test_data": {
+        "goal_title":       "{{VALID_GOAL_TITLE}}",
+        "goal_description": "{{VALID_GOAL_DESCRIPTION}}",
+        "target_date":      "{{VALID_TARGET_DATE}}"
+      }
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": ".goal-row",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "After clicking Add Goal, a new row must appear in the goals table"
+    }
+  }
+
+  TC-302  Add Goal with Empty Title — Validation Error Shown
+  {
+    "id":               302,
+    "page_id":          3,
+    "test_scenario_id": 30,
+    "title":            "Adding goal with empty title shows validation error",
+    "type":             "auto-generated",
+    "is_valid":         false,
+    "is_valid_default": false,
+    "created_on":       "2026-03-01T09:30:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/goals",
+        "Leave goal title field empty",
+        "Click button#add-goal-btn",
+        "Assert input#goal-title has class 'error'"
+      ],
+      "selectors": {
+        "goal_title_field": "input#goal-title",
+        "add_goal_btn":     "button#add-goal-btn"
+      },
+      "test_data": {
+        "goal_title": ""
+      }
+    },
+    "expected_outcome": {
+      "type":     "attribute_equals",
+      "selector": "input#goal-title",
+      "value":    "error",
+      "contains": null
+    },
+    "validation": {
+      "description": "Empty title must trigger 'error' class on the title field"
+    }
+  }
+
+  TC-303  Add Goal with Invalid Date Format — Pattern Validation Fails
+  {
+    "id":               303,
+    "page_id":          3,
+    "test_scenario_id": 30,
+    "title":            "Adding goal with invalid date format triggers pattern validation",
+    "type":             "auto-generated",
+    "is_valid":         false,
+    "is_valid_default": false,
+    "created_on":       "2026-03-01T09:30:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/goals",
+        "Enter valid goal title",
+        "Enter invalid date format in input#target-date",
+        "Click button#add-goal-btn",
+        "Assert browser pattern validation prevents form submission"
+      ],
+      "selectors": {
+        "goal_title_field":  "input#goal-title",
+        "target_date_field": "input#target-date",
+        "add_goal_btn":      "button#add-goal-btn"
+      },
+      "test_data": {
+        "goal_title":  "{{VALID_GOAL_TITLE}}",
+        "target_date": "{{INVALID_TARGET_DATE}}"
+      }
+    },
+    "expected_outcome": {
+      "type":     "state_change",
+      "selector": "input#target-date",
+      "value":    "invalid",
+      "contains": null
+    },
+    "validation": {
+      "description": "Invalid date format must trigger browser-level pattern validation — form must NOT submit"
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 31 TEST CASES — Submit Goals for Review
+  ────────────────────────────────────────────────────────────────────────────
+
+  TC-311  Submit Goals — Success Toast Shown
+  {
+    "id":               311,
+    "page_id":          3,
+    "test_scenario_id": 31,
+    "title":            "Clicking Submit All Goals shows success toast notification",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": true,
+    "created_on":       "2026-03-01T09:30:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/goals",
+        "Click button#submit-goals-btn",
+        "Assert .toast-success element is visible"
+      ],
+      "selectors": {
+        "submit_goals_btn": "button#submit-goals-btn",
+        "success_toast":    ".toast-success"
+      },
+      "test_data": {}
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": ".toast-success",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "Success toast must appear after clicking Submit All Goals"
+    }
+  }
+
+  TC-312  Submit Goals — Goals Status Changes to 'Submitted'
+  {
+    "id":               312,
+    "page_id":          3,
+    "test_scenario_id": 31,
+    "title":            "Goal rows show 'Submitted' status after clicking Submit All",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": false,
+    "created_on":       "2026-03-01T09:30:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/goals",
+        "Click button#submit-goals-btn",
+        "Assert .goal-row .status-badge contains text 'Submitted'"
+      ],
+      "selectors": {
+        "submit_goals_btn": "button#submit-goals-btn",
+        "status_badge":     ".goal-row .status-badge"
+      },
+      "test_data": {}
+    },
+    "expected_outcome": {
+      "type":     "text_present",
+      "selector": ".goal-row .status-badge",
+      "value":    null,
+      "contains": "Submitted"
+    },
+    "validation": {
+      "description": "After submit, each goal row's status badge must show 'Submitted'"
+    }
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  SCENARIO 40 TEST CASES — Approve All Goals
+  ────────────────────────────────────────────────────────────────────────────
+
+  TC-401  Approve All Goals — Success Toast
+  {
+    "id":               401,
+    "page_id":          4,
+    "test_scenario_id": 40,
+    "title":            "Clicking Approve All shows success toast",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": true,
+    "created_on":       "2026-03-01T09:38:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/goals/approve",
+        "Wait for .goal-review-row elements to load",
+        "Click button#approve-all-btn",
+        "Assert .toast-success element is visible"
+      ],
+      "selectors": {
+        "goal_review_row":  ".goal-review-row",
+        "approve_all_btn":  "button#approve-all-btn",
+        "success_toast":    ".toast-success"
+      },
+      "test_data": {}
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": ".toast-success",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "Success toast must appear after clicking Approve All"
+    }
+  }
+
+  TC-402  Approve All Goals — No Pending Rows Remain
+  {
+    "id":               402,
+    "page_id":          4,
+    "test_scenario_id": 40,
+    "title":            "After Approve All, no pending goal rows remain",
+    "type":             "auto-generated",
+    "is_valid":         true,
+    "is_valid_default": false,
+    "created_on":       "2026-03-01T09:38:30",
+    "created_by":       1,
+
+    "data": {
+      "steps": [
+        "Navigate to https://hrms.example.com/goals/approve",
+        "Click button#approve-all-btn",
+        "Assert .goal-review-row count is 0 or empty state is shown"
+      ],
+      "selectors": {
+        "approve_all_btn":  "button#approve-all-btn",
+        "goal_review_row":  ".goal-review-row",
+        "empty_state":      ".empty-state"
+      },
+      "test_data": {}
+    },
+    "expected_outcome": {
+      "type":     "element_visible",
+      "selector": ".empty-state",
+      "value":    null,
+      "contains": null
+    },
+    "validation": {
+      "description": "After Approve All, either 0 pending rows or empty state message must be shown"
+    }
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — TEST SUITE RECORD (with full flow_definition)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Table: test_suite
+  Model:  shared_orm/models/test_suite.py (after extension from design doc)
+
+  {
+    "id":              1,
+    "site_id":         1,
+    "title":           "Goal Setting Workflow — Multi-Role Suite",
+    "description":     "End-to-end goal management journey for Employee and Lead roles",
+    "status":          "ready",
+    "scenario_count":  6,
+    "test_case_count": 11,
+    "created_on":      "2026-03-20T10:00:00",
+    "created_by":      1,
+    "updated_on":      "2026-03-20T10:45:00",
+    "updated_by":      1,
+
+    "flow_definition": {
+
+      "nodes": [
+
+        {
+          "id":   "node-start",
+          "type": "start",
+          "position": { "x": 400, "y": 0 },
+          "data": {
+            "label":       "START",
+            "node_type":   "start",
+            "page_id":     null,
+            "scenario_id": null,
+            "page_title":  null,
+            "scenario_title": null,
+            "category":    null
+          }
+        },
+
+        {
+          "id":   "node-end-login-fail",
+          "type": "end",
+          "position": { "x": 750, "y": 280 },
+          "data": {
+            "label":       "END — Login Failed",
+            "node_type":   "end",
+            "page_id":     null,
+            "scenario_id": null,
+            "page_title":  null,
+            "scenario_title": null,
+            "category":    null
+          }
+        },
+
+        {
+          "id":   "node-end-employee",
+          "type": "end",
+          "position": { "x": 100, "y": 950 },
+          "data": {
+            "label":       "END — Employee Path Done",
+            "node_type":   "end",
+            "page_id":     null,
+            "scenario_id": null,
+            "page_title":  null,
+            "scenario_title": null,
+            "category":    null
+          }
+        },
+
+        {
+          "id":   "node-end-lead",
+          "type": "end",
+          "position": { "x": 700, "y": 950 },
+          "data": {
+            "label":       "END — Lead Path Done",
+            "node_type":   "end",
+            "page_id":     null,
+            "scenario_id": null,
+            "page_title":  null,
+            "scenario_title": null,
+            "category":    null
+          }
+        },
+
+        {
+          "id":   "node-1",
+          "type": "step",
+          "position": { "x": 400, "y": 120 },
+          "data": {
+            "label":          "Login Page",
+            "node_type":      "step",
+            "page_id":        1,
+            "scenario_id":    10,
+            "page_title":     "Login — HRMS",
+            "scenario_title": "Valid Employee Login",
+            "category":       "auth-positive"
+          }
+        },
+
+        {
+          "id":   "node-2",
+          "type": "step",
+          "position": { "x": 400, "y": 280 },
+          "data": {
+            "label":          "HR Dashboard",
+            "node_type":      "step",
+            "page_id":        2,
+            "scenario_id":    20,
+            "page_title":     "Dashboard — HRMS",
+            "scenario_title": "View Dashboard Stats",
+            "category":       "functional"
+          }
+        },
+
+        {
+          "id":   "node-branch-role",
+          "type": "branch",
+          "position": { "x": 400, "y": 440 },
+          "data": {
+            "label":          "Role Check",
+            "node_type":      "branch",
+            "page_id":        null,
+            "scenario_id":    null,
+            "page_title":     null,
+            "scenario_title": null,
+            "category":       null
+          }
+        },
+
+        {
+          "id":   "node-3a",
+          "type": "step",
+          "position": { "x": 100, "y": 580 },
+          "data": {
+            "label":          "Add 5 Goals",
+            "node_type":      "step",
+            "page_id":        3,
+            "scenario_id":    30,
+            "page_title":     "Goal Sheet — HRMS",
+            "scenario_title": "Add 5 New Goals",
+            "category":       "functional"
+          }
+        },
+
+        {
+          "id":   "node-3b",
+          "type": "step",
+          "position": { "x": 100, "y": 740 },
+          "data": {
+            "label":          "Submit Goals",
+            "node_type":      "step",
+            "page_id":        3,
+            "scenario_id":    31,
+            "page_title":     "Goal Sheet — HRMS",
+            "scenario_title": "Submit Goals for Review",
+            "category":       "functional"
+          }
+        },
+
+        {
+          "id":   "node-4a",
+          "type": "step",
+          "position": { "x": 700, "y": 580 },
+          "data": {
+            "label":          "View Team Goals",
+            "node_type":      "step",
+            "page_id":        3,
+            "scenario_id":    32,
+            "page_title":     "Goal Sheet — HRMS",
+            "scenario_title": "View Team Goals as Lead",
+            "category":       "functional"
+          }
+        },
+
+        {
+          "id":   "node-4b",
+          "type": "step",
+          "position": { "x": 700, "y": 740 },
+          "data": {
+            "label":          "Approve All Goals",
+            "node_type":      "step",
+            "page_id":        4,
+            "scenario_id":    40,
+            "page_title":     "Approve Goals — HRMS",
+            "scenario_title": "Approve All Pending Goals",
+            "category":       "functional"
+          }
+        }
+
+      ],
+
+      "edges": [
+
+        {
+          "id":        "edge-start-to-login",
+          "source":    "node-start",
+          "target":    "node-1",
+          "label":     null,
+          "condition": null
+        },
+
+        {
+          "id":     "edge-login-fail",
+          "source": "node-1",
+          "target": "node-end-login-fail",
+          "label":  "Login failed",
+          "condition": {
+            "field": "_outcome",
+            "op":    "eq",
+            "value": "failed"
+          }
+        },
+
+        {
+          "id":     "edge-login-pass",
+          "source": "node-1",
+          "target": "node-2",
+          "label":  "Login passed",
+          "condition": {
+            "field": "_outcome",
+            "op":    "eq",
+            "value": "passed"
+          }
+        },
+
+        {
+          "id":        "edge-dashboard-to-branch",
+          "source":    "node-2",
+          "target":    "node-branch-role",
+          "label":     null,
+          "condition": null
+        },
+
+        {
+          "id":     "edge-branch-employee",
+          "source": "node-branch-role",
+          "target": "node-3a",
+          "label":  "role = employee",
+          "condition": {
+            "field": "role",
+            "op":    "eq",
+            "value": "employee"
+          }
+        },
+
+        {
+          "id":     "edge-branch-lead",
+          "source": "node-branch-role",
+          "target": "node-4a",
+          "label":  "role = lead",
+          "condition": {
+            "field": "role",
+            "op":    "eq",
+            "value": "lead"
+          }
+        },
+
+        {
+          "id":        "edge-3a-to-3b",
+          "source":    "node-3a",
+          "target":    "node-3b",
+          "label":     null,
+          "condition": null
+        },
+
+        {
+          "id":        "edge-3b-to-end",
+          "source":    "node-3b",
+          "target":    "node-end-employee",
+          "label":     null,
+          "condition": null
+        },
+
+        {
+          "id":        "edge-4a-to-4b",
+          "source":    "node-4a",
+          "target":    "node-4b",
+          "label":     null,
+          "condition": null
+        },
+
+        {
+          "id":        "edge-4b-to-end",
+          "source":    "node-4b",
+          "target":    "node-end-lead",
+          "label":     null,
+          "condition": null
+        }
+
+      ]
+    }
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — TEST SUITE STEP RECORDS (DB-level node→scenario mapping)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Table: test_suite_step
+  These rows are auto-generated from the flow_definition when the suite is saved.
+  One row per "step" type node only (not start/end/branch).
+
+  [
+    { "id":1, "test_suite_id":1, "node_id":"node-1",  "label":"Login Page",      "page_id":1, "scenario_id":10, "step_order":1, "created_by":1 },
+    { "id":2, "test_suite_id":1, "node_id":"node-2",  "label":"HR Dashboard",    "page_id":2, "scenario_id":20, "step_order":2, "created_by":1 },
+    { "id":3, "test_suite_id":1, "node_id":"node-3a", "label":"Add 5 Goals",     "page_id":3, "scenario_id":30, "step_order":3, "created_by":1 },
+    { "id":4, "test_suite_id":1, "node_id":"node-3b", "label":"Submit Goals",    "page_id":3, "scenario_id":31, "step_order":4, "created_by":1 },
+    { "id":5, "test_suite_id":1, "node_id":"node-4a", "label":"View Team Goals", "page_id":3, "scenario_id":32, "step_order":3, "created_by":1 },
+    { "id":6, "test_suite_id":1, "node_id":"node-4b", "label":"Approve All",     "page_id":4, "scenario_id":40, "step_order":4, "created_by":1 }
+  ]
+
+  Note: node-3a and node-4a share step_order=3 because they are on parallel
+  branches. Actual execution order is determined by the graph walker, not step_order.
+  step_order here is a topological hint for display sorting only.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — RUN RECORDS (what gets created when the suite is executed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ────────────────────────────────────────────────────────────────────────────
+  RUN #1 — Employee Role Path
+  ────────────────────────────────────────────────────────────────────────────
+
+  Triggered with:  test_data = { "role": "employee" }
+
+  test_suite_run record:
+  {
+    "id":                1,
+    "test_suite_id":     1,
+    "status":            "passed",
+    "started_on":        "2026-03-20T11:00:00",
+    "completed_on":      "2026-03-20T11:03:42",
+    "executed_by":       1,
+    "execution_summary": {
+      "total":   4,
+      "passed":  4,
+      "failed":  0,
+      "skipped": 0
+    }
+  }
+
+  Nodes executed in order:
+    1. node-1  (Login)        → outcome: "passed"
+    2. node-2  (Dashboard)    → outcome: "passed"
+    3. node-3a (Add Goals)    → outcome: "passed"
+    4. node-3b (Submit Goals) → outcome: "passed"
+  Nodes skipped (different branch):
+    node-4a, node-4b  ← Lead path, not taken
+
+  test_execution records created (for each test case in each executed scenario):
+
+    Scenario 10 (Login) — TC-101, TC-102:
+    { "id":1001, "page_id":1, "test_scenario_id":10, "test_case_id":101,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:00:10", "executed_by":1,
+      "logs": "[PASS] TC-101: Login with valid credentials — redirected to /dashboard" }
+
+    { "id":1002, "page_id":1, "test_scenario_id":10, "test_case_id":102,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:00:25", "executed_by":1,
+      "logs": "[PASS] TC-102: .stats-card element visible on dashboard" }
+
+    Scenario 20 (Dashboard) — TC-201, TC-202:
+    { "id":1003, "page_id":2, "test_scenario_id":20, "test_case_id":201,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:00:50", "executed_by":1,
+      "logs": "[PASS] TC-201: Dashboard stats cards visible" }
+
+    { "id":1004, "page_id":2, "test_scenario_id":20, "test_case_id":202,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:01:05", "executed_by":1,
+      "logs": "[PASS] TC-202: Goals nav link visible in nav bar" }
+
+    Scenario 30 (Add Goals) — TC-301, TC-302, TC-303:
+    { "id":1005, "page_id":3, "test_scenario_id":30, "test_case_id":301,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:01:40", "executed_by":1,
+      "logs": "[PASS] TC-301: Goal row appeared in table after Add Goal click" }
+
+    { "id":1006, "page_id":3, "test_scenario_id":30, "test_case_id":302,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:01:55", "executed_by":1,
+      "logs": "[PASS] TC-302: Error class on title field when submitted empty" }
+
+    { "id":1007, "page_id":3, "test_scenario_id":30, "test_case_id":303,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:02:10", "executed_by":1,
+      "logs": "[PASS] TC-303: Invalid date format blocked form submission" }
+
+    Scenario 31 (Submit Goals) — TC-311, TC-312:
+    { "id":1008, "page_id":3, "test_scenario_id":31, "test_case_id":311,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:02:45", "executed_by":1,
+      "logs": "[PASS] TC-311: Success toast appeared after Submit All Goals" }
+
+    { "id":1009, "page_id":3, "test_scenario_id":31, "test_case_id":312,
+      "test_suite_id":1, "test_suite_run_id":1,
+      "status":"Passed", "executed_on":"2026-03-20T11:03:00", "executed_by":1,
+      "logs": "[PASS] TC-312: Status badge shows 'Submitted' on goal rows" }
+
+  ────────────────────────────────────────────────────────────────────────────
+  RUN #2 — Lead Role Path
+  ────────────────────────────────────────────────────────────────────────────
+
+  Triggered with:  test_data = { "role": "lead" }
+
+  test_suite_run record:
+  {
+    "id":                2,
+    "test_suite_id":     1,
+    "status":            "partially_passed",
+    "started_on":        "2026-03-20T14:00:00",
+    "completed_on":      "2026-03-20T14:02:30",
+    "executed_by":       1,
+    "execution_summary": {
+      "total":   4,
+      "passed":  3,
+      "failed":  1,
+      "skipped": 0
+    }
+  }
+
+  Nodes executed in order:
+    1. node-1  (Login)           → outcome: "passed"
+    2. node-2  (Dashboard)       → outcome: "passed"
+    3. node-4a (View Team Goals) → outcome: "passed"
+    4. node-4b (Approve All)     → outcome: "failed"  ← TC-402 failed
+  Nodes skipped (different branch):
+    node-3a, node-3b  ← Employee path, not taken
+
+  test_execution records for TC-401 (Approve All — success toast):
+    { "id":2001, ..., "test_case_id":401, "test_suite_run_id":2,
+      "status":"Passed", "logs":"[PASS] TC-401: .toast-success appeared" }
+
+  test_execution records for TC-402 (Approve All — no pending rows):
+    { "id":2002, ..., "test_case_id":402, "test_suite_run_id":2,
+      "status":"Failed",
+      "logs":"[FAIL] TC-402: .empty-state element not found after approve all — 3 rows still visible" }
+
+  ────────────────────────────────────────────────────────────────────────────
+  RUN #3 — Login Failure Path
+  ────────────────────────────────────────────────────────────────────────────
+
+  Triggered with:  test_data = { "role": "employee" }
+  (Role is irrelevant — login fails before branch is reached)
+
+  test_suite_run record:
+  {
+    "id":                3,
+    "test_suite_id":     1,
+    "status":            "failed",
+    "started_on":        "2026-03-20T15:00:00",
+    "completed_on":      "2026-03-20T15:00:22",
+    "executed_by":       1,
+    "execution_summary": {
+      "total":   1,
+      "passed":  0,
+      "failed":  1,
+      "skipped": 0
+    }
+  }
+
+  Nodes executed: node-1 only (→ node-end-login-fail, suite stops immediately)
+
+  test_execution records created:
+    TC-101: Failed  (login redirect did not happen — test user locked out)
+    TC-102: Failed  (dashboard never loaded)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 — DATA RELATIONSHIPS MAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  site (id=1)
+  └── pages
+      ├── page (id=1)  Login Page
+      │   └── test_scenarios
+      │       ├── scenario (id=10)  Valid Login
+      │       │   └── test_cases: TC-101, TC-102
+      │       └── scenario (id=11)  Invalid Login
+      │           └── test_cases: TC-111, TC-112
+      ├── page (id=2)  HR Dashboard
+      │   └── test_scenarios
+      │       └── scenario (id=20)  View Dashboard Stats
+      │           └── test_cases: TC-201, TC-202
+      ├── page (id=3)  Goal Sheet
+      │   └── test_scenarios
+      │       ├── scenario (id=30)  Add 5 Goals
+      │       │   └── test_cases: TC-301, TC-302, TC-303
+      │       ├── scenario (id=31)  Submit Goals
+      │       │   └── test_cases: TC-311, TC-312
+      │       └── scenario (id=32)  View Team Goals (Lead)
+      │           └── test_cases: (not listed above, similar structure)
+      └── page (id=4)  Approve Goals Panel
+          └── test_scenarios
+              └── scenario (id=40)  Approve All Goals
+                  └── test_cases: TC-401, TC-402
+
+  test_suite (id=1)
+  ├── flow_definition.nodes → reference page_id + scenario_id from above
+  ├── test_suite_steps → 6 rows (one per step node)
+  └── test_suite_runs
+      ├── run (id=1) — employee path → test_executions rows with test_suite_run_id=1
+      ├── run (id=2) — lead path     → test_executions rows with test_suite_run_id=2
+      └── run (id=3) — login fail    → test_executions rows with test_suite_run_id=3
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 9 — PLACEHOLDER VALUES RESOLVED AT RUNTIME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  These are stored in the test_case_credential table (one row per placeholder
+  per page, generated by TestCredentialService during pipeline):
+
+  page_id=1 (Login Page):
+    { "placeholder_key": "VALID_EMAIL",       "value": "alice.employee@hrms.example.com" }
+    { "placeholder_key": "VALID_PASSWORD",    "value": "SecurePass@2026" }
+    { "placeholder_key": "INVALID_PASSWORD",  "value": "wrongpassword123" }
+
+  page_id=3 (Goal Sheet):
+    { "placeholder_key": "VALID_GOAL_TITLE",       "value": "Complete Q1 Performance Review" }
+    { "placeholder_key": "VALID_GOAL_DESCRIPTION", "value": "Finish performance metrics for Q1 2026" }
+    { "placeholder_key": "VALID_TARGET_DATE",      "value": "2026-06-30" }
+    { "placeholder_key": "INVALID_TARGET_DATE",    "value": "30/06/2026" }
+
+  During execution, the Selenium script replaces all {{ }} tokens with
+  the resolved values from the test_case_credential table before running.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

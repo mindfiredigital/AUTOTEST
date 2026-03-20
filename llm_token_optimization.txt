@@ -1,0 +1,608 @@
+================================================================================
+  LLM TOKEN USAGE ANALYSIS & OPTIMIZATION REPORT
+  Project: AUTOTEST v2
+  Date: 2026-03-19
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — CURRENT LLM CALL INVENTORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Per-page pipeline makes up to 6 categories of LLM calls.
+
+  #   Stage                  Service File                  model_type        Calls/Page
+  ─── ─────────────────────  ────────────────────────────  ────────────────  ──────────
+  1   Page Analysis          page_analysis_service.py      analysis          1–3
+  2   Test Scenarios         test_scenario_service.py      analysis          1
+  3   Test Cases             test_case_service.py          analysis          N (per scenario)
+  4   Credential Generation  test_credential_service.py    fast              N (per placeholder)
+  5   Test Scripts           test_script_service.py        selenium          N (per scenario)
+  6   Execution Analysis     test_execution_service.py     result_analysis   N (per test case)
+
+
+────────────────────────────────────────────────────────────────────────────────
+1.1  PAGE ANALYSIS  (page_analysis_service.py)
+────────────────────────────────────────────────────────────────────────────────
+
+  Call A — llm_page_analysis()
+    Input:  Full minimized page HTML  (50–200 KB)
+    Output: Structured metadata JSON (auth fields, forms, elements, security)
+    Tokens: ~6 000–12 000 per page
+    Freq:   1× per page
+
+  Call B — auth_form_selectors()  [only when auth detected]
+    Input:  Full page HTML again
+    Output: CSS selectors for username/password/submit
+    Tokens: ~4 000–8 000 per auth page
+    Freq:   1× per page (auth pages only)
+
+  Call C — llm_is_logged_in()  [only when auth detected]
+    Input:  Full page HTML after login attempt
+    Output: {"logged_in": true/false}
+    Tokens: ~3 000–5 000 per auth page
+    Freq:   1× per page (auth pages only)
+
+  PROBLEM: Calls B and C re-send the entire page HTML even though
+  Call A already parsed it. That is duplicate context = wasted tokens.
+
+
+────────────────────────────────────────────────────────────────────────────────
+1.2  TEST SCENARIO GENERATION  (test_scenario_service.py)
+────────────────────────────────────────────────────────────────────────────────
+
+  Call: generate()
+    Input:  Metadata JSON from step 1 (10–50 KB)
+    Output: Array of test scenario objects
+    Tokens: ~6 000–10 000 per page
+    Freq:   1× per page
+
+  PROBLEM: System prompt is ~500 tokens of generic QA rules.
+  Many rules are implicit in the output schema.
+
+
+────────────────────────────────────────────────────────────────────────────────
+1.3  TEST CASE GENERATION  (test_case_service.py)
+────────────────────────────────────────────────────────────────────────────────
+
+  Call: _generate_for_scenario()
+    Input:  scenario JSON + page metadata + page URL/title + FULL PAGE HTML
+    Output: Array of test case objects with steps/selectors/expected outcomes
+    Tokens: ~10 000–15 000 per scenario
+    Freq:   N× per page (one call per scenario, avg 3–5)
+
+  PROBLEM: Full raw HTML (50–200 KB) is passed in addition to the
+  already-extracted metadata. Selectors are in the metadata; the
+  raw HTML adds noise and cost without improving output quality
+  significantly.
+
+
+────────────────────────────────────────────────────────────────────────────────
+1.4  CREDENTIAL GENERATION  (test_credential_service.py)
+────────────────────────────────────────────────────────────────────────────────
+
+  Call: _generate_value()  — one call per placeholder token
+    Input:  Placeholder key (e.g., VALID_EMAIL, INVALID_PASSWORD)
+    Output: Single raw value string
+    Tokens: ~800–1 200 per call
+    Freq:   ~10–20× per page (varies by test data complexity)
+
+  PROBLEM: One LLM round-trip per value. Batching 10+ single-value
+  calls into one call saves 80–90% of network/token overhead here.
+
+
+────────────────────────────────────────────────────────────────────────────────
+1.5  TEST SCRIPT GENERATION  (test_script_service.py)
+────────────────────────────────────────────────────────────────────────────────
+
+  Call: generate_script_for_test_case()
+    Input:  scenario + test cases list + page metadata + FULL PAGE HTML
+            + auth selectors + login credentials + security indicators
+    Output: Full executable Selenium Python script
+    Tokens: ~12 000–20 000 per scenario
+    Freq:   N× per page (one call per scenario, avg 3–5)
+
+  PROBLEM: System prompt is ~2 500 tokens of helper-function specs
+  (retry_find_element, click_element, etc.) that could be a static
+  code template injected before execution rather than re-sent to
+  the LLM every time. Full HTML is also re-sent here (third time).
+
+
+────────────────────────────────────────────────────────────────────────────────
+1.6  EXECUTION RESULT ANALYSIS  (test_execution_service.py)
+────────────────────────────────────────────────────────────────────────────────
+
+  Call: _analyze_test_output_with_llm()
+    Input:  stdout + stderr text (1–50 KB) + return code
+    Output: {"test_passed": bool, "reasoning": str}
+    Tokens: ~1 500–4 000 per test execution
+    Freq:   N× per page (one call per test case executed, avg 5–20)
+
+  PROBLEM: LLM is called even when the output contains unambiguous
+  signals (return code 0, no exceptions, "PASSED" in stdout). Rule-
+  based pre-checks can eliminate 70–80% of these calls.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — TOKEN CONSUMPTION ESTIMATES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  All figures are approximate. "1 token ≈ 4 chars" used as baseline.
+
+  Stage                  Min (tokens)   Typical (tokens)   Max (tokens)
+  ─────────────────────  ─────────────  ─────────────────  ─────────────
+  Page Analysis          6 000          12 000             25 000
+  Test Scenarios         6 000          8 000              12 000
+  Test Cases × 5         30 000         60 000             90 000
+  Credential Gen × 15    10 000         15 000             20 000
+  Test Scripts × 5       40 000         75 000             100 000
+  Execution Analysis×10  10 000         30 000             80 000
+  ─────────────────────  ─────────────  ─────────────────  ─────────────
+  TOTAL PER PAGE         102 000        200 000            327 000
+
+  For a site with 10 pages: 1M – 3.3M tokens
+  For a site with 50 pages: 5M – 16M tokens
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — OPTIMIZATION RECOMMENDATIONS  (ranked by impact)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Each recommendation includes: what to change, where, and expected saving.
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-1  STOP SENDING RAW HTML TO DOWNSTREAM STAGES  [HIGHEST IMPACT]
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    The full page HTML (50–200 KB) is sent to 3 separate LLM calls:
+    page_analysis_service, test_case_service, and test_script_service.
+    But selectors, element types, and structure were already extracted
+    by the page analysis step into structured metadata.
+
+  Fix:
+    In test_case_service._generate_for_scenario():
+      Replace {page_source} with a compact "selector summary" derived
+      from the metadata:
+        - auth_requirements.fields (CSS selectors only)
+        - interactive_elements (type + selector + label)
+        - contact_form_fields (name + selector + validation)
+      This reduces that field from 50–200 KB to ~2–5 KB.
+
+    In test_script_service.generate_script_for_test_case():
+      Same approach — remove {page_source} / {minimized_html} entirely.
+      Pass only metadata.selectors + test_cases (which already contain
+      explicit CSS selectors). The LLM does not need raw HTML to write
+      Selenium code when it already has the exact selectors.
+
+  Files:
+    llm-service/app/services/test_case_service.py
+    llm-service/app/services/test_script_service.py
+    llm-service/app/config/prompts4.yaml
+      → Remove or replace {page_source} / {page_html} in test case
+        and script prompts with a {selector_summary} template variable.
+
+  Estimated saving: 30 000 – 90 000 tokens per page (30–40% total)
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-2  BATCH ALL CREDENTIAL GENERATION INTO ONE CALL
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    _generate_value() makes one LLM round-trip per placeholder token.
+    A page with 15 test cases x 2 placeholders each = 30 LLM calls.
+    Each call repeats a full system prompt (~300 tokens) for a single
+    word of output.
+
+  Fix:
+    Collect all unique placeholder keys before calling the LLM.
+    Send them in a single prompt:
+
+      System: "Generate test values. Return JSON only."
+      User:
+        "Generate one value per key:
+         VALID_EMAIL, INVALID_EMAIL, VALID_PASSWORD, INVALID_PASSWORD,
+         VALID_USERNAME, VALID_PHONE
+         Return: {\"VALID_EMAIL\": \"...\", \"INVALID_EMAIL\": \"...\", ...}"
+
+    Cache the result dict for the duration of the page pipeline run.
+    On subsequent calls for the same key, return the cached value
+    without hitting the LLM again.
+
+  Files:
+    llm-service/app/services/test_credential_service.py
+      → Add a batch method: generate_all_values(placeholder_keys: list) -> dict
+      → Add in-memory cache keyed by placeholder type
+    llm-service/app/config/prompts4.yaml
+      → Add a batch credential prompt section
+
+  Estimated saving: 12 000 – 18 000 tokens per page (up to 90% of
+  credential stage cost)
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-3  SKIP LLM FOR UNAMBIGUOUS EXECUTION RESULTS
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    _analyze_test_output_with_llm() is called for every test case
+    execution. Many results are unambiguous from return code + stdout
+    keywords alone.
+
+  Fix:
+    Add a rule-based fast-path before the LLM call in
+    test_execution_service._analyze_test_output_with_llm():
+
+      def _rule_based_result(output: str, return_code: int) -> dict | None:
+          output_lower = output.lower()
+          # Clear pass signals
+          if return_code == 0 and not any(x in output_lower
+              for x in ["error", "exception", "fail", "traceback",
+                         "assert", "elementnotfound", "nosuchelement"]):
+              return {"test_passed": True, "reasoning": "Return code 0, no error signals"}
+          # Clear fail signals
+          if return_code != 0 and any(x in output_lower
+              for x in ["traceback", "nosuchelementexception",
+                         "assertionerror", "timeoutexception"]):
+              return {"test_passed": False, "reasoning": "Non-zero return code with exception"}
+          # Ambiguous — delegate to LLM
+          return None
+
+    Only call the LLM when rule_based_result() returns None.
+
+  Files:
+    llm-service/app/services/test_execution_service.py
+
+  Estimated saving: 15 000 – 55 000 tokens per page
+  (eliminates ~70–80% of execution analysis calls)
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-4  MERGE AUTH PAGE ANALYSIS CALLS A+B+C INTO ONE
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    For pages with authentication, the HTML is sent 3 times:
+      Call A — general page analysis (returns full metadata)
+      Call B — auth form selectors (given same HTML, returns selectors)
+      Call C — login state check (given same HTML, returns boolean)
+
+    Calls B and C add ~8 000–13 000 tokens to re-describe the same page.
+    The data they return could be included in Call A's output schema.
+
+  Fix:
+    Expand the Call A output schema to always include:
+      {
+        ...existing fields...,
+        "auth_form": {
+          "detected": true/false,
+          "username_selector": "...",
+          "password_selector": "...",
+          "submit_selector": "...",
+          "auth_type": "login|registration|null"
+        }
+      }
+
+    Remove Call B (auth_form_selectors) entirely — its output is now
+    part of Call A.
+
+    For Call C (login state check), instead of re-sending HTML to the
+    LLM, check DOM signals heuristically after login attempt:
+      - URL changed? → likely logged in
+      - Login form still present in DOM? → likely not logged in
+      - Specific error text in DOM? → failed login
+    Only call the LLM if these heuristics are inconclusive.
+
+  Files:
+    llm-service/app/services/page_analysis_service.py
+    llm-service/app/config/prompts4.yaml
+      → Add auth_form to the page analysis output schema
+
+  Estimated saving: 7 000 – 13 000 tokens per auth page
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-5  EXTRACT SELENIUM HELPER BOILERPLATE FROM THE PROMPT
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    The test script system prompt (prompts4.yaml lines 352–650)
+    contains ~2 500 tokens of detailed helper function specifications:
+    retry_find_element(), click_element(), wait patterns, etc.
+    This is repeated verbatim for every scenario × every page.
+
+  Fix:
+    Move the helper function specifications into a static Python
+    template file (e.g., selenium_helpers_template.py).
+
+    Change the system prompt to say:
+      "You are a Selenium automation engineer.
+       The script MUST start with the following boilerplate:
+       <<BOILERPLATE_PLACEHOLDER>>
+       Then implement only the test-specific steps below."
+
+    At runtime, inject the boilerplate via string replacement BEFORE
+    calling LLM, keeping the system prompt itself short (~300 tokens).
+
+    Alternatively: Pre-pend the boilerplate to LLM output post-
+    processing rather than asking the LLM to write it.
+
+  Files:
+    llm-service/app/config/prompts4.yaml
+      → Shorten script system prompt, reference external template
+    llm-service/app/services/test_script_service.py
+      → Inject boilerplate after LLM call, before saving script
+
+  Estimated saving: 2 500 × N scenario calls per page
+  For 5 scenarios: ~12 500 tokens per page
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-6  TRUNCATE / SUMMARIZE PAGE HTML BEFORE PASSING TO LLM
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    Page HTML can be 50–200 KB even after minimization. Most of that
+    content (nav bars, footers, tracking scripts, CSS class noise) is
+    irrelevant to test generation.
+
+  Fix (if OPT-1 is not fully implemented yet):
+    Create a focused HTML extractor that keeps only:
+      - <form> elements and their children
+      - <button> elements
+      - <a> elements with href
+      - <input>, <select>, <textarea>
+      - Elements with id or data-testid attributes
+      - ARIA role attributes
+
+    Discard:
+      - <header>, <footer>, <nav> (unless they contain forms)
+      - <svg>, <script> (already stripped), <style>
+      - All deeply nested <div>/<span> without interactive children
+      - Inline styles, data-* noise attributes
+
+    Target: Reduce HTML context to under 20 KB for most pages.
+
+  Files:
+    llm-service/app/extractor/url_extractor.py  OR
+    llm-service/app/services/page_analysis_service.py
+      → Add an html_extractor utility that returns focused_html
+
+  Estimated saving: 20 000 – 80 000 tokens per page (cumulative across
+  all calls that receive HTML)
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-7  CACHE METADATA ACROSS SCENARIO AND TEST CASE STAGES
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    The page_metadata JSON from step 1 is queried from the DB and
+    serialized to string independently by each test_case generation
+    call. For a page with 5 scenarios, this JSON is:
+      - Deserialized 5× from DB
+      - Serialized 5× to string for the prompt
+      - Sent 5× to the LLM
+
+    The metadata does not change during test case generation for the
+    same page.
+
+  Fix:
+    In test_case_service._generate_for_scenario():
+      Accept page_metadata as a parameter from the caller (already
+      loaded) rather than fetching it again inside the loop.
+
+    In the worker or orchestrating service that calls generate():
+      Load metadata once before the scenario loop:
+        metadata = load_page_metadata(page_id, db)
+        for scenario in scenarios:
+            generate_for_scenario(scenario, metadata, ...)
+
+    This is a code structure fix, not a prompt change.
+
+  Files:
+    llm-service/app/services/test_case_service.py
+    llm-service/app/workers/worker.py  (orchestration)
+
+  Estimated saving: ~DB + serialization overhead; tokens unchanged
+  but reduces latency and DB load meaningfully.
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-8  USE A CHEAPER / SMALLER MODEL FOR LOW-COMPLEXITY CALLS
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    All analysis calls use the same "analysis" model (likely GPT-4 /
+    Gemini Pro / Claude Sonnet). Not all calls require this capability.
+
+  Fix — tier calls by complexity:
+
+    HIGH COMPLEXITY → keep "analysis" model:
+      - llm_page_analysis()  (needs reasoning about UI structure)
+      - test_scenario generation (needs architectural QA thinking)
+
+    MEDIUM COMPLEXITY → can use a smaller model (GPT-4o-mini, Gemini
+    Flash, Claude Haiku):
+      - test_case generation (mostly structured JSON extraction)
+      - auth_form_selectors (precise but simple extraction task)
+      - login_state_check (binary classification)
+
+    LOW COMPLEXITY → use mini model or remove LLM entirely:
+      - credential generation (see OPT-2 — batch + cache)
+      - execution result analysis on clear pass/fail (see OPT-3)
+
+  Implementation:
+    Add a "mini" model type to llm_config.yaml and LLMWrapper.
+    The "mini" model can be configured to a cheaper provider model.
+    Call self.llm.generate(..., model_type="mini") for medium calls.
+
+  Files:
+    llm-service/app/config/llm_config.yaml
+      → Add mini model entries per provider
+    llm-service/app/llm/llm_wrapper.py
+      → Add "mini" case to _initialize_models()
+    llm-service/app/services/test_case_service.py
+    llm-service/app/services/test_credential_service.py
+
+  Estimated saving: 40–60% cost reduction on mini-eligible calls
+  (mini models are typically 10–20× cheaper per token)
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-9  TRIM AND TIGHTEN PROMPT INSTRUCTIONS
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    System prompts in prompts4.yaml contain many redundant/repeated
+    instructions that add tokens without improving output:
+      - Multiple phrasings of the same rule ("Do NOT...", "Never...",
+        "IMPORTANT: Do not...")
+      - Rules that restate the output schema ("Return ONLY valid JSON
+        in this EXACT structure" — and then the schema follows anyway)
+      - Extensive examples that could be shortened
+
+  Fix:
+    Audit prompts4.yaml for duplicated intent. Common patterns to cut:
+
+    BEFORE:
+      "Output ONLY valid JSON.
+       Do NOT include explanations.
+       Do NOT include comments.
+       Do NOT include markdown formatting.
+       IMPORTANT: Return JSON only.
+       Never include text outside the JSON structure."
+
+    AFTER:
+      "Return valid JSON only. No markdown, no comments."
+
+    Apply this to all 6 prompt sections in prompts4.yaml.
+
+  Files:
+    llm-service/app/config/prompts4.yaml
+
+  Estimated saving: 500–1 500 tokens per call × 15 calls per page
+  = ~7 500 – 22 500 tokens per page
+
+
+────────────────────────────────────────────────────────────────────────────────
+OPT-10  SKIP RE-GENERATING SCENARIOS/CASES FOR UNCHANGED PAGES
+────────────────────────────────────────────────────────────────────────────────
+
+  Problem:
+    Every time a user re-runs analysis on a site, all pages go through
+    the full pipeline even if the page HTML hasn't changed.
+
+  Fix:
+    Store a hash of the minimized page HTML in the Page model:
+      page.content_hash = hashlib.sha256(minimized_html).hexdigest()
+
+    Before running the pipeline for a page, compare current hash
+    against stored hash:
+      - If unchanged AND scenarios/test cases exist → skip stages 2–5,
+        go directly to stage 6 (execution) or exit
+      - If changed or no prior data → run full pipeline
+
+    This is a "smart re-run" feature and eliminates 100% of LLM cost
+    for pages that haven't changed since the last run.
+
+  Files:
+    shared/shared_orm/models/page.py  → add content_hash column
+    llm-service/app/workers/worker.py → add hash comparison before pipeline
+    (requires a DB migration)
+
+  Estimated saving: 100% of pipeline cost for unchanged pages on re-run
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — COMBINED SAVINGS PROJECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Optimization    Tokens Saved/Page   Effort   Priority
+  ────────────────────────────────────────────────────────
+  OPT-1  No raw HTML to downstream   30 000–90 000    Medium   HIGH
+  OPT-2  Batch credential calls      12 000–18 000    Low      HIGH
+  OPT-3  Rule-based exec analysis    15 000–55 000    Low      HIGH
+  OPT-4  Merge auth analysis calls    7 000–13 000    Medium   HIGH
+  OPT-5  Extract script boilerplate  10 000–15 000    Low      MEDIUM
+  OPT-6  Focus HTML extraction       20 000–80 000    Medium   MEDIUM
+  OPT-7  Cache metadata in loop      (latency only)   Low      MEDIUM
+  OPT-8  Cheaper model for mini      40–60% cost ↓    High     MEDIUM
+  OPT-9  Tighten prompt text          7 500–22 500    Low      MEDIUM
+  OPT-10 Skip unchanged pages        100% on re-run   High     LOW (needs migration)
+
+  Combined realistic saving (OPT-1 + OPT-2 + OPT-3 + OPT-4 + OPT-5 + OPT-9):
+    ~74 000 – 193 000 tokens per page
+    = 37% – 59% reduction from current baseline of ~200 000 tokens/page
+
+  With OPT-8 (cheaper models) on top:
+    Effective cost reduction: 60–80% per page
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — RECOMMENDED IMPLEMENTATION ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PHASE 1 — Quick wins (low effort, high token savings):
+
+    1. OPT-3: Add rule-based pre-check in test_execution_service.py
+       before calling LLM. Single method, no prompt changes needed.
+
+    2. OPT-2: Batch credential generation in test_credential_service.py.
+       Change _generate_value() to collect all keys first, one LLM
+       call returns all values as JSON dict.
+
+    3. OPT-9: Tighten redundant prompt instructions in prompts4.yaml.
+       No code changes needed.
+
+    5. OPT-5: Move Selenium helper boilerplate out of the prompt.
+       Post-process LLM output by prepending the helpers template.
+
+
+  PHASE 2 — Structural changes (medium effort, largest savings):
+
+    6. OPT-1: Stop sending raw HTML to test_case_service and
+       test_script_service. Build a selector_summary from metadata.
+       Update prompt templates to use {selector_summary} instead of
+       {page_source}.
+
+    7. OPT-4: Consolidate auth analysis (A+B+C) into one LLM call.
+       Add auth_form to the page analysis output schema.
+
+    8. OPT-6: Build focused HTML extractor (keep only forms/buttons/
+       inputs/links) to further reduce what goes into page analysis.
+
+
+  PHASE 3 — Advanced (higher effort, ongoing cost reduction):
+
+    9. OPT-8: Configure a "mini" model tier in llm_config.yaml.
+       Route test_case, credential, and auth_form calls to mini model.
+
+    10. OPT-10: Add content_hash to Page model, add hash comparison
+        in worker pipeline to skip unchanged pages.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — FILE REFERENCE MAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  File                                               Relevant Optimizations
+  ─────────────────────────────────────────────────  ─────────────────────────
+  llm-service/app/config/prompts4.yaml               OPT-1, OPT-4, OPT-5, OPT-9
+  llm-service/app/config/llm_config.yaml             OPT-8
+  llm-service/app/llm/llm_wrapper.py                 OPT-8
+  llm-service/app/services/page_analysis_service.py  OPT-4, OPT-6
+  llm-service/app/services/test_scenario_service.py  OPT-9
+  llm-service/app/services/test_case_service.py      OPT-1, OPT-7, OPT-8, OPT-9
+  llm-service/app/services/test_script_service.py    OPT-1, OPT-5, OPT-9
+  llm-service/app/services/test_credential_service.py OPT-2, OPT-8
+  llm-service/app/services/test_execution_service.py  OPT-3
+  llm-service/app/extractor/url_extractor.py          OPT-6
+  llm-service/app/workers/worker.py                   OPT-7, OPT-10
+  shared/shared_orm/models/page.py                    OPT-10
+
+
+================================================================================
+END OF REPORT
+================================================================================

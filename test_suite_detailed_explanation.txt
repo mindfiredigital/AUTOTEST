@@ -1,0 +1,1393 @@
+================================================================================
+  TEST SUITE — COMPLETE STEP-BY-STEP EXPLANATION WITH WORKING EXAMPLES
+  Project: AUTOTEST v2
+  Date: 2026-03-20
+================================================================================
+
+This document walks through the entire Test Suite system from scratch using a
+realistic example. By the end, you will understand every node, every edge,
+every condition, and exactly how the execution engine runs the flow.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 1 — WHAT PROBLEM DOES A TEST SUITE SOLVE?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Without Test Suite:
+    You test each page independently.
+    Login page → tested alone.
+    Goal Sheet page → tested alone.
+    They never talk to each other.
+
+  The Problem:
+    Real users don't test pages in isolation.
+    A real HR user does:
+      Login → Go to Goal Sheet → Add 5 Goals → Submit Goals → Logout
+    A real Lead user does:
+      Login → Go to Goal Sheet → Review Goals → Approve Goals → Logout
+
+    These are two different end-to-end journeys through the same pages,
+    with different data and different outcomes. A Test Suite captures exactly
+    this kind of multi-page, role-dependent journey.
+
+  What a Test Suite IS:
+    A directed graph (flowchart) where:
+      - Each NODE  = one scenario on one page (one step in the journey)
+      - Each EDGE  = the transition from one step to the next
+      - Each CONDITION on an edge = the logic that chooses which path to take
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 2 — THE EXAMPLE WE WILL USE THROUGHOUT THIS DOCUMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Application: An HR Performance Management Tool
+  Site URL: https://hrms.example.com
+
+  Pages already analysed by AUTOTEST:
+    Page 1 — Login Page          (page_id = 1)
+    Page 2 — HR Dashboard        (page_id = 2)
+    Page 3 — Goal Sheet          (page_id = 3)
+    Page 4 — Approve Goals Panel (page_id = 4)
+    Page 5 — Report Generator    (page_id = 5)
+
+  Scenarios already generated for each page:
+
+    Page 1 — Login Page:
+      Scenario 10 — Valid Login (auth-positive)
+      Scenario 11 — Invalid Login (auth-negative)
+
+    Page 2 — HR Dashboard:
+      Scenario 20 — View Dashboard Stats (functional)
+      Scenario 21 — Navigate to Goal Sheet (navigation)
+
+    Page 3 — Goal Sheet:
+      Scenario 30 — Add 5 New Goals (functional)
+      Scenario 31 — Submit Goals (functional)
+      Scenario 32 — View Existing Goals (functional)
+
+    Page 4 — Approve Goals Panel:
+      Scenario 40 — Approve All Goals (functional)
+      Scenario 41 — Reject One Goal (functional)
+
+    Page 5 — Report Generator:
+      Scenario 50 — Generate Monthly Report (functional)
+
+  ──────────────────────────────────────────────────────────────────────────────
+
+  THE FULL JOURNEY WE WANT TO TEST:
+
+    "HR Performance Review Suite"
+
+    An HR user logs in.
+    If login succeeds:
+      → If the user's role is "employee":
+          → Go to Goal Sheet → Add 5 Goals → Submit Goals
+      → If the user's role is "lead":
+          → Go to Goal Sheet → View Goals → Approve All Goals
+      → If the user's role is "hr_admin":
+          → Go to Goal Sheet → View Goals → Go to Report Generator → Generate Report
+    If login fails:
+      → End the suite (mark as failed — no further steps)
+
+  Visualised as a flowchart:
+
+    [START]
+       │
+       ▼
+    [Step 1] Login Page — Valid Login Scenario (page_id=1, scenario_id=10)
+       │
+       ├─── (outcome = failed) ──────────────────────────────────▶ [END: FAIL]
+       │
+       └─── (outcome = passed)
+               │
+               ▼
+            [Step 2] HR Dashboard — View Dashboard Stats (page_id=2, scenario_id=20)
+               │
+               ├─── (role = employee) ──▶ [Step 3A] Goal Sheet — Add 5 Goals
+               │                               │
+               │                               ▼
+               │                          [Step 3B] Goal Sheet — Submit Goals
+               │                               │
+               │                               ▼
+               │                            [END: PASS]
+               │
+               ├─── (role = lead) ──────▶ [Step 4A] Goal Sheet — View Goals
+               │                               │
+               │                               ▼
+               │                          [Step 4B] Approve Goals — Approve All
+               │                               │
+               │                               ▼
+               │                            [END: PASS]
+               │
+               └─── (role = hr_admin) ──▶ [Step 5A] Goal Sheet — View Goals
+                                               │
+                                               ▼
+                                          [Step 5B] Report Generator — Generate Report
+                                               │
+                                               ▼
+                                            [END: PASS]
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 3 — NODES: WHAT THEY ARE AND HOW THEY WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  A NODE is one box in the flowchart.
+
+  Each node has 4 required pieces:
+    id        — a unique string identifier within this flow_definition
+    type      — what kind of node it is (see node types below)
+    position  — where it sits on the canvas {x, y} in pixels
+    data      — the payload: what this node represents
+
+  ────────────────────────────────────────────────────────────────────────────
+  3.1  THE 4 NODE TYPES
+  ────────────────────────────────────────────────────────────────────────────
+
+  TYPE 1: "start"
+    ─────────────
+    What it is:
+      The entry point of the suite. Every flowchart has exactly ONE start node.
+      It has no page or scenario attached — it just marks where execution begins.
+    Visual:
+      A green circle with the label "START"
+    Rules:
+      - Cannot be a target (nothing points TO it)
+      - Can only have ONE outgoing edge
+      - Cannot be deleted by the user
+
+    Example:
+      {
+        "id": "node-start",
+        "type": "start",
+        "position": { "x": 400, "y": 0 },
+        "data": {
+          "label": "START",
+          "node_type": "start",
+          "page_id": null,
+          "scenario_id": null
+        }
+      }
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+  TYPE 2: "end"
+    ───────────
+    What it is:
+      The exit point. A flowchart can have multiple END nodes (e.g., one for
+      a passing path and one for a failing path). It marks where the suite stops.
+    Visual:
+      A red circle with the label "END"
+    Rules:
+      - Cannot be a source (nothing comes OUT of it)
+      - Can have multiple nodes pointing TO it
+      - Cannot be deleted by the user
+
+    Example (pass end):
+      {
+        "id": "node-end-pass",
+        "type": "end",
+        "position": { "x": 200, "y": 900 },
+        "data": {
+          "label": "END — PASS",
+          "node_type": "end",
+          "page_id": null,
+          "scenario_id": null
+        }
+      }
+
+    Example (fail end — when login fails):
+      {
+        "id": "node-end-fail",
+        "type": "end",
+        "position": { "x": 700, "y": 300 },
+        "data": {
+          "label": "END — FAIL",
+          "node_type": "end",
+          "page_id": null,
+          "scenario_id": null
+        }
+      }
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+  TYPE 3: "step"
+    ────────────
+    What it is:
+      A real action in the journey. Linked to a specific Page and Scenario
+      from the AUTOTEST database. When this node is executed, it runs all
+      test cases in that scenario and records their pass/fail results.
+    Visual:
+      A card showing the page title, scenario title, and colour-coded border
+      based on the scenario category.
+    Rules:
+      - Must be linked to a page_id AND a scenario_id before status can be "ready"
+      - Can have multiple incoming edges
+      - Can have multiple outgoing edges (branching)
+      - CAN be deleted
+
+    Full example — Step 1 (Login):
+      {
+        "id": "node-1",
+        "type": "step",
+        "position": { "x": 400, "y": 120 },
+        "data": {
+          "label": "Login Page — Valid Login",
+          "node_type": "step",
+          "page_id": 1,
+          "scenario_id": 10,
+          "page_title": "Login Page",
+          "scenario_title": "Valid Login - Auth Positive Flow",
+          "category": "auth-positive"
+        }
+      }
+
+    What "executing" this node means at runtime:
+      1. The engine looks up Scenario 10 in the DB.
+      2. It finds all TestCases under Scenario 10.
+      3. It runs the Selenium script for Scenario 10.
+      4. Each TestCase gets a TestExecution record: "passed" or "failed".
+      5. If ALL TestCases pass → node outcome = "passed"
+         If ANY TestCase fails  → node outcome = "failed"
+      6. That outcome is stored in the execution engine's results map
+         and used by branching logic on outgoing edges.
+
+  ─────────────────────────────────────────────────────────────────────────────
+
+  TYPE 4: "branch"
+    ──────────────
+    What it is:
+      A decision diamond. It has NO page or scenario. Its only purpose is to
+      route the flow to different paths based on conditions. It runs no tests.
+    Visual:
+      A diamond/rhombus shape with a label like "Role Check"
+    Rules:
+      - Has exactly one incoming edge
+      - Has two or more outgoing edges (each with a condition)
+      - Does NOT execute any test — just evaluates conditions and picks a path
+      - CAN be deleted
+
+    Example — Role Check after login:
+      {
+        "id": "node-branch-role",
+        "type": "branch",
+        "position": { "x": 400, "y": 400 },
+        "data": {
+          "label": "Role Check",
+          "node_type": "branch",
+          "page_id": null,
+          "scenario_id": null
+        }
+      }
+
+    NOTE: You can ALSO put branch conditions directly on edges out of a "step"
+    node without needing a separate "branch" node. The branch node is optional —
+    use it when the decision is conceptually separate from the test action.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 4 — EDGES: WHAT THEY ARE AND HOW THEY WORK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  An EDGE is an arrow connecting two nodes.
+  It answers the question: "After this step, where do we go next — and under
+  what condition?"
+
+  Every edge has these fields:
+    id        — unique string
+    source    — the node_id this arrow comes FROM
+    target    — the node_id this arrow points TO
+    label     — (optional) human-readable text shown on the arrow in the UI
+    condition — (optional) the branch logic object (see Part 5 for full detail)
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.1  UNCONDITIONAL EDGE (always followed)
+  ────────────────────────────────────────────────────────────────────────────
+
+  When condition is null, the edge is ALWAYS followed.
+  This is the default connection between sequential steps.
+
+  Example — Start → Step 1 (always go to login first):
+    {
+      "id": "edge-start-to-login",
+      "source": "node-start",
+      "target": "node-1",
+      "label": null,
+      "condition": null
+    }
+
+  Example — Step 2 → Branch Node (always go to role check after dashboard):
+    {
+      "id": "edge-dashboard-to-branch",
+      "source": "node-2",
+      "target": "node-branch-role",
+      "label": null,
+      "condition": null
+    }
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.2  CONDITIONAL EDGE (followed only if condition is true)
+  ────────────────────────────────────────────────────────────────────────────
+
+  When condition is set, the edge is ONLY followed if the condition evaluates
+  to true at runtime.
+
+  Example — If login FAILED, go to the fail end node:
+    {
+      "id": "edge-login-to-end-fail",
+      "source": "node-1",
+      "target": "node-end-fail",
+      "label": "Login failed",
+      "condition": {
+        "field": "_outcome",
+        "op": "eq",
+        "value": "failed"
+      }
+    }
+
+  Example — If login PASSED, go to the dashboard:
+    {
+      "id": "edge-login-to-dashboard",
+      "source": "node-1",
+      "target": "node-2",
+      "label": "Login passed",
+      "condition": {
+        "field": "_outcome",
+        "op": "eq",
+        "value": "passed"
+      }
+    }
+
+  Example — If role is "employee", go to goal sheet (add goals):
+    {
+      "id": "edge-branch-to-employee-path",
+      "source": "node-branch-role",
+      "target": "node-3a",
+      "label": "role = employee",
+      "condition": {
+        "field": "role",
+        "op": "eq",
+        "value": "employee"
+      }
+    }
+
+  Example — If role is "lead", go to view goals:
+    {
+      "id": "edge-branch-to-lead-path",
+      "source": "node-branch-role",
+      "target": "node-4a",
+      "label": "role = lead",
+      "condition": {
+        "field": "role",
+        "op": "eq",
+        "value": "lead"
+      }
+    }
+
+  ────────────────────────────────────────────────────────────────────────────
+  4.3  RULES FOR EDGES AT A BRANCH POINT
+  ────────────────────────────────────────────────────────────────────────────
+
+  When a node has MULTIPLE outgoing edges:
+    1. The engine evaluates ALL conditional edges in order.
+    2. It follows the FIRST one whose condition is TRUE.
+    3. It then checks unconditional edges as a fallback (if no conditional matched).
+    4. If nothing matches → that path simply ends (node becomes unreachable).
+
+  Best practice:
+    Always include a "default" unconditional edge as a fallback on branch nodes,
+    or ensure conditions are exhaustive (employee | lead | hr_admin covers all roles).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 5 — BRANCH CONDITIONS: FULL SPECIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  A condition is a JSON object with 3 fields:
+
+    {
+      "field": "...",   ← what to evaluate
+      "op":    "...",   ← how to compare
+      "value": "..."    ← what to compare against
+    }
+
+  ────────────────────────────────────────────────────────────────────────────
+  5.1  THE "field" — What Are We Looking At?
+  ────────────────────────────────────────────────────────────────────────────
+
+  There are two kinds of fields:
+
+  KIND A — Test data fields (runtime variables provided when triggering the run)
+    These come from the test_data dict you pass when clicking "Run Suite".
+    You define the field names yourself — they match the keys in test_data.
+
+    Example test_data:
+      {
+        "role": "employee",
+        "account_type": "corporate",
+        "region": "APAC"
+      }
+
+    Field examples:
+      "role"          → looks up test_data["role"]         → "employee"
+      "account_type"  → looks up test_data["account_type"] → "corporate"
+      "region"        → looks up test_data["region"]       → "APAC"
+
+  KIND B — The special reserved field "_outcome"
+    This refers to the RESULT of the most recently executed step node.
+    It is automatically set by the execution engine after each step.
+
+    Possible values:
+      "passed"  → all test cases in that step's scenario passed
+      "failed"  → one or more test cases failed
+      "error"   → the script crashed (exception, driver error, etc.)
+      "skipped" → the step had no scenario linked
+
+    Example usage:
+      After the Login step, use "_outcome" to branch:
+        condition: { "field": "_outcome", "op": "eq", "value": "passed" }
+        → "If login passed, continue to dashboard"
+
+  ────────────────────────────────────────────────────────────────────────────
+  5.2  THE "op" — Comparison Operators
+  ────────────────────────────────────────────────────────────────────────────
+
+  "eq"   — equals
+    { "field": "role", "op": "eq", "value": "employee" }
+    → true when test_data["role"] == "employee"
+
+  "neq"  — not equals
+    { "field": "role", "op": "neq", "value": "hr_admin" }
+    → true when test_data["role"] != "hr_admin"
+    → matches both "employee" and "lead" in one edge
+
+  "in"   — value is in a comma-separated list
+    { "field": "role", "op": "in", "value": "employee,lead" }
+    → true when test_data["role"] is either "employee" OR "lead"
+    → useful when two roles share the same path
+
+  ────────────────────────────────────────────────────────────────────────────
+  5.3  THE "value" — Always a String
+  ────────────────────────────────────────────────────────────────────────────
+
+  All condition values are strings. Even if you're comparing numbers,
+  use a string. The engine compares strings.
+
+    "value": "passed"       ← for _outcome
+    "value": "employee"     ← for role
+    "value": "3"            ← for a count-like field
+
+  ────────────────────────────────────────────────────────────────────────────
+  5.4  CONDITION EVALUATION PSEUDOCODE (inside the engine)
+  ────────────────────────────────────────────────────────────────────────────
+
+  def evaluate_condition(condition, test_data, last_node_outcome):
+      field = condition["field"]
+      op    = condition["op"]
+      value = condition["value"]
+
+      # Resolve the actual value to compare
+      if field == "_outcome":
+          actual = last_node_outcome    # "passed", "failed", "error", "skipped"
+      else:
+          actual = test_data.get(field, "")   # from the user-provided dict
+
+      # Apply the operator
+      if op == "eq":
+          return actual == value
+      elif op == "neq":
+          return actual != value
+      elif op == "in":
+          allowed = [v.strip() for v in value.split(",")]
+          return actual in allowed
+      else:
+          return False    # unknown operator → never match
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 6 — THE COMPLETE flow_definition JSON FOR OUR EXAMPLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  This is the EXACT JSON stored in test_suite.flow_definition for the
+  "HR Performance Review Suite" from Part 2.
+
+  Read through every node and edge — they map 1:1 to the flowchart diagram.
+
+  {
+    "nodes": [
+
+      // ── CONTROL NODES ──────────────────────────────────────────────────
+
+      {
+        "id": "node-start",
+        "type": "start",
+        "position": { "x": 400, "y": 0 },
+        "data": {
+          "label": "START",
+          "node_type": "start",
+          "page_id": null,
+          "scenario_id": null
+        }
+      },
+
+      {
+        "id": "node-end-fail",
+        "type": "end",
+        "position": { "x": 750, "y": 280 },
+        "data": {
+          "label": "END — Login Failed",
+          "node_type": "end",
+          "page_id": null,
+          "scenario_id": null
+        }
+      },
+
+      {
+        "id": "node-end-employee",
+        "type": "end",
+        "position": { "x": 100, "y": 900 },
+        "data": {
+          "label": "END — Employee Path Complete",
+          "node_type": "end",
+          "page_id": null,
+          "scenario_id": null
+        }
+      },
+
+      {
+        "id": "node-end-lead",
+        "type": "end",
+        "position": { "x": 400, "y": 900 },
+        "data": {
+          "label": "END — Lead Path Complete",
+          "node_type": "end",
+          "page_id": null,
+          "scenario_id": null
+        }
+      },
+
+      {
+        "id": "node-end-hr",
+        "type": "end",
+        "position": { "x": 700, "y": 900 },
+        "data": {
+          "label": "END — HR Admin Path Complete",
+          "node_type": "end",
+          "page_id": null,
+          "scenario_id": null
+        }
+      },
+
+      // ── STEP 1: LOGIN ───────────────────────────────────────────────────
+
+      {
+        "id": "node-1",
+        "type": "step",
+        "position": { "x": 400, "y": 120 },
+        "data": {
+          "label": "Login Page",
+          "node_type": "step",
+          "page_id": 1,
+          "scenario_id": 10,
+          "page_title": "Login Page",
+          "scenario_title": "Valid Login - Auth Positive Flow",
+          "category": "auth-positive"
+        }
+      },
+
+      // ── STEP 2: DASHBOARD (shared by all roles after login) ─────────────
+
+      {
+        "id": "node-2",
+        "type": "step",
+        "position": { "x": 400, "y": 280 },
+        "data": {
+          "label": "HR Dashboard",
+          "node_type": "step",
+          "page_id": 2,
+          "scenario_id": 20,
+          "page_title": "HR Dashboard",
+          "scenario_title": "View Dashboard Stats",
+          "category": "functional"
+        }
+      },
+
+      // ── BRANCH: ROLE CHECK ──────────────────────────────────────────────
+
+      {
+        "id": "node-branch-role",
+        "type": "branch",
+        "position": { "x": 400, "y": 430 },
+        "data": {
+          "label": "Role Check",
+          "node_type": "branch",
+          "page_id": null,
+          "scenario_id": null
+        }
+      },
+
+      // ── EMPLOYEE PATH: Steps 3A and 3B ──────────────────────────────────
+
+      {
+        "id": "node-3a",
+        "type": "step",
+        "position": { "x": 100, "y": 570 },
+        "data": {
+          "label": "Goal Sheet — Add Goals",
+          "node_type": "step",
+          "page_id": 3,
+          "scenario_id": 30,
+          "page_title": "Goal Sheet",
+          "scenario_title": "Add 5 New Goals",
+          "category": "functional"
+        }
+      },
+
+      {
+        "id": "node-3b",
+        "type": "step",
+        "position": { "x": 100, "y": 720 },
+        "data": {
+          "label": "Goal Sheet — Submit Goals",
+          "node_type": "step",
+          "page_id": 3,
+          "scenario_id": 31,
+          "page_title": "Goal Sheet",
+          "scenario_title": "Submit Goals",
+          "category": "functional"
+        }
+      },
+
+      // ── LEAD PATH: Steps 4A and 4B ──────────────────────────────────────
+
+      {
+        "id": "node-4a",
+        "type": "step",
+        "position": { "x": 400, "y": 570 },
+        "data": {
+          "label": "Goal Sheet — View Goals",
+          "node_type": "step",
+          "page_id": 3,
+          "scenario_id": 32,
+          "page_title": "Goal Sheet",
+          "scenario_title": "View Existing Goals",
+          "category": "functional"
+        }
+      },
+
+      {
+        "id": "node-4b",
+        "type": "step",
+        "position": { "x": 400, "y": 720 },
+        "data": {
+          "label": "Approve Goals",
+          "node_type": "step",
+          "page_id": 4,
+          "scenario_id": 40,
+          "page_title": "Approve Goals Panel",
+          "scenario_title": "Approve All Goals",
+          "category": "functional"
+        }
+      },
+
+      // ── HR ADMIN PATH: Steps 5A and 5B ──────────────────────────────────
+
+      {
+        "id": "node-5a",
+        "type": "step",
+        "position": { "x": 700, "y": 570 },
+        "data": {
+          "label": "Goal Sheet — View Goals",
+          "node_type": "step",
+          "page_id": 3,
+          "scenario_id": 32,
+          "page_title": "Goal Sheet",
+          "scenario_title": "View Existing Goals",
+          "category": "functional"
+        }
+      },
+
+      {
+        "id": "node-5b",
+        "type": "step",
+        "position": { "x": 700, "y": 720 },
+        "data": {
+          "label": "Report Generator",
+          "node_type": "step",
+          "page_id": 5,
+          "scenario_id": 50,
+          "page_title": "Report Generator",
+          "scenario_title": "Generate Monthly Report",
+          "category": "functional"
+        }
+      }
+
+    ],
+
+    "edges": [
+
+      // ── FROM START ──────────────────────────────────────────────────────
+
+      {
+        "id": "edge-start-to-login",
+        "source": "node-start",
+        "target": "node-1",
+        "label": null,
+        "condition": null
+      },
+
+      // ── FROM LOGIN: two paths based on outcome ───────────────────────────
+
+      {
+        "id": "edge-login-fail",
+        "source": "node-1",
+        "target": "node-end-fail",
+        "label": "Login failed",
+        "condition": {
+          "field": "_outcome",
+          "op": "eq",
+          "value": "failed"
+        }
+      },
+
+      {
+        "id": "edge-login-pass",
+        "source": "node-1",
+        "target": "node-2",
+        "label": "Login passed",
+        "condition": {
+          "field": "_outcome",
+          "op": "eq",
+          "value": "passed"
+        }
+      },
+
+      // ── FROM DASHBOARD → ROLE BRANCH ────────────────────────────────────
+
+      {
+        "id": "edge-dashboard-to-branch",
+        "source": "node-2",
+        "target": "node-branch-role",
+        "label": null,
+        "condition": null
+      },
+
+      // ── FROM ROLE BRANCH: three paths based on test_data["role"] ────────
+
+      {
+        "id": "edge-branch-employee",
+        "source": "node-branch-role",
+        "target": "node-3a",
+        "label": "role = employee",
+        "condition": {
+          "field": "role",
+          "op": "eq",
+          "value": "employee"
+        }
+      },
+
+      {
+        "id": "edge-branch-lead",
+        "source": "node-branch-role",
+        "target": "node-4a",
+        "label": "role = lead",
+        "condition": {
+          "field": "role",
+          "op": "eq",
+          "value": "lead"
+        }
+      },
+
+      {
+        "id": "edge-branch-hr-admin",
+        "source": "node-branch-role",
+        "target": "node-5a",
+        "label": "role = hr_admin",
+        "condition": {
+          "field": "role",
+          "op": "eq",
+          "value": "hr_admin"
+        }
+      },
+
+      // ── EMPLOYEE PATH ────────────────────────────────────────────────────
+
+      {
+        "id": "edge-3a-to-3b",
+        "source": "node-3a",
+        "target": "node-3b",
+        "label": null,
+        "condition": null
+      },
+
+      {
+        "id": "edge-3b-to-end",
+        "source": "node-3b",
+        "target": "node-end-employee",
+        "label": null,
+        "condition": null
+      },
+
+      // ── LEAD PATH ────────────────────────────────────────────────────────
+
+      {
+        "id": "edge-4a-to-4b",
+        "source": "node-4a",
+        "target": "node-4b",
+        "label": null,
+        "condition": null
+      },
+
+      {
+        "id": "edge-4b-to-end",
+        "source": "node-4b",
+        "target": "node-end-lead",
+        "label": null,
+        "condition": null
+      },
+
+      // ── HR ADMIN PATH ─────────────────────────────────────────────────────
+
+      {
+        "id": "edge-5a-to-5b",
+        "source": "node-5a",
+        "target": "node-5b",
+        "label": null,
+        "condition": null
+      },
+
+      {
+        "id": "edge-5b-to-end",
+        "source": "node-5b",
+        "target": "node-end-hr",
+        "label": null,
+        "condition": null
+      }
+
+    ]
+  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 7 — HOW THE EXECUTION ENGINE WALKS THE GRAPH AT RUNTIME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  When a user clicks "Run Suite", they provide test_data. The engine uses that
+  + the outcome of each step to decide which path to follow.
+
+  ────────────────────────────────────────────────────────────────────────────
+  7.1  RUN WITH test_data = { "role": "employee" }
+  ────────────────────────────────────────────────────────────────────────────
+
+  Initial state:
+    test_data    = { "role": "employee" }
+    results      = {}              ← empty, no steps run yet
+    queue        = [node-start]
+    visited      = {}
+
+  ── Iteration 1: node-start ────────────────────────────────────────────────
+    Current node  = node-start  (type = "start")
+    Action:       = do nothing (start node, no test to run)
+    Outgoing edges:
+      edge-start-to-login  (condition = null → unconditional, always follow)
+    Add to queue: node-1
+    queue = [node-1]
+
+  ── Iteration 2: node-1 (Login Page — Valid Login) ──────────────────────────
+    Current node  = node-1  (type = "step", scenario_id = 10)
+    Action:
+      Run all test cases in Scenario 10.
+      All test cases pass.
+    results["node-1"] = "passed"
+
+    Outgoing edges from node-1:
+      edge-login-fail:  condition { field="_outcome", op="eq", value="failed" }
+        Evaluate: results["node-1"] == "failed"?  → "passed" == "failed"? → FALSE
+        Skip this edge.
+
+      edge-login-pass:  condition { field="_outcome", op="eq", value="passed" }
+        Evaluate: results["node-1"] == "passed"?  → "passed" == "passed"? → TRUE
+        Follow this edge.
+
+    Add to queue: node-2
+    queue = [node-2]
+
+  ── Iteration 3: node-2 (HR Dashboard — View Dashboard Stats) ───────────────
+    Current node  = node-2  (type = "step", scenario_id = 20)
+    Action:
+      Run all test cases in Scenario 20.
+      All pass.
+    results["node-2"] = "passed"
+
+    Outgoing edges from node-2:
+      edge-dashboard-to-branch:  condition = null → unconditional
+        Always follow.
+
+    Add to queue: node-branch-role
+    queue = [node-branch-role]
+
+  ── Iteration 4: node-branch-role (Role Check) ───────────────────────────────
+    Current node  = node-branch-role  (type = "branch")
+    Action:       = do nothing (branch node, no test to run)
+
+    Outgoing edges from node-branch-role:
+      edge-branch-employee:  condition { field="role", op="eq", value="employee" }
+        Evaluate: test_data["role"] == "employee"?  → "employee" == "employee"? → TRUE
+        Follow this edge. STOP evaluating other edges (first match wins).
+
+    Add to queue: node-3a
+    queue = [node-3a]
+
+  ── Iteration 5: node-3a (Goal Sheet — Add 5 Goals) ─────────────────────────
+    Current node  = node-3a  (type = "step", scenario_id = 30)
+    Action:
+      Run all test cases in Scenario 30 (adding 5 goals).
+      All pass.
+    results["node-3a"] = "passed"
+
+    Outgoing edges from node-3a:
+      edge-3a-to-3b:  condition = null → unconditional
+    Add to queue: node-3b
+    queue = [node-3b]
+
+  ── Iteration 6: node-3b (Goal Sheet — Submit Goals) ────────────────────────
+    Current node  = node-3b  (type = "step", scenario_id = 31)
+    Action:
+      Run all test cases in Scenario 31 (submitting goals).
+      All pass.
+    results["node-3b"] = "passed"
+
+    Outgoing edges from node-3b:
+      edge-3b-to-end:  condition = null → unconditional
+    Add to queue: node-end-employee
+    queue = [node-end-employee]
+
+  ── Iteration 7: node-end-employee ───────────────────────────────────────────
+    Current node = node-end-employee  (type = "end")
+    Action:       = STOP. Suite execution complete.
+
+  FINAL RESULTS for role=employee run:
+    node-1  → passed  (Login)
+    node-2  → passed  (Dashboard)
+    node-3a → passed  (Add Goals)
+    node-3b → passed  (Submit Goals)
+
+    Nodes NOT visited: node-4a, node-4b, node-5a, node-5b
+    (These are on different branches that were not taken)
+
+    Summary: total=4, passed=4, failed=0, skipped=0
+    TestSuiteRun.status = "passed"
+
+  ────────────────────────────────────────────────────────────────────────────
+  7.2  SAME SUITE, DIFFERENT RUN: test_data = { "role": "lead" }
+  ────────────────────────────────────────────────────────────────────────────
+
+  Everything is identical through node-2 (Dashboard).
+  At node-branch-role:
+
+    edge-branch-employee:  "lead" == "employee"? → FALSE  (skip)
+    edge-branch-lead:      "lead" == "lead"?     → TRUE   (follow this one)
+
+  Execution continues:
+    node-4a (Goal Sheet — View Goals)    → passed
+    node-4b (Approve Goals — Approve All) → passed
+    node-end-lead → STOP
+
+  Nodes NOT visited this time: node-3a, node-3b, node-5a, node-5b
+
+  This demonstrates that the SAME flow_definition creates a DIFFERENT
+  execution path at runtime based purely on the test_data provided.
+
+  ────────────────────────────────────────────────────────────────────────────
+  7.3  WHAT HAPPENS WHEN LOGIN FAILS
+  ────────────────────────────────────────────────────────────────────────────
+
+  test_data = { "role": "employee" }
+  (Role doesn't matter — login fails before we get to role branching)
+
+  node-1 (Login):  All test cases fail → results["node-1"] = "failed"
+
+  Outgoing edges:
+    edge-login-fail:  "_outcome" == "failed"? → TRUE  → follow this edge
+    (edge-login-pass is not evaluated because first match was found)
+
+  Execution continues to: node-end-fail → STOP immediately.
+
+  Nodes visited: node-1 only.
+  Summary: total=1, passed=0, failed=1, skipped=0
+  TestSuiteRun.status = "failed"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 8 — HOW MULTIPLE EXECUTION FLOWS ARE CREATED FROM ONE SUITE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  The flow_definition is STATIC — it never changes between runs.
+  What changes is the test_data you provide when triggering the run.
+
+  One suite definition → infinite possible execution paths:
+
+  Run #1:  test_data = { "role": "employee" }
+    Path: START → Login → Dashboard → Add Goals → Submit Goals → END
+
+  Run #2:  test_data = { "role": "lead" }
+    Path: START → Login → Dashboard → View Goals → Approve Goals → END
+
+  Run #3:  test_data = { "role": "hr_admin" }
+    Path: START → Login → Dashboard → View Goals → Generate Report → END
+
+  Run #4:  test_data = { "role": "employee" }  (but login fails this time)
+    Path: START → Login → END (early exit on login fail)
+
+  Run #5:  test_data = { "role": "unknown_role" }
+    Path: START → Login → Dashboard → Role Branch → NO MATCH → END
+    (None of the three role conditions match → the branch node has no
+     valid exit → execution stops at the branch)
+
+  Each run is stored as a separate TestSuiteRun row in the DB.
+  Each run's individual test case results are stored as TestExecution rows
+  with that run's test_suite_run_id.
+
+  This means you can compare:
+    "Login passed in 3 out of 5 recent runs for role=employee"
+    "Goal submission failed in run #4 but passed in runs #1, #2, #3"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 9 — HOW A TEST SUITE MAPS TO A REAL FEATURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  A test suite represents one END-TO-END FEATURE, not a single page.
+
+  ────────────────────────────────────────────────────────────────────────────
+  FEATURE: User Login
+  ────────────────────────────────────────────────────────────────────────────
+
+  Suite Name: "Login Feature Suite"
+  Covers:
+    - Positive login (valid credentials)
+    - Negative login (wrong password)
+    - Account lockout (too many attempts)
+
+  Mapped to nodes:
+    Node 1: Login Page — Valid Credentials scenario
+    Node 2: Login Page — Invalid Password scenario (separate run with test_data)
+    Node 3: Login Page — Locked Account scenario
+
+  How you run it:
+    Run A: test_data = { "cred_type": "valid" }     → passes node 1, skips 2 and 3
+    Run B: test_data = { "cred_type": "invalid" }   → fails node 2 (as expected)
+    Run C: test_data = { "cred_type": "locked" }    → expects specific error message
+
+  ────────────────────────────────────────────────────────────────────────────
+  FEATURE: Checkout (E-Commerce)
+  ────────────────────────────────────────────────────────────────────────────
+
+  Suite Name: "Checkout Feature Suite"
+  Full journey:
+    Login → Product Search → Add to Cart → Checkout → Payment → Order Confirmation
+
+  Branch conditions:
+    - After payment: if payment_method = "card" → verify card charge confirmation
+    - After payment: if payment_method = "upi"  → verify UPI success screen
+    - After checkout: if promo_code = "valid"   → verify discount applied
+    - After checkout: if promo_code = "invalid" → verify error shown
+
+  Run examples:
+    Run A: test_data = { "payment_method": "card", "promo_code": "NONE" }
+    Run B: test_data = { "payment_method": "upi",  "promo_code": "SAVE20" }
+
+  ────────────────────────────────────────────────────────────────────────────
+  FEATURE: Corporate Account Creation
+  ────────────────────────────────────────────────────────────────────────────
+
+  Suite Name: "Account Registration Suite"
+  Branch: account_type = "corporate" vs "retailer"
+
+  Nodes:
+    Register Page:
+      Node 1: Fill personal details (shared)
+    Branch: account_type check
+      Node 2A (corporate): Fill company details → GST verification → Submit
+      Node 2B (retailer):  Fill shop details   → PAN verification  → Submit
+
+  Run A: test_data = { "account_type": "corporate" }
+  Run B: test_data = { "account_type": "retailer"  }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 10 — WHAT flow_definition CONTAINS (COMPLETE FIELD REFERENCE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  {
+    "nodes": [                    ← array of all nodes in the flowchart
+      {
+        "id":       string,       ← REQUIRED. Unique within this flow_definition.
+                                     Convention: "node-start", "node-1", "node-end"
+        "type":     string,       ← REQUIRED. One of: "start" | "end" | "step" | "branch"
+        "position": {             ← REQUIRED. Pixel position on the canvas.
+          "x": number,
+          "y": number
+        },
+        "data": {
+          "label":         string,  ← REQUIRED. Shown as the node's title in the UI.
+          "node_type":     string,  ← REQUIRED. Same value as outer "type".
+          "page_id":       int|null, ← null for start/end/branch. Required for step.
+          "scenario_id":   int|null, ← null for start/end/branch. Required for step.
+          "page_title":    string|null, ← display only, copied from Page.page_title
+          "scenario_title":string|null, ← display only, copied from TestScenario.title
+          "category":      string|null  ← display only, copied from TestScenario.category
+        }
+      }
+    ],
+
+    "edges": [                    ← array of all directed connections
+      {
+        "id":        string,      ← REQUIRED. Unique within this flow_definition.
+                                     Convention: "edge-{source_id}-to-{target_id}"
+        "source":    string,      ← REQUIRED. node.id this arrow starts FROM.
+        "target":    string,      ← REQUIRED. node.id this arrow points TO.
+        "label":     string|null, ← Shown on the arrow in the UI. null = no label.
+        "condition": {            ← null = unconditional (always follow).
+          "field": string,        ← "_outcome" OR a key from test_data
+          "op":    string,        ← "eq" | "neq" | "in"
+          "value": string         ← the value to compare against
+        } | null
+      }
+    ]
+  }
+
+  ────────────────────────────────────────────────────────────────────────────
+  IMPORTANT RULES FOR A VALID flow_definition
+  ────────────────────────────────────────────────────────────────────────────
+
+  1. Exactly ONE "start" node must exist.
+  2. At least ONE "end" node must exist (can have multiple).
+  3. Every "step" node must have page_id AND scenario_id set (for "ready" status).
+  4. "start" node must have no incoming edges.
+  5. "end" nodes must have no outgoing edges.
+  6. No cycles allowed (a node cannot eventually point back to itself).
+  7. All edges must reference valid node IDs that exist in the nodes array.
+  8. All node IDs and edge IDs must be unique within the flow_definition.
+
+  The backend validates all of these rules when the suite status is set to "ready".
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 11 — HOW THE EXECUTION ENGINE USES flow_definition STEP BY STEP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  When process_test_suite_run() is called in the llm-service worker:
+
+  STEP A — Load the suite from DB
+    suite = db.query(TestSuite).filter_by(id=suite_id).first()
+    flow  = suite.flow_definition   ← the JSON object from Part 6
+
+  STEP B — Mark the run as started
+    run.status = "running"
+    run.started_on = datetime.utcnow()
+    db.commit()
+
+  STEP C — Find the start node
+    start = next(n for n in flow["nodes"] if n["type"] == "start")
+
+  STEP D — Build the adjacency map
+    adj = {}
+    for edge in flow["edges"]:
+      if edge["source"] not in adj:
+        adj[edge["source"]] = []
+      adj[edge["source"]].append({
+        "target":    edge["target"],
+        "condition": edge["condition"]
+      })
+
+    After building adj for our example:
+      adj = {
+        "node-start":      [{ target: "node-1",           condition: null }],
+        "node-1":          [{ target: "node-end-fail",     condition: { field:"_outcome", op:"eq", value:"failed" }},
+                            { target: "node-2",            condition: { field:"_outcome", op:"eq", value:"passed" }}],
+        "node-2":          [{ target: "node-branch-role",  condition: null }],
+        "node-branch-role":[{ target: "node-3a",           condition: { field:"role", op:"eq", value:"employee" }},
+                            { target: "node-4a",           condition: { field:"role", op:"eq", value:"lead" }},
+                            { target: "node-5a",           condition: { field:"role", op:"eq", value:"hr_admin" }}],
+        "node-3a":         [{ target: "node-3b",           condition: null }],
+        "node-3b":         [{ target: "node-end-employee", condition: null }],
+        "node-4a":         [{ target: "node-4b",           condition: null }],
+        "node-4b":         [{ target: "node-end-lead",     condition: null }],
+        "node-5a":         [{ target: "node-5b",           condition: null }],
+        "node-5b":         [{ target: "node-end-hr",       condition: null }]
+      }
+
+  STEP E — Walk the graph (BFS)
+    queue   = deque([ start_node ])
+    visited = set()
+    results = {}       ← filled as each step runs
+
+    LOOP:
+      node = queue.popleft()
+      if node.id in visited: skip
+      visited.add(node.id)
+
+      IF node.type == "step":
+        # Execute the scenario and record outcome
+        outcome = execute_scenario(node.data.scenario_id, ...)
+        results[node.id] = outcome
+        notify_websocket(run_id, node.id, outcome)
+
+      IF node.type == "end":
+        # Nothing to execute — this is a terminal node
+        continue
+
+      IF node.type == "branch" or "step":
+        # Evaluate outgoing edges
+        outgoing = adj.get(node.id, [])
+
+        # First: try conditional edges
+        followed = False
+        for edge in [e for e in outgoing if e["condition"] is not None]:
+          if evaluate_condition(edge["condition"], test_data, results.get(node.id)):
+            queue.append(node_by_id(edge["target"]))
+            followed = True
+            break    # first matching condition wins
+
+        # Fallback: if no conditional edge matched, follow unconditional ones
+        if not followed:
+          for edge in [e for e in outgoing if e["condition"] is None]:
+            queue.append(node_by_id(edge["target"]))
+
+  STEP F — Aggregate results
+    total   = count of step nodes that were visited and executed
+    passed  = count where results[id] == "passed"
+    failed  = count where results[id] in ("failed", "error")
+    skipped = count where results[id] == "skipped"
+
+  STEP G — Determine final run status
+    if failed == 0:           status = "passed"
+    elif passed > 0:          status = "partially_passed"
+    else:                     status = "failed"
+
+  STEP H — Update DB and notify
+    run.status = final_status
+    run.completed_on = datetime.utcnow()
+    run.execution_summary = { total, passed, failed, skipped }
+    db.commit()
+    publish_to_TEST_SUITE_STATUS_QUEUE(run_id, final_status)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 12 — WHAT THE USER DOES IN THE UI (STEP BY STEP)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. User goes to Site Info → Test Suite tab.
+
+  2. Clicks "+ Create Suite". Types "HR Performance Review Suite". Saves.
+     → Suite created with status="draft", empty flow_definition.
+
+  3. Clicks on the suite row. Canvas opens.
+     Canvas shows: [START] ────── [END] (default initial graph)
+
+  4. Clicks "+ Add Step". A blank grey StepNode appears.
+     Double-clicks it. EditStepDialog opens.
+       - Selects Page: "Login Page"
+       - Selects Scenario: "Valid Login - Auth Positive Flow"
+       - Clicks Save.
+     Node updates to show "Login Page / Valid Login", green border.
+
+  5. Drags an arrow FROM [START] TO [Login Page node].
+     Drags another arrow FROM [Login Page] TO [END].
+     (Basic 3-node flow now works — linear, no branches.)
+
+  6. Double-clicks the edge between Login and END. EditEdgeDialog opens.
+       - Sets condition: field="_outcome", op="eq", value="passed"
+       - Label: "Login passed"
+       - Saves.
+
+  7. Adds another [END] node (for the fail case). Drags edge from Login → END-FAIL.
+     Double-clicks that edge. Sets condition: field="_outcome", value="failed".
+
+  8. Adds more Step nodes and connects them. Adds a Branch node for role.
+     Sets conditions on edges from the Branch node for each role.
+
+  9. Clicks "Save". PATCH /test-suites/{id} is called.
+     Backend stores the full nodes + edges as flow_definition JSON.
+     Backend re-syncs TestSuiteStep rows (one row per step node).
+
+  10. Clicks "Mark Ready". Backend validates:
+      - All step nodes have scenario_id → PASS
+      - Graph is connected → PASS
+      - No cycles → PASS
+      Suite status becomes "ready". Run button is now enabled.
+
+  11. Clicks "Run". TestSuiteRunPanel opens.
+      User types test_data: { "role": "employee" }.
+      Clicks "Run Suite".
+      POST /test-suites/{id}/run  { "test_data": { "role": "employee" } }
+      → TestSuiteRun row created (status="pending"), run_id returned.
+      → Message queued to TEST_SUITE_QUEUE.
+
+  12. In the Run History panel, run status shows "running".
+      As each step completes, WebSocket pushes "TEST_SUITE_STATUS_UPDATE".
+      Status updates in real-time on screen.
+
+  13. Run completes. Status shows "passed" with a green badge.
+      Clicks the run row to expand it:
+        Step 1: Login Page — ✓ 3/3 test cases passed
+        Step 2: Dashboard  — ✓ 2/2 test cases passed
+        Step 3A: Add Goals — ✓ 5/5 test cases passed
+        Step 3B: Submit    — ✓ 2/2 test cases passed
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART 13 — QUICK REFERENCE CHEAT SHEET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  NODES
+  ─────
+  "start"  → Entry point. One per suite. No test runs here.
+  "end"    → Exit point. Can have multiple. No test runs here.
+  "step"   → Real test. Must link to page_id + scenario_id. Runs all test cases.
+  "branch" → Decision diamond. No test. Only routes based on conditions.
+
+  EDGES
+  ─────
+  condition = null        → Always follow this edge (unconditional)
+  condition set           → Follow only if condition is true at runtime
+  First match wins        → If multiple edges match, only the first is followed
+  Fallback = unconditional → If no conditional edge matches, use unconditional
+
+  CONDITIONS
+  ──────────
+  field = "_outcome"      → Looks at the result of the PREVIOUS step node
+                             Values: "passed" | "failed" | "error" | "skipped"
+  field = "anything_else" → Looks up that key in the test_data dict provided at run time
+  op = "eq"               → equals
+  op = "neq"              → not equals
+  op = "in"               → value is in a comma-separated list
+
+  TEST DATA
+  ─────────
+  Provided by the user when clicking "Run Suite"
+  Example: { "role": "employee", "account_type": "corporate", "region": "IN" }
+  Keys must match the "field" values used in conditions
+  Does not change between steps — it is fixed for the entire run
+
+  OUTCOMES
+  ────────
+  "passed"  → All test cases in the step's scenario passed
+  "failed"  → One or more test cases failed
+  "error"   → Script crashed (driver error, exception, timeout)
+  "skipped" → Step node had no scenario linked
+
+  RUN STATUS
+  ──────────
+  "pending"          → Queued, not started
+  "running"          → Currently executing
+  "passed"           → All executed steps passed
+  "partially_passed" → Some passed, some failed
+  "failed"           → All executed steps failed
+  "error"            → Engine crashed before completing
+
+================================================================================
+END OF DOCUMENT
+================================================================================
