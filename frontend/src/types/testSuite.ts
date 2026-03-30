@@ -89,6 +89,37 @@ export interface UpdateTestSuitePayload {
   test_case_count?: number
 }
 
+// ─── Execution types ───────────────────────────────────────────────────────────
+
+export type TestSuiteExecutionStatus =
+  | 'pending'
+  | 'running'
+  | 'passed'
+  | 'partially_passed'
+  | 'failed'
+  | 'error'
+
+export interface TestSuiteExecutionSummary {
+  total: number
+  passed: number
+  failed: number
+  skipped: number
+}
+
+export interface TestSuiteExecution {
+  id: number
+  test_suite_id: number
+  status: TestSuiteExecutionStatus
+  started_at?: string | null
+  ended_at?: string | null
+  execution_summary?: TestSuiteExecutionSummary | null
+  executed_by?: number | null
+  created_on?: string
+  created_by?: number
+  updated_on?: string
+  updated_by?: number
+}
+
 // ─── Selection tree types (used during building) ──────────────────────────────
 
 export interface SelectionTestCase {

@@ -35,7 +35,8 @@ export function DynamicTable<T>({
   getRowClassName,
 }: DynamicTableProps<T>) {
   return (
-    <Table className="table-fixed w-full">
+    <div className="w-full overflow-x-auto">
+    <Table className="table-fixed min-w-[640px] w-full">
       <TableHeader className="bg-muted/40">
         <TableRow>
           {columns.map((col) => (
@@ -109,6 +110,7 @@ export function DynamicTable<T>({
         )}
       </TableBody>
     </Table>
+    </div>
   )
 }
 

@@ -8,6 +8,7 @@ import {
   useCreateTestSuiteMutation,
   useUpdateTestSuiteMutation,
   useDeleteTestSuiteMutation,
+  useRunTestSuiteMutation,
 } from '@/utils/queries/testSuiteQueries'
 import {
   DropdownMenu,
@@ -141,6 +142,7 @@ const TestSuite: React.FC = () => {
   const { mutate: createSuite, isPending: isCreating } = useCreateTestSuiteMutation()
   const { mutate: updateSuite, isPending: isUpdating } = useUpdateTestSuiteMutation()
   const { mutate: deleteSuite, isPending: isDeleting } = useDeleteTestSuiteMutation()
+  const { mutate: runSuite, isPending: isRunning } = useRunTestSuiteMutation()
 
   const [builderOpen, setBuilderOpen] = useState(false)
   const [editingSuite, setEditingSuite] = useState<TestSuiteType | null>(null)
@@ -302,10 +304,21 @@ const TestSuite: React.FC = () => {
         confirmText="Run"
         cancelText="Cancel"
         variant="default"
-        isLoading={false}
+        isLoading={isRunning}
         onConfirm={() => {
-          toast.info(`Running "${runTarget?.title}"… (execution coming soon)`)
-          setRunTarget(null)
+          if (!runTarget) return
+          runSuite(runTarget.id, {
+            onSuccess: (execution) => {
+              toast.success(
+                `Execution started for "${runTarget.title}" (ID: ${execution.id})`,
+              )
+              setRunTarget(null)
+            },
+            onError: () => {
+              toast.error(`Failed to start execution for "${runTarget.title}"`)
+              setRunTarget(null)
+            },
+          })
         }}
         onCancel={() => setRunTarget(null)}
       />

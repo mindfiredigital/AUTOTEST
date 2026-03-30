@@ -33,17 +33,16 @@ type Props = {
 
 export function SiteTable({ data, onDelete }: Props) {
   return (
-    <div className="w-full">
-      {/* Fixed table layout prevents column jumping */}
-      <Table className="table-fixed w-full">
+    <div className="w-full overflow-x-auto">
+      <Table className="table-fixed min-w-[700px] w-full">
         <TableHeader className="bg-muted/40">
           <TableRow>
-            <TableHead className="w-[140px]">Date</TableHead>
-            <TableHead className="w-[260px]">Title</TableHead>
-            <TableHead className="w-[260px]">URL</TableHead>
-            <TableHead className="w-[160px]">Status</TableHead>
-            <TableHead className="w-[120px] text-center">Analyze</TableHead>
-            <TableHead className="w-[80px] text-right">Action</TableHead>
+            <TableHead className="w-[120px] min-w-[100px]">Date</TableHead>
+            <TableHead className="w-[220px] min-w-[160px]">Title</TableHead>
+            <TableHead className="w-[240px] min-w-[160px]">URL</TableHead>
+            <TableHead className="w-[140px] min-w-[100px]">Status</TableHead>
+            <TableHead className="w-[120px] min-w-[90px] text-center">Analyze</TableHead>
+            <TableHead className="w-[80px] min-w-[60px] text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -63,14 +62,14 @@ export function SiteTable({ data, onDelete }: Props) {
                 </TableCell>
 
                 {/* Title */}
-                <TableCell className="w-[260px]">
+                <TableCell className="w-[220px]">
                   <div className="truncate font-medium" title={site.site_title}>
                     {site.site_title}
                   </div>
                 </TableCell>
 
                 {/* URL */}
-                <TableCell className="w-[260px]">
+                <TableCell className="w-[240px]">
                   <div className="w-full overflow-hidden">
                     <a
                       href={site.site_url}
@@ -86,7 +85,7 @@ export function SiteTable({ data, onDelete }: Props) {
                 </TableCell>
 
                 {/* Status */}
-                <TableCell className="w-[160px]">
+                <TableCell className="w-[140px]">
                   <StatusPill status={site.status} />
                 </TableCell>
 

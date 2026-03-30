@@ -44,3 +44,9 @@ class TestSuiteExecutionResponse(BaseModel):
 class TestSuiteExecutionListResponse(BaseModel):
     items: List[TestSuiteExecutionResponse]
     total: int
+
+
+class TestSuiteExecutionStatusUpdate(BaseModel):
+    status: str
+    execution_summary: Optional[Dict[str, Any]] = None
+    ended_at: Optional[datetime] = None

@@ -2,6 +2,7 @@ import api from '../axios'
 import type {
   TestSuite,
   TestSuiteListResponse,
+  TestSuiteExecution,
   CreateTestSuitePayload,
   UpdateTestSuitePayload,
 } from '@/types/testSuite'
@@ -29,5 +30,10 @@ export const testSuiteApi = {
 
   deleteTestSuite: async (suiteId: number): Promise<void> => {
     await api.delete(`/test-suites/${suiteId}`)
+  },
+
+  executeTestSuite: async (suiteId: number): Promise<TestSuiteExecution> => {
+    const { data } = await api.post(`/test-suites/${suiteId}/execute`)
+    return data
   },
 }

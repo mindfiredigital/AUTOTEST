@@ -50,3 +50,9 @@ export const useDeleteTestSuiteMutation = () => {
     },
   })
 }
+
+export const useRunTestSuiteMutation = () => {
+  return useMutation({
+    mutationFn: (suiteId: number) => testSuiteApi.executeTestSuite(suiteId),
+  })
+}

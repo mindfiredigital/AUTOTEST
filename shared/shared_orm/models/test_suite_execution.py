@@ -1,11 +1,12 @@
 from __future__ import annotations
 from datetime import datetime
 from sqlalchemy import JSON, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from shared.shared_orm.models.site import Site
+from sqlalchemy.orm import Mapped, mapped_column
 from shared_orm.db.base import Base
 
+
 class TestSuiteExecution(Base):
+    __tablename__ = "test_suite_execution"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     test_suite_id: Mapped[int] = mapped_column(ForeignKey("test_suite.id"), nullable=False, index=True)
@@ -17,4 +18,4 @@ class TestSuiteExecution(Base):
     created_on: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
     updated_on: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    updated_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)    
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
