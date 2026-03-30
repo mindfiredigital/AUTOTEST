@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     SITE_STATUS_UPDATE_QUEUE: str
     PAGE_CRAWL_MAX_DEPTH: int = 2
     PAGE_CRAWL_UNLIMITED: bool = False
+    TEST_SUITE_EXECUTION_QUEUE: str
+
 
 
     model_config = SettingsConfigDict(

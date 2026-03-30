@@ -216,7 +216,20 @@ class TestSuiteExecutionService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Test suite not found")
 
         logger.info(f"[SUITE_EXECUTION_CREATE] suite_id={suite_id} triggered by user={user.id}")
+        existing_executions = (
+            db.query(TestSuiteExecution)
+            .filter(TestSuiteExecution.test_suite_id == suite_id)
+            .all()
+        )
 
+        if existing_executions:
+            logger.info(f"[DELETE_EXISTING_EXECUTIONS] count={len(existing_executions)} for suite_id={suite_id}")
+
+            for exec in existing_executions:
+                db.delete(exec)
+
+            db.flush()
+            
         # 1. Sync steps from current flow_definition
         steps = self.sync_steps(suite, db, user)
 

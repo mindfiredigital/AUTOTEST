@@ -124,7 +124,6 @@ export const NodeInfoPanel: React.FC<NodeInfoPanelProps> = ({
               .map(a => (
                 <option key={a.id} value={a.attribute_key}>
                   {a.attribute_key}
-                  {a.attribute_title ? ` — ${a.attribute_title}` : ''}
                 </option>
               ))}
           </select>
