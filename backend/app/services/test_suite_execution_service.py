@@ -180,6 +180,12 @@ class TestSuiteExecutionService:
             label: str = data.get("label", "")
             site_attributes: list[dict] = data.get("site_attributes") or []
 
+            # Serialize test_case_ids as comma-separated string e.g. "2245, 2246, 2247"
+            raw_tc_ids: list = data.get("test_case_ids") or []
+            test_case_ids_str: str | None = (
+                ", ".join(str(tc_id) for tc_id in raw_tc_ids) if raw_tc_ids else None
+            )
+
             step = TestSuiteStep(
                 test_suite_id=suite.id,
                 step_number=step_order,
@@ -190,6 +196,7 @@ class TestSuiteExecutionService:
                 page_id=page_id,
                 scenario_id=scenario_id,
                 test_suite_step_attribute=_normalise_site_attributes(site_attributes),
+                test_case_ids=test_case_ids_str,
                 created_on=now,
                 created_by=user.id,
             )

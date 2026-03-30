@@ -14,6 +14,7 @@ class TestSuiteStepResponse(BaseModel):
     page_id: Optional[int] = None
     scenario_id: Optional[int] = None
     test_suite_step_attribute: Optional[Dict[str, Any]] = None
+    test_case_ids: Optional[str] = None
     created_on: Optional[datetime] = None
     created_by: Optional[int] = None
 

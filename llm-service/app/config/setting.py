@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     PAGE_CRAWL_MAX_DEPTH: int = 2
     PAGE_CRAWL_UNLIMITED: bool = False
     TEST_SUITE_EXECUTION_QUEUE: str
+    TEST_SUITE_EXECUTION_QUEUE: str
 
 
 

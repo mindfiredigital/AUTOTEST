@@ -18,5 +18,6 @@ class TestSuiteStep(Base):
     scenario_id: Mapped[int | None] = mapped_column(ForeignKey("test_scenario.id"), nullable=True)
     step_order: Mapped[int] = mapped_column(Integer, nullable=False)
     test_suite_step_attribute: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    test_case_ids: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_on: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)

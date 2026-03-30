@@ -8,6 +8,7 @@ map is evaluated at import time.
 
 from app.config.setting import settings
 from app.workers.worker import worker_service
+# from app.workers.worker_test_suite_execution import worker_test_suite_execution_service
 
 
 # QUEUE_HANDLER_MAP: settings.<QUEUE_NAME> -> async handler callable
@@ -21,5 +22,5 @@ QUEUE_HANDLER_MAP = {
     settings.TEST_EXECUTION_QUEUE: worker_service.process_test_execution,
     settings.SCENARIO_RERUN_QUEUE: worker_service.process_scenario_rerun,
     settings.AUTH_CREDENTIAL_UPDATE_QUEUE: worker_service._perform_login_and_discover,
-    settings.TEST_SUITE_EXECUTION_QUEUE: worker_service.process_test_suite_execution,
+    # settings.TEST_SUITE_EXECUTION_QUEUE: worker_test_suite_execution_service.process_test_suite_execution,
 }
