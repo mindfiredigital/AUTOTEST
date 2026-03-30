@@ -30,7 +30,7 @@ export default function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 p-0 font-bold"
+          className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 p-0 font-bold cursor-pointer"
           aria-label="User Menu"
         >
           {user.name.charAt(0).toUpperCase()}
@@ -41,7 +41,10 @@ export default function UserMenu() {
         <div className="px-2 py-1 text-sm text-gray-500 dark:text-gray-400">
           Welcome, {user.name}
         </div>
-        <DropdownMenuItem onClick={handleLogout} className="flex items-center space-x-2">
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="flex items-center space-x-2 cursor-pointer"
+        >
           <LogOut className="h-4 w-4" />
           <span>Logout</span>
         </DropdownMenuItem>
