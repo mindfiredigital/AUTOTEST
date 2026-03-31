@@ -42,8 +42,9 @@ class Settings(BaseSettings):
     PAGE_AUTH_UPDATE_QUEUE: str
     SITE_STATUS_UPDATE_QUEUE: str
     TEST_SUITE_EXECUTION_QUEUE: str
+    LLM_SERVICE_DIR: str = ""
 
-    
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

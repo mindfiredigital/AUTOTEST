@@ -31,6 +31,7 @@ class TestSuiteExecutionResponse(BaseModel):
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     execution_summary: Optional[Dict[str, Any]] = None
+    logs: Optional[str] = None
     executed_by: Optional[int] = None
     created_on: Optional[datetime] = None
     created_by: Optional[int] = None
