@@ -72,11 +72,16 @@ const SuiteCard: React.FC<SuiteCardProps> = ({ suite, onEdit, onDelete, onRun })
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => onRun(suite)}
-                className="cursor-pointer text-sm flex items-center gap-2 text-emerald-600"
-              >
+                onClick={() => suite.status !== 'running' && onRun(suite)}
+                disabled={suite.status === 'running'}
+                className={`text-sm flex items-center gap-2 ${
+                  suite.status === 'running'
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-emerald-600 cursor-pointer'
+                }`}
+               >
                 <Play className="w-3.5 h-3.5" />
-                Run Test Suite
+                {suite.status === 'running' ? 'Running...' : 'Run Test Suite'}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(suite)} className="cursor-pointer text-sm">
                 Edit
