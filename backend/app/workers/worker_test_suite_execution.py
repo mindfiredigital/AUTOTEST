@@ -62,6 +62,7 @@ from sqlalchemy.orm import Session
 
 from app.config.database import SessionLocal
 from app.config.logger import logger
+from app.config.setting import settings
 from shared_orm.models.page import Page
 from shared_orm.models.test_case import TestCase
 from shared_orm.models.test_case_credential import TestCaseCredential
@@ -82,124 +83,6 @@ try:
     print(f"__AUTH_COOKIES__:{_cookie_json.dumps(_captured_cookies)}")
 except Exception as _cookie_err:
     print(f"__AUTH_COOKIES_ERROR__:{_cookie_err}")
-"""
-
-# ---------------------------------------------------------------------------
-# Targeted login script template
-# Used by _perform_login to run ONLY the selected login test case.
-# Reads all inputs from __TEST_CASE__ (injected by _build_script_header),
-# so the old scenario.script (which hardcodes all test cases) is never used.
-# ---------------------------------------------------------------------------
-
-TARGETED_LOGIN_SCRIPT = """
-import time as _login_time
-from selenium.webdriver.common.by import By as _By
-from selenium.webdriver.support.ui import WebDriverWait as _WDW2
-from selenium.webdriver.support import expected_conditions as _EC2
-
-_tc    = __TEST_CASE__
-_sels  = _tc.get("selectors", {})
-_tdata = _tc.get("test_data", {})
-_purl  = _tc.get("page_url", "")
-
-# Navigate to login page
-if _purl:
-    driver.get(_purl)
-    try:
-        _WDW2(driver, 15).until(lambda d: d.execute_script('return document.readyState') == 'complete')
-    except Exception:
-        pass
-
-def _find_el(sel):
-    \"\"\"Try CSS then XPath.\"\"\"
-    for _by in (_By.CSS_SELECTOR, _By.XPATH):
-        try:
-            return _WDW2(driver, 10).until(_EC2.presence_of_element_located((_by, sel)))
-        except Exception:
-            continue
-    return None
-
-# Resolve selectors — support multiple naming conventions
-_user_sel = (
-    _sels.get("username") or _sels.get("username_selector") or
-    _sels.get("email")    or _sels.get("email_selector")    or
-    _sels.get("user")
-)
-_pass_sel = (
-    _sels.get("password") or _sels.get("password_selector") or
-    _sels.get("pass")
-)
-_sub_sel = (
-    _sels.get("submit")        or _sels.get("submit_selector") or
-    _sels.get("submit_button") or _sels.get("login_button")    or
-    _sels.get("button")
-)
-
-# Resolve credentials — support multiple naming conventions
-_username_val = None
-_password_val = None
-for _k, _v in _tdata.items():
-    _kl = _k.lower()
-    if any(x in _kl for x in ("email", "username", "user", "login", "name")):
-        _username_val = _v
-    elif any(x in _kl for x in ("password", "pass", "pwd", "secret")):
-        _password_val = _v
-# Fallback: first two values in order
-if not _username_val or not _password_val:
-    _vals = list(_tdata.values())
-    if not _username_val and _vals:
-        _username_val = _vals[0]
-    if not _password_val and len(_vals) > 1:
-        _password_val = _vals[1]
-
-# Fill username
-if _user_sel and _username_val:
-    _uf = _find_el(_user_sel)
-    if _uf:
-        _uf.clear()
-        _uf.send_keys(str(_username_val))
-    else:
-        print(f"[ERROR] Username field not found with selector: {_user_sel}")
-else:
-    print(f"[WARN] Username selector or value missing: sel={_user_sel!r} val={_username_val!r}")
-
-# Fill password
-if _pass_sel and _password_val:
-    _pf = _find_el(_pass_sel)
-    if _pf:
-        _pf.clear()
-        _pf.send_keys(str(_password_val))
-    else:
-        print(f"[ERROR] Password field not found with selector: {_pass_sel}")
-else:
-    print(f"[WARN] Password selector or value missing: sel={_pass_sel!r} val={_password_val!r}")
-
-# Submit
-if _sub_sel:
-    _sb = _find_el(_sub_sel)
-    if _sb:
-        _prev_url = driver.current_url
-        _sb.click()
-        _login_time.sleep(3)
-        if driver.current_url != _prev_url:
-            print("Test Completed: Login successful")
-        else:
-            print("[ERROR] Login failed: URL did not change after login")
-    else:
-        print(f"[ERROR] Submit button not found with selector: {_sub_sel}")
-else:
-    print("[WARN] No submit selector found — attempting Enter key on password field")
-    if _pass_sel:
-        _pf2 = _find_el(_pass_sel)
-        if _pf2:
-            from selenium.webdriver.common.keys import Keys as _Keys
-            _prev_url = driver.current_url
-            _pf2.send_keys(_Keys.RETURN)
-            _login_time.sleep(3)
-            if driver.current_url != _prev_url:
-                print("Test Completed: Login successful via Enter key")
-            else:
-                print("[ERROR] Login failed: URL did not change after Enter key")
 """
 
 # Placeholder pattern used in test_data: {VALID_EMAIL}, {INVALID_PASSWORD}
@@ -373,9 +256,15 @@ def _execute_test_script(script: str) -> dict:
             tmp_file = f.name
 
         env = os.environ.copy()
-        # os.getcwd() is the LLM service root inside the container —
-        # same approach as test_execution_service.execute_test_script()
-        env["PYTHONPATH"] = os.getcwd()
+        llm_service_dir = getattr(settings, "LLM_SERVICE_DIR", "")
+        if llm_service_dir and os.path.isdir(llm_service_dir):
+            existing = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = (
+                f"{llm_service_dir}{os.pathsep}{existing}" if existing else llm_service_dir
+            )
+        else:
+            # Fallback: use cwd (works when worker runs in LLM service container)
+            env["PYTHONPATH"] = os.getcwd()
 
         result = subprocess.run(
             [sys.executable, tmp_file],
@@ -604,24 +493,21 @@ def _perform_login(
     log,
 ) -> List[dict]:
     """
-    Run a targeted login script to obtain an authenticated Selenium session.
-
-    Uses TARGETED_LOGIN_SCRIPT (a generic template driven by __TEST_CASE__) instead
-    of login_scenario.script.  Old-style scenario scripts hardcode all their test
-    cases (including invalid-credential ones) and run every case regardless of
-    __TEST_CASE__ injection — leaving the browser in an unauthenticated state before
-    cookie capture.  The targeted template reads selectors and credentials directly
-    from __TEST_CASE__ and executes exactly ONE login attempt for the selected TC.
+    Run the login scenario's script to obtain an authenticated Selenium session.
 
     1. Picks the default-valid test case (is_valid_default=True) for credentials.
        Falls back to the first valid test case if none is marked default.
     2. Resolves {VALID_EMAIL}/{VALID_PASSWORD} placeholders from the DB.
     3. Injects resolved credentials via _build_script_header (as __TEST_CASE__).
-    4. Runs TARGETED_LOGIN_SCRIPT + COOKIE_CAPTURE_FOOTER.
+    4. Appends COOKIE_CAPTURE_FOOTER so the subprocess prints the session cookies.
     5. Parses __AUTH_COOKIES__:{json} from stdout.
 
     Returns a list of Selenium cookie dicts (empty if login failed or no cookies).
     """
+    if not login_scenario.script:
+        log("  LOGIN SKIPPED — login scenario has no script")
+        return []
+
     # Resolve the login test case IDs from the step
     tc_ids: List[int] = []
     if login_step.test_case_ids:
@@ -679,15 +565,11 @@ def _perform_login(
             ),
         }
 
-    # Build a targeted login script from the selected test case's selectors/credentials.
-    # We deliberately do NOT use login_scenario.script because old-style scripts
-    # hardcode all their test cases and will run every TC (including invalid-cred ones),
-    # leaving the browser in an unauthenticated state before cookie capture.
+    # Build the full login script: header (no auth cookies yet) + scenario script + cookie footer
     header = _build_script_header(login_payload, auth_cookies=None)
-    login_script = header + TARGETED_LOGIN_SCRIPT + COOKIE_CAPTURE_FOOTER
+    login_script = header + login_scenario.script + COOKIE_CAPTURE_FOOTER
 
-    log(f"  Executing targeted login for tc_id={login_tc.id if login_tc else 'N/A'} "
-        f"(scenario: '{login_scenario.title}') to capture session")
+    log(f"  Executing login scenario '{login_scenario.title}' to capture session")
     result = _execute_test_script(login_script)
 
     if result["output"]:
@@ -869,17 +751,6 @@ def _run_execution_sync(execution_id: int, suite_id: int, user_id: int) -> None:
             for s in steps
         )
 
-        # Auto-detect: if first step is a login scenario and there are subsequent
-        # steps, treat the suite as needing auth even when requires_auth is not set.
-        if not needs_auth and len(steps) > 1:
-            first_sc = scenario_map.get(steps[0].scenario_id) if steps[0].scenario_id else None
-            if first_sc and (
-                (first_sc.category or "") in ("auth-positive", "auth-negative")
-                or "login" in (first_sc.title or "").lower()
-            ):
-                needs_auth = True
-                log("Auth auto-detected — first step is a login scenario")
-
         # ── Perform login and capture session cookies (auth suites only) ──────
         auth_cookies: List[dict] = []
 
@@ -982,22 +853,13 @@ def _run_execution_sync(execution_id: int, suite_id: int, user_id: int) -> None:
                 continue
 
             # ── Load test cases for this step ─────────────────────────────────
-            test_cases: List[TestCase] = (
-                db.query(TestCase).filter(TestCase.id.in_(tc_ids)).all()
-            )
-            tc_map: Dict[int, TestCase] = {tc.id: tc for tc in test_cases}
+            tc_map: Dict[int, TestCase] = {
+                tc.id: tc
+                for tc in db.query(TestCase).filter(TestCase.id.in_(tc_ids)).all()
+            }
 
-            # ── Auth injection decision ───────────────────────────────────────
-            # Only inject auth cookies when the scenario explicitly sets
-            # requires_auth=True in the DB.  Old-style scripts (pre-prompt-v2)
-            # hardcode their own login logic and call driver.get(login_url) before
-            # filling credentials.  When cookies are already injected, the SPA
-            # pre-authenticates the browser (redirecting away from the login page),
-            # so the script's URL-change check reports "Login failed" even though
-            # the session is valid.  Letting those scripts handle auth themselves
-            # avoids the conflict; new-style scripts that check __COOKIES_AUTH_DONE__
-            # can opt-in by setting scenario.requires_auth = True.
-            step_auth = auth_cookies if (scenario.requires_auth and auth_cookies) else None
+            # ── Inject auth cookies for authenticated scenarios ────────────────
+            step_auth = auth_cookies if scenario.requires_auth else None
 
             log(
                 f"  Running '{scenario.title}' | "
@@ -1005,65 +867,51 @@ def _run_execution_sync(execution_id: int, suite_id: int, user_id: int) -> None:
                 f"auth={'yes' if step_auth else 'no'}"
             )
 
-            # ── Run script ONCE per step using the default/first valid tc payload
-            # The generated script may iterate its own test case list internally,
-            # so running once per step avoids duplicate executions and rate-limiting.
-            # We record the same pass/fail result for every selected tc_id.
-            try:
-                # Pick payload source: prefer is_valid_default, then is_valid, then first
-                payload_tc = (
-                    next((tc for tc in test_cases if tc.is_valid_default), None)
-                    or next((tc for tc in test_cases if tc.is_valid), None)
-                    or (test_cases[0] if test_cases else None)
-                )
+            # ── Execute one script per test case (dynamic __TEST_CASE__ injection)
+            for tc_id in tc_ids:
+                summary["total"] += 1
+                tc = tc_map.get(tc_id)
 
-                if payload_tc is None:
-                    log("  SKIPPED — no test cases found in DB for this step")
-                    for tc_id in tc_ids:
-                        summary["total"] += 1
-                        summary["skipped"] += 1
-                        _record_test_execution(
-                            db, tc_id, step, suite_id, user_id, "skipped", "Test case not found", now
-                        )
-                    flush_logs(execution)
+                if tc is None:
+                    log(f"  [SKIP] tc_id={tc_id} — not found in DB")
+                    summary["skipped"] += 1
+                    summary["total"] -= 1
                     continue
 
-                tc_data = payload_tc.data or {}
-                if isinstance(tc_data, str):
-                    try:
-                        tc_data = json.loads(tc_data)
-                    except Exception:
-                        tc_data = {}
+                try:
+                    # Resolve credentials for this test case
+                    tc_data = tc.data or {}
+                    if isinstance(tc_data, str):
+                        try:
+                            tc_data = json.loads(tc_data)
+                        except Exception:
+                            tc_data = {}
 
-                resolved_td = _resolve_credentials(
-                    step.page_id or 0,
-                    tc_data.get("test_data", {}),
-                    db,
-                )
+                    resolved_td = _resolve_credentials(
+                        step.page_id or 0,
+                        tc_data.get("test_data", {}),
+                        db,
+                    )
 
-                tc_payload = _build_tc_payload(payload_tc, page)
-                tc_payload["test_data"] = resolved_td
+                    # Build tc_payload and override test_data with resolved values
+                    tc_payload = _build_tc_payload(tc, page)
+                    tc_payload["test_data"] = resolved_td
 
-                header = _build_script_header(tc_payload, step_auth)
-                full_script = header + scenario.script
+                    # Prepend header (with optional auth cookie restoration)
+                    header = _build_script_header(tc_payload, step_auth)
+                    full_script = header + scenario.script
 
-                result = _execute_test_script(full_script)
+                    result = _execute_test_script(full_script)
 
-                if result["output"]:
-                    log(f"  stdout:\n{result['output'].rstrip()}")
-                if result["error"]:
-                    log(f"  stderr:\n{result['error'].rstrip()}")
-                log(f"  return_code={result['return_code']}  success={result['success']}")
+                    if result["output"]:
+                        log(f"  stdout:\n{result['output'].rstrip()}")
+                    if result["error"]:
+                        log(f"  stderr:\n{result['error'].rstrip()}")
+                    log(f"  return_code={result['return_code']}  success={result['success']}")
 
-                exec_log = (result["output"] or "") + (
-                    "\n" + result["error"] if result["error"] else ""
-                )
-
-                # Record the result for every selected tc_id
-                for tc_id in tc_ids:
-                    summary["total"] += 1
-                    tc = tc_map.get(tc_id)
-                    tc_title = tc.title if tc else f"tc_id={tc_id}"
+                    exec_log = (result["output"] or "") + (
+                        "\n" + result["error"] if result["error"] else ""
+                    )
 
                     if result["success"]:
                         summary["passed"] += 1
@@ -1072,19 +920,17 @@ def _run_execution_sync(execution_id: int, suite_id: int, user_id: int) -> None:
                         summary["failed"] += 1
                         tc_status = "Failed"
 
-                    log(f"  [{tc_status.upper()}] tc_id={tc_id} '{tc_title}'")
+                    log(f"  [{tc_status.upper()}] tc_id={tc_id} '{tc.title}'")
                     _record_test_execution(
                         db, tc_id, step, suite_id, user_id, tc_status, exec_log, now
                     )
 
-            except Exception as step_exc:
-                logger.error(f"[SUITE_EXEC] Error running step {step.step_order}: {step_exc}")
-                log(f"  [ERROR] Step {step.step_order}: {step_exc}")
-                for tc_id in tc_ids:
-                    summary["total"] += 1
+                except Exception as tc_exc:
+                    logger.error(f"[SUITE_EXEC] Error running tc_id={tc_id}: {tc_exc}")
+                    log(f"  [ERROR] tc_id={tc_id}: {tc_exc}")
                     summary["failed"] += 1
                     _record_test_execution(
-                        db, tc_id, step, suite_id, user_id, "Failed", str(step_exc), now
+                        db, tc_id, step, suite_id, user_id, "Failed", str(tc_exc), now
                     )
 
             flush_logs(execution)
@@ -1214,5 +1060,3 @@ class TestSuiteExecutionWorker:
 
 
 test_suite_execution_worker = TestSuiteExecutionWorker()
-# Alias used by the LLM service queue_router
-worker_test_suite_execution_service = test_suite_execution_worker

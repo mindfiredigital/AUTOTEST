@@ -20,6 +20,9 @@ def get_driver():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    # Incognito ensures each driver starts with a clean session — no cookies or
+    # cached state from previous runs bleed across subprocess invocations.
+    chrome_options.add_argument("--incognito")
 
     # Set up ChromeDriver service
     service = Service("/usr/bin/chromedriver")
