@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from shared_orm.models.test_suite import TestSuite
+from shared_orm.models.test_suite_step import TestSuiteStep
+from shared_orm.models.test_suite_execution import TestSuiteExecution
 from shared_orm.models.site import Site
 from shared_orm.models.user import User
 from app.config.logger import logger
@@ -96,6 +98,15 @@ class TestSuiteService:
     # ─────────────────────────────────────────
     def delete_test_suite(self, db: Session, suite_id: int, user: User) -> None:
         suite = self.get_test_suite(db, suite_id, user)
+
+        db.query(TestSuiteStep).filter(
+            TestSuiteStep.test_suite_id == suite_id
+        ).delete(synchronize_session=False)
+
+        db.query(TestSuiteExecution).filter(
+           TestSuiteExecution.test_suite_id == suite_id
+        ).delete(synchronize_session=False)
+
         db.delete(suite)
         db.commit()
         logger.info(f"[TEST_SUITE_DELETED] id={suite_id} by={user.id}")

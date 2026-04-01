@@ -8,7 +8,8 @@ map is evaluated at import time.
 
 from app.config.setting import settings
 from app.workers.worker import worker_service
-from app.workers.worker_test_suite_execution import worker_test_suite_execution_service
+# from app.workers.worker_test_suite_execution import worker_test_suite_execution_service
+from app.workers.test_suite_execution_worker import worker_test_suite_execution_service
 
 
 # QUEUE_HANDLER_MAP: settings.<QUEUE_NAME> -> async handler callable
