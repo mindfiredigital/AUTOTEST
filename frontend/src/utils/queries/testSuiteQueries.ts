@@ -56,3 +56,12 @@ export const useRunTestSuiteMutation = () => {
     mutationFn: (suiteId: number) => testSuiteApi.executeTestSuite(suiteId),
   })
 }
+
+export const useExecutionResultQuery = (suiteId: number | null) => {
+  return useQuery({
+    queryKey: ['test-suite-execution-result', suiteId],
+    queryFn: () => testSuiteApi.getExecutionResult(suiteId!),
+    enabled: !!suiteId,
+    retry: false,
+  })
+}

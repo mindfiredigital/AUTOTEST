@@ -65,6 +65,19 @@ async def execute_test_suite(
 
 
 @router.get(
+    "/{suite_id}/execution-result",
+    response_model=TestSuiteExecutionResponse,
+    summary="Get the latest execution result (summary + logs) for a test suite",
+)
+def get_execution_result(
+    suite_id: int = Path(..., description="ID of the test suite"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(auth_required),
+):
+    return execution_service.get_latest_execution(suite_id=suite_id, db=db, user=current_user)
+
+
+@router.get(
     "/{suite_id}/executions",
     response_model=TestSuiteExecutionListResponse,
     summary="List executions for a test suite",

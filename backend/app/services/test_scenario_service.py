@@ -2,7 +2,6 @@ from sqlalchemy.orm import Session,joinedload
 from sqlalchemy import func
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
-import os
 from shared_orm.models.test_scenario import TestScenario
 from shared_orm.models.test_case import TestCase
 from shared_orm.models.page import Page
@@ -175,17 +174,6 @@ class ScenarioService:
               logger.warning(
                f"[DELETE_SCENARIO_FAILED] Scenario not found | ScenarioID={scenario_id}")
               raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Test Scenario not found")
-            if scenario.script_path:
-                try:
-                    if os.path.exists(scenario.script_path):
-                        os.remove(scenario.script_path)
-                        logger.info(f"[SCENARIO_SCRIPT_DELETE] path={scenario.script_path}")
-                    else:
-                        logger.warning(f"[SCENARIO_SCRIPT_NOT_FOUND] path={scenario.script_path}")
-                except Exception as file_error:
-                    logger.warning(f"[SCENARIO_SCRIPT_DELETE_FAILED] "f"path={scenario.script_path} error={file_error}")
-
-
             db.query(TestCase).filter(
             TestCase.test_scenario_id == scenario_id).delete()
             db.delete(scenario)
@@ -288,19 +276,6 @@ class ScenarioService:
 
             if scenarios:
                  scenario_ids = [s.id for s in scenarios]
-                 for scenario in scenarios:
-                     if scenario.script_path:
-                         try:
-                             if os.path.exists(scenario.script_path):
-                                 os.remove(scenario.script_path)
-                                 logger.info(
-                                f"[SCENARIO_SCRIPT_DELETE] path={scenario.script_path}"
-                            )
-                         except Exception as file_error:
-                             logger.warning(
-                            f"[SCENARIO_SCRIPT_DELETE_FAILED] path={scenario.script_path} error={file_error}"
-                        )
-                         
                  db.query(TestCase).filter(TestCase.test_scenario_id.in_(scenario_ids)).delete(synchronize_session=False)
                  db.query(TestScenario).filter(TestScenario.id.in_(scenario_ids)).delete(synchronize_session=False)
             db.commit()

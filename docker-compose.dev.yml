@@ -86,10 +86,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
-    networks: 
+    networks:
       - autotest
-    volumes:
-      - test_scripts_data:/app/llm-service/test_scripts
 
   autotest_worker_backend:
     restart: always
@@ -108,10 +106,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       RABBITMQ_URL: ${RABBITMQ_URL}
-    networks: 
+    networks:
       - autotest
-    volumes:
-      - test_scripts_data:/app/llm-service/test_scripts
 
   autotest_react_frontend:
     restart: always
@@ -145,7 +141,5 @@ volumes:
   rabbitmq_data:
     driver: local
   rabbitmq_logs:
-    driver: local
-  test_scripts_data:
     driver: local
 

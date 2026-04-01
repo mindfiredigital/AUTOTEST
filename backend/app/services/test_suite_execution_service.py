@@ -317,6 +317,28 @@ class TestSuiteExecutionService:
         return execution
 
     # -----------------------------------------------------------------------
+    # GET LATEST EXECUTION RESULT
+    # -----------------------------------------------------------------------
+
+    def get_latest_execution(self, suite_id: int, db: Session, user: User) -> TestSuiteExecution:
+        """Return the most recent execution (with logs + summary) for a suite."""
+        if not db.query(TestSuite).filter(TestSuite.id == suite_id).first():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Test suite not found")
+
+        execution = (
+            db.query(TestSuiteExecution)
+            .filter(TestSuiteExecution.test_suite_id == suite_id)
+            .order_by(TestSuiteExecution.created_on.desc())
+            .first()
+        )
+        if not execution:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No execution found for this test suite",
+            )
+        return execution
+
+    # -----------------------------------------------------------------------
     # LIST STEPS
     # -----------------------------------------------------------------------
 

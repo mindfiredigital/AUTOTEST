@@ -30,7 +30,6 @@ class TestScenario(Base):
     type: Mapped[str] = mapped_column(ScenarioTypeEnum, nullable=False, default="auto-generated")
     category: Mapped[str | None] = mapped_column(ScenarioCategoryEnum, nullable=True)
     script: Mapped[str | None] = mapped_column(Text, nullable=True)  # python-selenium content
-    script_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     requires_auth: Mapped[bool] = mapped_column(nullable=False, default=False)  # New field to indicate if the scenario requires authentication 
     created_on: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)

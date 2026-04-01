@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { GitBranch, MoreVertical, Plus, Calendar, List, Database, Play } from 'lucide-react'
+import { GitBranch, MoreVertical, Plus, Calendar, List, Database, Play, BarChart2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ConfirmModal } from '../common/ConfirmModal'
 import TestSuiteBuilder from './TestSuiteBuilder'
+import { ExecutionResultModal } from './TestSuite/ExecutionResultModal'
 import type { TestSuite as TestSuiteType, FlowDefinition, TestSuiteStatus } from '@/types/testSuite'
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -47,9 +48,10 @@ interface SuiteCardProps {
   onEdit: (suite: TestSuiteType) => void
   onDelete: (suite: TestSuiteType) => void
   onRun: (suite: TestSuiteType) => void
+  onViewResults: (suite: TestSuiteType) => void
 }
 
-const SuiteCard: React.FC<SuiteCardProps> = ({ suite, onEdit, onDelete, onRun }) => {
+const SuiteCard: React.FC<SuiteCardProps> = ({ suite, onEdit, onDelete, onRun, onViewResults }) => {
   const nodeCount = suite.flow_definition?.nodes?.filter(
     n => n.type === 'step' || n.type === 'suite-ref',
   ).length ?? 0
@@ -83,6 +85,15 @@ const SuiteCard: React.FC<SuiteCardProps> = ({ suite, onEdit, onDelete, onRun })
                 <Play className="w-3.5 h-3.5" />
                 {suite.status === 'running' ? 'Running...' : 'Run Test Suite'}
               </DropdownMenuItem>
+              {['done', 'failed', 'running', 'passed', 'partially_passed', 'error'].includes(suite.status) && (
+                <DropdownMenuItem
+                  onClick={() => onViewResults(suite)}
+                  className="cursor-pointer text-sm flex items-center gap-2 text-blue-600"
+                >
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  View Results
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => onEdit(suite)} className="cursor-pointer text-sm">
                 Edit
               </DropdownMenuItem>
@@ -153,6 +164,7 @@ const TestSuite: React.FC = () => {
   const [editingSuite, setEditingSuite] = useState<TestSuiteType | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TestSuiteType | null>(null)
   const [runTarget, setRunTarget] = useState<TestSuiteType | null>(null)
+  const [resultSuite, setResultSuite] = useState<TestSuiteType | null>(null)
 
   const suites = data?.items || []
 
@@ -269,6 +281,7 @@ const TestSuite: React.FC = () => {
                   onEdit={handleOpenEdit}
                   onDelete={s => setDeleteTarget(s)}
                   onRun={handleRun}
+                  onViewResults={s => setResultSuite(s)}
                 />
               ))}
             </div>
@@ -327,6 +340,14 @@ const TestSuite: React.FC = () => {
         }}
         onCancel={() => setRunTarget(null)}
       />
+
+      {/* ── Execution Result Modal ── */}
+      {resultSuite && (
+        <ExecutionResultModal
+          suite={resultSuite}
+          onClose={() => setResultSuite(null)}
+        />
+      )}
     </div>
   )
 }

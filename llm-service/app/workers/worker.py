@@ -19,7 +19,7 @@ PIPELINE FLOW
       │                                  → TEST_CASE  (loops for new pages)
       ▼
   TEST_SCRIPT_GENERATE                page.status → "generating_test_scripts"
-      │   script saved to scenario.script / scenario.script_path
+      │   script saved to scenario.script (DB only)
       ▼
   TEST_EXECUTION (blank)              page.status → "done"
 

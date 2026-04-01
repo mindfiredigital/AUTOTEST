@@ -104,6 +104,7 @@ export interface TestSuiteExecutionSummary {
   passed: number
   failed: number
   skipped: number
+  error?: string | null
 }
 
 export interface TestSuiteExecution {
@@ -113,6 +114,7 @@ export interface TestSuiteExecution {
   started_at?: string | null
   ended_at?: string | null
   execution_summary?: TestSuiteExecutionSummary | null
+  logs?: string | null
   executed_by?: number | null
   created_on?: string
   created_by?: number

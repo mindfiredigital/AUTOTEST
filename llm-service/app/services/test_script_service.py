@@ -1,8 +1,6 @@
 import json
-import os
 import re
 from datetime import datetime
-from pathlib import Path
 from app.config.database import SessionLocal
 from shared_orm.models.test_scenario import TestScenario
 from shared_orm.models.test_case import TestCase
@@ -11,7 +9,7 @@ from shared_orm.models.test_case import TestCase
 class TestScriptService:
     """
     Generates and persists Selenium/Java test scripts directly onto the
-    TestScenario record (scenario.script + scenario.script_path columns).
+    TestScenario record (scenario.script column).
 
     Supports two modes:
       - Full page:      generate_scripts_for_page(..., scenario_id=None)
@@ -116,7 +114,7 @@ class TestScriptService:
                             "validation": tc.validation,
                         })
 
-                    code, filename, script_path = self.generate_script_for_test_case(
+                    code = self.generate_script_for_test_case(
                         scenario=scenario_dict,
                         test_cases=test_cases_list,
                         page_metadata=page_metadata,
@@ -133,15 +131,13 @@ class TestScriptService:
                         )
                         continue
 
-                    # Persist directly onto the scenario record
-                    scenario.script      = code
-                    scenario.script_path = script_path
-                    scenario.updated_on  = datetime.utcnow()
-                    scenario.updated_by  = requested_by
+                    # Persist directly onto the scenario record (DB only)
+                    scenario.script     = code
+                    scenario.updated_on = datetime.utcnow()
+                    scenario.updated_by = requested_by
 
                     self.logger.debug(
-                        f"[TEST_SCRIPT] Saved | "
-                        f"scenario_id={scenario.id} path={script_path}"
+                        f"[TEST_SCRIPT] Saved to DB | scenario_id={scenario.id}"
                     )
 
                 except Exception as e:
@@ -174,8 +170,7 @@ class TestScriptService:
         Generate a Selenium/Java test script for a single scenario via LLM.
 
         Returns:
-            tuple: (code: str, filename: str, script_path: str)
-                   Returns ("", None, None) on any failure.
+            str: The generated script code, or "" on any failure.
         """
         captcha_wait_time = self.wait_time or "2 minutes (120 seconds)"
 
@@ -221,32 +216,12 @@ class TestScriptService:
                 code = script_content.strip()
 
             if not code:
-                return "", None, None
+                return ""
 
-            # Write script to disk
-            BASE_DIR = Path(__file__).resolve().parents[2]
-            SCRIPT_DIR = BASE_DIR / "test_scripts"
-            SCRIPT_DIR.mkdir(parents=True, exist_ok=True)
-
-            timestamp      = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            sanitized_name = re.sub(r"[^a-zA-Z0-9\-_]", "_", scenario["name"])
-            sanitized_name = re.sub(r"_+", "_", sanitized_name).strip("_")
-
-            ext = ".py" if "```python" in script_content else ".java"
-
-            filename  = f"test_{timestamp}_{sanitized_name}{ext}"
-
-            script_path = SCRIPT_DIR / filename
-
-            with open(script_path, "w") as f:
-                f.write(code)
-
-            self.logger.debug(f"[TEST_SCRIPT] Written to disk | path={script_path}")
-            return code, filename, script_path
+            return code
 
         except Exception as e:
             self.logger.error(
                 f"[TEST_SCRIPT] generate_script_for_test_case failed: {e}"
             )
-            return "", None, None
+            return ""

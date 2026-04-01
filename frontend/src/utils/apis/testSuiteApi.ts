@@ -36,4 +36,9 @@ export const testSuiteApi = {
     const { data } = await api.post(`/test-suites/${suiteId}/execute`)
     return data
   },
+
+  getExecutionResult: async (suiteId: number): Promise<TestSuiteExecution> => {
+    const { data } = await api.get(`/test-suites/${suiteId}/execution-result`)
+    return data
+  },
 }
