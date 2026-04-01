@@ -8,6 +8,7 @@ from shared_orm.models.test_suite_execution import TestSuiteExecution
 from shared_orm.models.site import Site
 from shared_orm.models.user import User
 from app.config.logger import logger
+from app.services.test_suite_execution_service import TestSuiteExecutionService
 
 
 class TestSuiteService:
@@ -88,6 +89,11 @@ class TestSuiteService:
 
         suite.updated_on = datetime.now(timezone.utc)
         suite.updated_by = user.id
+
+        # Rebuild test_suite_step rows to reflect the updated flow_definition
+        if "flow_definition" in payload:
+            TestSuiteExecutionService().sync_steps(suite, db, user)
+
         db.commit()
         db.refresh(suite)
         logger.info(f"[TEST_SUITE_UPDATED] id={suite_id} by={user.id}")

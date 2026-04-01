@@ -138,10 +138,47 @@ const TestSuiteBuilder: React.FC<TestSuiteBuilderProps> = ({
   }
 
   const toggleScenarioSelection = (scId: number) => {
+    const isAdding = !selectedScenarioIds.includes(scId)
     setSelectedScenarioIds(prev =>
-      prev.includes(scId) ? prev.filter(id => id !== scId) : [...prev, scId]
+      isAdding ? [...prev, scId] : prev.filter(id => id !== scId)
     )
-    loadTestCases(scId)
+    if (isAdding) loadTestCases(scId)
+
+    if (editSuite) {
+      if (isAdding) {
+        const sc = Object.values(pageScenarios).flat().find(s => s.id === scId)
+        const pg = pages.find(p => p.id === sc?.page_id)
+        setNodes(prev => [
+          ...prev,
+          {
+            id: `node-sc-${scId}`,
+            type: 'step',
+            position: { x: 300, y: prev.length * 160 },
+            data: {
+              label: pg?.page_title || pg?.page_url || 'Page',
+              node_type: 'step',
+              node_reference_type: 'test_scenario',
+              node_reference_id: scId,
+              page_id: sc?.page_id,
+              scenario_id: scId,
+              scenario_title: sc?.title,
+              category: sc?.category,
+              test_case_ids: checkedTestCases[scId] || [],
+            } as FlowNodeData,
+          },
+        ])
+      } else {
+        const nodeToRemove = nodes.find(
+          n => (n.data as FlowNodeData).node_reference_id === scId,
+        )
+        if (nodeToRemove) {
+          setNodes(prev => prev.filter(n => n.id !== nodeToRemove.id))
+          setEdges(prev =>
+            prev.filter(e => e.source !== nodeToRemove.id && e.target !== nodeToRemove.id),
+          )
+        }
+      }
+    }
   }
 
   const toggleTestCase = (scenarioId: number, tcId: number) => {
@@ -155,9 +192,42 @@ const TestSuiteBuilder: React.FC<TestSuiteBuilderProps> = ({
   }
 
   const toggleSuiteRef = (suiteId: number) => {
+    const isAdding = !selectedSuiteRefIds.includes(suiteId)
     setSelectedSuiteRefIds(prev =>
-      prev.includes(suiteId) ? prev.filter(id => id !== suiteId) : [...prev, suiteId]
+      isAdding ? [...prev, suiteId] : prev.filter(id => id !== suiteId),
     )
+
+    if (editSuite) {
+      if (isAdding) {
+        const suite = otherSuites.find(s => s.id === suiteId)
+        setNodes(prev => [
+          ...prev,
+          {
+            id: `node-suite-${suiteId}`,
+            type: 'suite-ref',
+            position: { x: 300, y: prev.length * 160 },
+            data: {
+              label: suite?.title || 'Test Suite',
+              node_type: 'step',
+              node_reference_type: 'test_suite',
+              node_reference_id: suiteId,
+              suite_id: suiteId,
+              suite_title: suite?.title,
+            } as FlowNodeData,
+          },
+        ])
+      } else {
+        const nodeToRemove = nodes.find(
+          n => n.type === 'suite-ref' && (n.data as FlowNodeData).node_reference_id === suiteId,
+        )
+        if (nodeToRemove) {
+          setNodes(prev => prev.filter(n => n.id !== nodeToRemove.id))
+          setEdges(prev =>
+            prev.filter(e => e.source !== nodeToRemove.id && e.target !== nodeToRemove.id),
+          )
+        }
+      }
+    }
   }
 
   // ── Initialise from editSuite ─────────────────────────────────────────────
@@ -195,6 +265,21 @@ const TestSuiteBuilder: React.FC<TestSuiteBuilderProps> = ({
       })))
     }
   }, [editSuite])
+
+  // ── Sync test_case_ids into existing nodes when they change (edit mode) ──────
+  useEffect(() => {
+    if (!editSuite) return
+    setNodes(nds =>
+      nds.map(n => {
+        if (n.type !== 'step') return n
+        const data = n.data as FlowNodeData
+        if (data.node_reference_type !== 'test_scenario' || !data.node_reference_id) return n
+        const scId = data.node_reference_id as number
+        if (!(scId in checkedTestCases)) return n
+        return { ...n, data: { ...n.data, test_case_ids: checkedTestCases[scId] } }
+      }),
+    )
+  }, [checkedTestCases, editSuite])
 
   // ── Auto-rebuild flow when selection changes (create mode only) ───────────
   useEffect(() => {
@@ -342,8 +427,11 @@ const TestSuiteBuilder: React.FC<TestSuiteBuilderProps> = ({
     [nodes],
   )
   const testCaseCount = useMemo(
-    () => Object.values(checkedTestCases).reduce((sum, arr) => sum + arr.length, 0),
-    [checkedTestCases],
+    () =>
+      nodes
+        .filter(n => n.type === 'step')
+        .reduce((sum, n) => sum + ((n.data as FlowNodeData).test_case_ids?.length ?? 0), 0),
+    [nodes],
   )
 
   const getFlowDefinition = (): FlowDefinition => ({
