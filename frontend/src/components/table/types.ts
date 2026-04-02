@@ -13,5 +13,6 @@ export type TableAction<T> = {
   label: string
   destructive?: boolean
   disabled?: (row: T) => boolean
+  hidden?: (row: T) => boolean
   onClick: (row: T) => void
 }

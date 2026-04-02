@@ -124,7 +124,7 @@ function RowActions<T>({ row, actions }: { row: T; actions: TableAction<T>[] }) 
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-44">
-        {actions.map((action) => (
+        {actions.filter(action => !action.hidden?.(row)).map((action) => (
           <DropdownMenuItem
             key={action.label}
             disabled={action.disabled?.(row)}

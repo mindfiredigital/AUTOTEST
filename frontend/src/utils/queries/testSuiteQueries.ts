@@ -2,10 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { testSuiteApi } from '../apis/testSuiteApi'
 import type { CreateTestSuitePayload, UpdateTestSuitePayload } from '@/types/testSuite'
 
-export const useTestSuitesQuery = (siteId: number | null) => {
+export const useTestSuitesQuery = (siteId: number | null, page = 1, limit = 10) => {
   return useQuery({
-    queryKey: ['test-suites', siteId],
-    queryFn: () => testSuiteApi.listTestSuites(siteId!),
+    queryKey: ['test-suites', siteId, page, limit],
+    queryFn: () => testSuiteApi.listTestSuites(siteId!, page, limit),
     enabled: !!siteId,
   })
 }
