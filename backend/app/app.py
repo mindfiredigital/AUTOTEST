@@ -113,7 +113,7 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_HOSTS or ["*"],
+        allow_origins=settings.ALLOWED_HOSTS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

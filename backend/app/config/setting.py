@@ -9,24 +9,23 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173","http://localhost:3000", "http://127.0.0.1:3000"]
     
     DATABASE_URL: str
-    JWT_SECRET: str = "change_me"
+    JWT_SECRET: str
     ALGO: str ="HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES:int =5
     REFRESH_TOKEN_EXPIRE_MINUTES:int =60*2
-    ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "Admin@123"
-    ADMIN_NAME: str = "Admin User"
-    ADMIN_EMAIL: str = "admin@example.com"
+
     HOST: str = "0.0.0.0"
     PORT:int = 8000
-    DEBUG:bool = True
+    DEBUG:bool = False
+
     # RabbitMQ
     RABBITMQ_URL: str
-    RABBITMQ_USER: str = "guest"
-    RABBITMQ_PASSWORD: str = "guest"
+    RABBITMQ_USER: str
+    RABBITMQ_PASSWORD: str
     RABBITMQ_VHOST: str = "/"
     RABBITMQ_HOST: str = "autotest_rabbitmq"
     RABBITMQ_PORT: str = "5672:5672"
+    
     SITE_ANALYSE_QUEUE: str
     PAGE_EXTRACT_QUEUE: str
     PAGE_EXTRACT_SINGLE_QUEUE: str
@@ -42,9 +41,10 @@ class Settings(BaseSettings):
     PAGE_AUTH_UPDATE_QUEUE: str
     SITE_STATUS_UPDATE_QUEUE: str
     TEST_SUITE_EXECUTION_QUEUE: str
-    LLM_SERVICE_DIR: str = ""
-
-
+    PAGE_ANALYSE_QUEUE: str
+    PROCESSPAGE_EXTRACT_SINGLE_QUEUE: str
+    TEST_SUITE_QUEUE: str
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -47,7 +47,6 @@ class RabbitMQProducer:
 
         except Exception as e:
             logger.error(f"Failed to publish message to queue '{queue_name}': {e}")
-            print(f"Failed to publish message to queue '{queue_name}': {e}")
             return False
 
 

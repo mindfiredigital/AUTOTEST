@@ -11,8 +11,8 @@ class Settings(BaseSettings):
 
     # RabbitMQ
     RABBITMQ_URL: str
-    RABBITMQ_USER: str = "guest"
-    RABBITMQ_PASSWORD: str = "guest"
+    RABBITMQ_USER: str
+    RABBITMQ_PASSWORD: str
     RABBITMQ_VHOST: str = "/"
     RABBITMQ_HOST: str = "autotest_rabbitmq"
     RABBITMQ_PORT: str = "5672:5672"
@@ -33,8 +33,6 @@ class Settings(BaseSettings):
     PAGE_CRAWL_MAX_DEPTH: int = 2
     PAGE_CRAWL_UNLIMITED: bool = False
     TEST_SUITE_EXECUTION_QUEUE: str
-
-
 
     model_config = SettingsConfigDict(
         env_file=".env",

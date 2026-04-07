@@ -1,0 +1,88 @@
+services:
+  autotest_rabbitmq:
+    restart: always
+    image: rabbitmq:3-management
+    container_name: autotest_rabbitmq
+    env_file:
+      - .env.prod
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+    networks:
+      - autotest
+
+  autotest_fastapi_backend:
+    restart: always
+    container_name: autotest_fastapi_backend
+    env_file:
+      - .env.prod
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: autotest_fastapi_backend
+    depends_on:
+      autotest_rabbitmq:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+    networks:
+      - autotest
+
+  autotest_worker_backend:
+    restart: always
+    container_name: autotest_worker_backend
+    env_file:
+      - .env.prod
+    build:
+      context: .
+      dockerfile: llm-service/Dockerfile
+    image: autotest_worker_backend
+    depends_on:
+      autotest_rabbitmq:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+    networks:
+      - autotest
+
+  autotest_react_frontend:
+    restart: always
+    container_name: autotest_react_frontend
+    env_file:
+      - .env.prod
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_WS_URL: ${VITE_WS_URL}
+        VITE_API_URL: ${VITE_API_URL}
+    image: autotest_react_frontend
+    ports:
+      - ${FRONTEND_PORT}
+    depends_on:
+      - autotest_fastapi_backend
+    networks:
+      - autotest
+
+networks:
+  autotest:
+    driver: bridge
+    name: autotest
+
+volumes:
+  rabbitmq_data:
+    driver: local
+  rabbitmq_logs:
+    driver: local
