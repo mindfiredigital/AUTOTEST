@@ -5,7 +5,7 @@ set -e
 # ─── Defaults ────────────────────────────────────────────────────────────────
 SUDO=""
 COMPOSE_FILE="docker-compose.prod.yml"
-GIT_BRANCH="main"
+GIT_BRANCH="dev-prod"
 
 # ─── Flag parsing ─────────────────────────────────────────────────────────────
 for arg in "$@"; do
